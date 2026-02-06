@@ -54,6 +54,11 @@ export default function MarketCard({ market, index }: MarketCardProps) {
 
   const status = getStatus();
 
+  // Calculate probabilities (50/50 for now - will be based on AMM pricing later)
+  // TODO: When V4 swaps are active, calculate from token prices
+  const yesProbability = 50;
+  const noProbability = 50;
+
   return (
     <div
       className={`
@@ -89,14 +94,54 @@ export default function MarketCard({ market, index }: MarketCardProps) {
 
       {/* Market question */}
       <div className="px-4 pt-4 pb-3">
-        <h3 className="text-base font-medium leading-snug text-[#00ff41] mb-1">
+        <h3 className="text-base font-medium leading-snug text-[#00ff41] mb-3">
           <span className="text-[#a0a0a0] mr-1">&gt;</span>
           {market.description}
         </h3>
+
+        {/* Probability Bar (Polymarket-style) */}
+        {!market.resolved && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-[10px] font-mono">
+              <span className="text-[#a0a0a0] opacity-70">MARKET PROBABILITY</span>
+              <span className="text-[#a0a0a0] opacity-50">
+                {market.totalCollateral === 0n ? 'NO LIQUIDITY' : 'EQUAL SPLIT'}
+              </span>
+            </div>
+            <div className="relative h-2 bg-black/50 rounded-sm overflow-hidden border border-[#00ff41]/20">
+              <div
+                className="absolute left-0 top-0 h-full bg-gradient-to-r from-[#00ff41] to-[#00ff41]/80 transition-all duration-300"
+                style={{ width: `${yesProbability}%` }}
+              />
+              <div
+                className="absolute right-0 top-0 h-full bg-gradient-to-l from-[#ff0040] to-[#ff0040]/80 transition-all duration-300"
+                style={{ width: `${noProbability}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] font-mono font-bold">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#00ff41]">{yesProbability}%</span>
+                <span className="text-[#a0a0a0] opacity-60 uppercase text-[9px]">{market.outcome1}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#a0a0a0] opacity-60 uppercase text-[9px]">{market.outcome2}</span>
+                <span className="text-[#ff0040]">{noProbability}%</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {market.assertedOutcomeId !== ZERO_BYTES32 && !market.resolved && (
-          <div className="mt-2 text-[11px] text-[#ffb800] flex items-center gap-2">
+          <div className="mt-3 text-[11px] text-[#ffb800] flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[#ffb800] status-pulse inline-block" />
             UMA LIVENESS WINDOW ACTIVE -- AGENTS MAY DISPUTE
+          </div>
+        )}
+
+        {market.resolved && (
+          <div className="mt-3 text-[11px] text-[#00ff41] flex items-center gap-2 font-mono">
+            <span className="text-[#a0a0a0] opacity-70">FINAL OUTCOME:</span>
+            <span className="font-bold uppercase">{market.outcome1}</span>
           </div>
         )}
       </div>
