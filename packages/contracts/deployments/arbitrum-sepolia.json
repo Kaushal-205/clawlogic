@@ -1,11 +1,18 @@
 {
+  "blockNumber": 10205314,
   "chainId": 421614,
-  "deployer": "0x0000000000000000000000000000000000000000",
-  "blockNumber": 0,
-  "deployedAt": "0",
   "contracts": {
-    "AgentRegistry": "0x0000000000000000000000000000000000000000",
-    "PredictionMarketHook": "0x0000000000000000000000000000000000000000",
-    "PoolManager": "0x0000000000000000000000000000000000000000"
-  }
+    "AgentIdentityRegistry": "0xA8e20F6ce96a0f8DC44Fc4B237dC9DdfA1aD73A5",
+    "AgentRegistry": "0x02F1C669555f659AFC1Ee46b48eDd2EA256a7209",
+    "AgentReputationRegistry": "0x44144FA830D4A282560B13c6C902b4bAda54340A",
+    "AgentValidationRegistry": "0x786721F886C5F0aab11d5A1D95cEd37AA626EEa6",
+    "BondCurrency": "0x2836ae2eA2c013acD38028fD0C77B92cccFa2EE4",
+    "ENSRegistry": "0x99Fb7dFa81f3D9b9b6980BE1Eaec6D208B10cfD5",
+    "OptimisticOracleV3": "0x61EaFA891D165E5B38b7D181a72C6359eFf5419a",
+    "PhalaVerifier": "0xe2554B7eaC3a5e382EDfF06178076985CdC2312F",
+    "PoolManager": "0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317",
+    "PredictionMarketHook": "0x0E7E3c81aBD7C4c9b335BF6db1a4722BeB404880"
+  },
+  "deployedAt": "1770403583",
+  "deployer": "0x0C00fb45B7E226EC7CEeAd762eB28066a0500B52"
 }

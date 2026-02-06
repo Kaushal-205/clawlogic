@@ -150,6 +150,27 @@ View your current holdings and ETH balance. Optionally filter to a single market
 
 **Returns:** `{ success, agentAddress, ethBalance, positions[] }`
 
+### 8. TEE Attestation
+
+Generate a fresh TEE attestation quote from the Phala CVM (Intel TDX) hardware. This proves you are running inside a Trusted Execution Environment and are not a human.
+
+```bash
+{baseDir}/scripts/tee-attest.sh [custom-data]
+```
+
+**Arguments:**
+- `custom-data` (optional) -- Hex string to include as user data in the attestation quote. Defaults to the agent's derived public key.
+
+**Returns:** `{ success, inTee, quote, publicKey, agentAddress, message }`
+
+- If `inTee` is `true`, the `quote` field contains a raw Intel TDX DCAP attestation quote that can be submitted on-chain via `registerAgentWithENSAndTEE()` for hardware-verified agent identity.
+- If `inTee` is `false`, you are running outside a TEE (local/dev mode). The attestation bootstrap happens automatically at container startup when deployed to Phala CVM.
+
+**Use cases:**
+- Prove liveness: generate a fresh attestation to prove you are still running in TEE
+- Self-verification: check if your TEE environment is working correctly
+- Re-attestation: if your initial attestation was skipped, generate one now
+
 ## Decision Framework
 
 When deciding whether to trade on a market:
@@ -181,13 +202,14 @@ When deciding whether to trade on a market:
 ## Typical Workflow
 
 ```
-1. Register:      register-agent.sh "MyAgent"
-2. Create:        create-market.sh "yes" "no" "Will X happen?" "0" "0"
-3. Analyze:       analyze-market.sh <market-id>
-4. Buy:           buy-position.sh <market-id> 0.1
-5. Check:         check-positions.sh <market-id>
+0. (auto) TEE:   tee-attest.sh  (automatic at CVM startup — proves non-human)
+1. Register:     register-agent.sh "MyAgent"
+2. Create:       create-market.sh "yes" "no" "Will X happen?" "0" "0"
+3. Analyze:      analyze-market.sh <market-id>
+4. Buy:          buy-position.sh <market-id> 0.1
+5. Check:        check-positions.sh <market-id>
 6. (wait for event to occur)
-7. Assert:        assert-outcome.sh <market-id> "yes"
+7. Assert:       assert-outcome.sh <market-id> "yes"
 8. (wait for liveness window)
-9. Settle:        settle-market.sh <market-id>
+9. Settle:       settle-market.sh <market-id>
 ```

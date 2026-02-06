@@ -9,6 +9,8 @@ import {PoolManager} from "v4-core/src/PoolManager.sol";
 import {AgentRegistry} from "../../src/AgentRegistry.sol";
 import {PredictionMarketHook} from "../../src/PredictionMarketHook.sol";
 import {OutcomeToken} from "../../src/OutcomeToken.sol";
+import {IENS} from "../../src/interfaces/IENS.sol";
+import {IERC8004AgentValidation} from "../../src/interfaces/erc8004/IERC8004AgentValidation.sol";
 import {MockOptimisticOracleV3} from "../mocks/MockOptimisticOracleV3.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 
@@ -42,8 +44,8 @@ abstract contract TestSetup is Test {
         // Deploy V4 PoolManager
         poolManager = new PoolManager(deployer);
 
-        // Deploy AgentRegistry
-        registry = new AgentRegistry();
+        // Deploy AgentRegistry without ENS or validation registry (backward-compatible)
+        registry = new AgentRegistry(IENS(address(0)), IERC8004AgentValidation(address(0)));
 
         // Deploy mock UMA OOV3
         mockOO = new MockOptimisticOracleV3();

@@ -8,11 +8,23 @@
     "agent:beta": "tsx src/agent-beta.ts",
     "agent:human": "tsx src/human-demo.ts",
     "agent:assert": "tsx src/assert-demo.ts",
-    "yellow:demo": "tsx src/yellow/demo.ts"
+    "agent:settle": "tsx src/settle-demo.ts",
+    "agent:fresh": "tsx src/fresh-demo.ts",
+    "debug:settle": "tsx src/debug-settle.ts",
+    "debug:market": "tsx src/debug-market-state.ts",
+    "check:assertion": "tsx src/check-assertion.ts",
+    "settle:simple": "tsx src/settle-simple.ts",
+    "yellow:demo": "tsx src/yellow/demo.ts",
+    "setup:ens": "tsx src/setup-ens.ts",
+    "lifi:bridge": "tsx src/lifi-bridge.ts",
+    "tee:bootstrap": "tsx src/tee-bootstrap.ts",
+    "docker:build": "docker build -t clawlogic-agent .",
+    "phala:deploy": "phala cvms create --compose docker-compose-phala.yaml"
   },
   "dependencies": {
     "@clawlogic/sdk": "workspace:*",
     "@erc7824/nitrolite": "^0.5.2",
+    "@phala/dstack-sdk": "^0.1.7",
     "viem": "^2.0.0",
     "dotenv": "^16.4.0",
     "ws": "^8.16.0"

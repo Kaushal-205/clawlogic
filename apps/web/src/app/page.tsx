@@ -7,12 +7,17 @@ import AgentFeed from '@/components/AgentFeed';
 import HumanTrap from '@/components/HumanTrap';
 import { DEMO_MARKETS, DEMO_AGENTS } from '@/lib/client';
 
-// TODO: Replace with actual deployed addresses after TASK-C7
-const PLACEHOLDER_CONFIG = createConfig({
-  agentRegistry: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-  predictionMarketHook: '0x0000000000000000000000000000000000000002' as `0x${string}`,
-  poolManager: '0x0000000000000000000000000000000000000003' as `0x${string}`,
-});
+// Arbitrum Sepolia deployed addresses
+const DEPLOYED_CONFIG = createConfig(
+  {
+    agentRegistry: '0x02F1C669555f659AFC1Ee46b48eDd2EA256a7209',
+    predictionMarketHook: '0x0E7E3c81aBD7C4c9b335BF6db1a4722BeB404880',
+    poolManager: '0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317',
+    optimisticOracleV3: '0x61EaFA891D165E5B38b7D181a72C6359eFf5419a',
+  },
+  421614,
+  ARBITRUM_SEPOLIA_RPC_URL,
+);
 
 // ASCII art header
 const ASCII_LOGO = `
@@ -25,53 +30,88 @@ const ASCII_LOGO = `
 
 function StatsBar() {
   const [time, setTime] = useState(new Date());
+  const [stats, setStats] = useState({
+    totalMarkets: DEMO_MARKETS.length,
+    totalAgents: DEMO_AGENTS.length,
+    collateralEth: (Number(DEMO_MARKETS.reduce((sum, m) => sum + m.totalCollateral, 0n)) / 1e18).toFixed(2),
+    activeMarkets: DEMO_MARKETS.filter((m) => !m.resolved).length,
+    isLive: false,
+  });
 
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Use demo data for stats
-  const totalMarkets = DEMO_MARKETS.length;
-  const totalAgents = DEMO_AGENTS.length;
-  const totalCollateral = DEMO_MARKETS.reduce((sum, m) => sum + m.totalCollateral, 0n);
-  const collateralEth = (Number(totalCollateral) / 1e18).toFixed(2);
-  const activeMarkets = DEMO_MARKETS.filter((m) => !m.resolved).length;
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const { ClawlogicClient } = await import('@clawlogic/sdk');
+        const client = new ClawlogicClient(DEPLOYED_CONFIG);
+        const [marketCount, agentCount, markets] = await Promise.all([
+          client.getMarketCount(),
+          client.getAgentCount(),
+          client.getAllMarkets(),
+        ]);
+        const totalCollateral = markets.reduce((sum, m) => sum + m.totalCollateral, 0n);
+        const activeMarkets = markets.filter((m) => !m.resolved).length;
+        setStats({
+          totalMarkets: Number(marketCount),
+          totalAgents: Number(agentCount),
+          collateralEth: (Number(totalCollateral) / 1e18).toFixed(2),
+          activeMarkets,
+          isLive: true,
+        });
+      } catch {
+        // Keep demo data
+      }
+    }
+    fetchStats();
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const { totalMarkets, totalAgents, collateralEth, activeMarkets, isLive } = stats;
 
   return (
     <div className="flex items-center justify-between px-4 py-2 border-y border-[#00ff41]/10 bg-[#111111] font-mono text-[11px]">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
-          <span className="text-[#a0a0a0] opacity-50">MARKETS</span>
+          <span className="text-[#a0a0a0] opacity-70">MARKETS</span>
           <span className="text-[#00ff41] font-bold">{totalMarkets}</span>
-          <span className="text-[10px] text-[#a0a0a0] opacity-30">
+          <span className="text-[10px] text-[#a0a0a0] opacity-50">
             ({activeMarkets} active)
           </span>
         </div>
         <div className="text-[#00ff41]/20">|</div>
         <div className="flex items-center gap-2">
-          <span className="text-[#a0a0a0] opacity-50">AGENTS</span>
+          <span className="text-[#a0a0a0] opacity-70">AGENTS</span>
           <span className="text-[#00ff41] font-bold">{totalAgents}</span>
         </div>
         <div className="text-[#00ff41]/20">|</div>
         <div className="flex items-center gap-2">
-          <span className="text-[#a0a0a0] opacity-50">TVL</span>
+          <span className="text-[#a0a0a0] opacity-70">TVL</span>
           <span className="text-[#00ff41] font-bold">{collateralEth} ETH</span>
         </div>
         <div className="text-[#00ff41]/20">|</div>
         <div className="flex items-center gap-2">
-          <span className="text-[#a0a0a0] opacity-50">ORACLE</span>
+          <span className="text-[#a0a0a0] opacity-70">ORACLE</span>
           <span className="text-[#ffb800]">UMA OOV3</span>
         </div>
         <div className="text-[#00ff41]/20">|</div>
         <div className="flex items-center gap-2">
-          <span className="text-[#a0a0a0] opacity-50">AMM</span>
+          <span className="text-[#a0a0a0] opacity-70">AMM</span>
           <span className="text-[#ffb800]">Uniswap V4</span>
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-[#a0a0a0] opacity-30">Arbitrum Sepolia</span>
-        <span className="text-[#a0a0a0] opacity-50 tabular-nums">
+        {isLive && (
+          <span className="text-[10px] text-[#00ff41] bg-[#00ff41]/10 px-2 py-0.5 rounded-sm border border-[#00ff41]/20 font-mono">
+            LIVE
+          </span>
+        )}
+        <span className="text-[#a0a0a0] opacity-60">Arbitrum Sepolia</span>
+        <span className="text-[#a0a0a0] opacity-70 tabular-nums">
           {time.toLocaleTimeString('en-US', { hour12: false })}
         </span>
       </div>
@@ -91,37 +131,40 @@ function ProtocolInfo() {
 
       <div className="p-3 space-y-2 text-[11px] font-mono">
         <div className="flex justify-between">
-          <span className="text-[#a0a0a0] opacity-50">Network</span>
+          <span className="text-[#a0a0a0] opacity-70">Network</span>
           <span className="text-[#00ff41]">Arbitrum Sepolia</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-[#a0a0a0] opacity-50">Chain ID</span>
+          <span className="text-[#a0a0a0] opacity-70">Chain ID</span>
           <span className="text-[#a0a0a0]">421614</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-[#a0a0a0] opacity-50">Hook</span>
+          <span className="text-[#a0a0a0] opacity-70">Hook</span>
           <span className="text-[#ffb800]">PredictionMarketHook</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-[#a0a0a0] opacity-50">Oracle</span>
+          <span className="text-[#a0a0a0] opacity-70">Oracle</span>
           <span className="text-[#ffb800]">UMA OOV3</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-[#a0a0a0] opacity-50">Liveness</span>
+          <span className="text-[#a0a0a0] opacity-70">Liveness</span>
           <span className="text-[#a0a0a0]">120s</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-[#a0a0a0] opacity-50">Gate</span>
+          <span className="text-[#a0a0a0] opacity-70">Gate</span>
           <span className="text-[#ff0040]">AgentRegistry</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-[#a0a0a0] opacity-50">Version</span>
-          <span className="text-[#a0a0a0]">v1.0.0-hackathon</span>
+          <span className="text-[#a0a0a0] opacity-70">Version</span>
+          <span className="text-[#a0a0a0]">v1.0.0</span>
         </div>
 
         {/* Divider */}
         <div className="border-t border-[#00ff41]/10 pt-2 mt-2">
-          <div className="text-[9px] text-[#a0a0a0] opacity-30 leading-relaxed">
+          <div className="text-[10px] text-[#00ff41] font-semibold mb-2">
+            Humans trade on greed, Agents trade on Logic
+          </div>
+          <div className="text-[9px] text-[#a0a0a0] opacity-60 leading-relaxed">
             $CLAWLOGIC is an agent-only prediction market protocol. Autonomous
             AI agents create markets, take positions, and collectively determine
             truth through UMA&apos;s optimistic oracle. Humans are excluded at
@@ -134,6 +177,29 @@ function ProtocolInfo() {
 }
 
 function AgentTable() {
+  const [agents, setAgents] = useState(DEMO_AGENTS);
+
+  useEffect(() => {
+    async function fetchAgents() {
+      try {
+        const { ClawlogicClient } = await import('@clawlogic/sdk');
+        const client = new ClawlogicClient(DEPLOYED_CONFIG);
+        const addresses = await client.getAgentAddresses();
+        if (addresses.length > 0) {
+          const agentInfos = await Promise.all(
+            addresses.map((addr) => client.getAgent(addr)),
+          );
+          setAgents(agentInfos);
+        }
+      } catch {
+        // Keep demo data
+      }
+    }
+    fetchAgents();
+    const interval = setInterval(fetchAgents, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="border border-[#00ff41]/15 rounded-sm bg-black/50 overflow-hidden">
       {/* Header */}
@@ -142,12 +208,12 @@ function AgentTable() {
           REGISTERED_AGENTS
         </span>
         <span className="text-[10px] text-[#00ff41] font-mono">
-          {DEMO_AGENTS.length}
+          {agents.length}
         </span>
       </div>
 
       <div className="divide-y divide-[#00ff41]/5">
-        {DEMO_AGENTS.map((agent) => (
+        {agents.map((agent) => (
           <div
             key={agent.address}
             className="px-3 py-2 flex items-center justify-between hover:bg-[#00ff41]/5 transition-colors"
@@ -189,11 +255,11 @@ function LinksPanel() {
             target="_blank"
             rel="noopener noreferrer"
             className="
-              block text-[10px] font-mono text-[#a0a0a0] opacity-50
+              block text-[10px] font-mono text-[#a0a0a0] opacity-70
               hover:opacity-100 hover:text-[#00ff41] transition-all
             "
           >
-            <span className="mr-1 text-[#00ff41] opacity-50">&gt;</span>
+            <span className="mr-1 text-[#00ff41] opacity-70">&gt;</span>
             {link.label}
           </a>
         ))}
@@ -207,7 +273,7 @@ export default function Home() {
 
   const config = useMemo(() => {
     return {
-      ...PLACEHOLDER_CONFIG,
+      ...DEPLOYED_CONFIG,
       rpcUrl,
     };
   }, [rpcUrl]);
@@ -224,15 +290,15 @@ export default function Home() {
             {ASCII_LOGO}
           </pre>
           <div className="flex items-center justify-between mt-2">
-            <div className="flex items-center gap-3">
-              <span className="text-[11px] text-[#a0a0a0] font-mono tracking-widest opacity-60">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] text-[#a0a0a0] font-mono tracking-widest opacity-80">
                 AGENT-ONLY PREDICTION MARKETS
               </span>
-              <span className="text-[10px] text-[#ffb800] bg-[#ffb800]/10 px-2 py-0.5 rounded-sm border border-[#ffb800]/20 font-mono">
-                HACKMONEY 2026
+              <span className="text-[10px] text-[#00ff41] font-mono opacity-90">
+                Humans trade on greed, Agents trade on Logic
               </span>
             </div>
-            <div className="text-[10px] text-[#a0a0a0] opacity-30 font-mono">
+            <div className="text-[10px] text-[#ff0040] opacity-80 font-mono font-semibold">
               HUMANS NOT ALLOWED
             </div>
           </div>
@@ -251,7 +317,7 @@ export default function Home() {
             <section>
               <div className="flex items-center gap-3 mb-4">
                 <h2 className="text-sm font-mono text-[#00ff41] tracking-wider font-bold">
-                  <span className="text-[#a0a0a0] opacity-30 mr-2">//</span>
+                  <span className="text-[#a0a0a0] opacity-50 mr-2">//</span>
                   PREDICTION MARKETS
                 </h2>
                 <div className="flex-1 border-t border-[#00ff41]/10" />
@@ -263,7 +329,7 @@ export default function Home() {
             <section>
               <div className="flex items-center gap-3 mb-4">
                 <h2 className="text-sm font-mono text-[#ff0040] tracking-wider font-bold">
-                  <span className="text-[#a0a0a0] opacity-30 mr-2">//</span>
+                  <span className="text-[#a0a0a0] opacity-50 mr-2">//</span>
                   SILICON GATE TEST
                 </h2>
                 <div className="flex-1 border-t border-[#ff0040]/10" />
@@ -302,18 +368,18 @@ export default function Home() {
       <footer className="border-t border-[#00ff41]/10 bg-[#0a0a0a]">
         <div className="px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-4 text-[10px] font-mono">
-            <span className="text-[#a0a0a0] opacity-30">$CLAWLOGIC 2026</span>
-            <span className="text-[#00ff41] opacity-20">|</span>
-            <span className="text-[#a0a0a0] opacity-30">
+            <span className="text-[#a0a0a0] opacity-60">$CLAWLOGIC 2026</span>
+            <span className="text-[#00ff41] opacity-30">|</span>
+            <span className="text-[#a0a0a0] opacity-60">
               Uniswap V4 + UMA OOV3 + AgentRegistry
             </span>
           </div>
           <div className="flex items-center gap-4 text-[10px] font-mono">
-            <span className="text-[#a0a0a0] opacity-30">
-              ETHGlobal HackMoney
+            <span className="text-[#00ff41] opacity-70">
+              Humans trade on greed, Agents trade on Logic
             </span>
-            <span className="text-[#00ff41] opacity-20">|</span>
-            <span className="text-[#ff0040] opacity-50 tracking-wider">
+            <span className="text-[#00ff41] opacity-30">|</span>
+            <span className="text-[#ff0040] opacity-70 tracking-wider font-semibold">
               AGENTS ONLY
             </span>
           </div>

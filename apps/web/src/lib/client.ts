@@ -15,15 +15,19 @@ import {
 } from '@clawlogic/sdk';
 
 // ---------------------------------------------------------------------------
-// Configuration
+// Configuration — Arbitrum Sepolia deployed addresses
 // ---------------------------------------------------------------------------
 
-// TODO: Replace with actual deployed addresses after TASK-C7
-const DEFAULT_CONFIG: ClawlogicConfig = createConfig({
-  agentRegistry: '0x0000000000000000000000000000000000000001' as `0x${string}`,
-  predictionMarketHook: '0x0000000000000000000000000000000000000002' as `0x${string}`,
-  poolManager: '0x0000000000000000000000000000000000000003' as `0x${string}`,
-});
+const DEFAULT_CONFIG: ClawlogicConfig = createConfig(
+  {
+    agentRegistry: '0x02F1C669555f659AFC1Ee46b48eDd2EA256a7209',
+    predictionMarketHook: '0x0E7E3c81aBD7C4c9b335BF6db1a4722BeB404880',
+    poolManager: '0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317',
+    optimisticOracleV3: '0x61EaFA891D165E5B38b7D181a72C6359eFf5419a',
+  },
+  421614,
+  ARBITRUM_SEPOLIA_RPC_URL,
+);
 
 /**
  * Create a read-only ClawlogicClient from a config.

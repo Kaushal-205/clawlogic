@@ -10,14 +10,11 @@ ffi = false
 ast = true
 build_info = true
 extra_output = ["abi", "evm.bytecode"]
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
 
 [rpc_endpoints]
 arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"
 arc_testnet = "${ARC_TESTNET_RPC_URL}"
-
-[etherscan]
-arbitrum_sepolia = { key = "${ARBISCAN_API_KEY}", url = "https://api-sepolia.arbiscan.io/api" }
-arc_testnet = { key = "${ARCSCAN_API_KEY}", url = "https://testnet.arcscan.app/api" }
 
 [fmt]
 bracket_spacing = false

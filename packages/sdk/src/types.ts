@@ -49,6 +49,83 @@ export interface AgentInfo {
   registeredAt: bigint;
   /** Whether the agent is registered (exists flag) */
   exists: boolean;
+  /** ENS node (bytes32) if linked, or zero bytes if not */
+  ensNode?: `0x${string}`;
+  /** ERC-8004 agent identity token ID (if minted) */
+  agentId?: bigint;
+  /** Reputation score from ERC-8004 registry */
+  reputationScore?: ReputationScore;
+}
+
+/**
+ * Agent reputation score from ERC-8004 AgentReputationRegistry.
+ */
+export interface ReputationScore {
+  /** Total number of assertions made */
+  totalAssertions: bigint;
+  /** Number of successful (correct) assertions */
+  successfulAssertions: bigint;
+  /** Total trading volume participated in (in wei) */
+  totalVolume: bigint;
+  /** Timestamp of last reputation update */
+  lastUpdated: bigint;
+}
+
+/**
+ * Global reputation score aggregated across all chains.
+ */
+export interface GlobalReputationScore {
+  /** Agent's ERC-8004 identity token ID */
+  agentId: bigint;
+  /** Reputation scores per chain */
+  chainScores: Map<number, ReputationScore>;
+  /** Aggregated total assertions across all chains */
+  totalAssertions: bigint;
+  /** Aggregated successful assertions across all chains */
+  successfulAssertions: bigint;
+  /** Overall accuracy percentage (0-10000 basis points) */
+  accuracy: bigint;
+}
+
+/**
+ * Validation types for ERC-8004 AgentValidationRegistry.
+ */
+export enum ValidationType {
+  NONE = 0,
+  TEE = 1,
+  STAKE = 2,
+  ZKML = 3,
+}
+
+/**
+ * Agent validation proof data.
+ */
+export interface ValidationProof {
+  /** Type of validation */
+  validationType: ValidationType;
+  /** Validation proof bytes */
+  proof: `0x${string}`;
+  /** Timestamp when validation was submitted */
+  timestamp: bigint;
+  /** Whether the validation is verified/valid */
+  valid: boolean;
+}
+
+/**
+ * Options for registering an agent with ENS and TEE attestation.
+ */
+export interface AgentRegistrationOptions {
+  /** Human-readable agent name */
+  name: string;
+  /** Optional ENS node (bytes32) - if provided, must be owned by caller */
+  ensNode?: `0x${string}`;
+  /** Optional TEE attestation for immediate verification */
+  teeAttestation?: {
+    /** Phala attestation quote */
+    quote: `0x${string}`;
+    /** Public key corresponding to the TEE */
+    publicKey: `0x${string}`;
+  };
 }
 
 /**
@@ -69,6 +146,18 @@ export interface ClawlogicConfig {
     poolManager: `0x${string}`;
     /** UMA OptimisticOracleV3 contract address */
     optimisticOracleV3: `0x${string}`;
+    /** ERC-20 bond currency address */
+    bondCurrency?: `0x${string}`;
+    /** ENS Registry address (MockENS on testnet) */
+    ensRegistry?: `0x${string}`;
+    /** ERC-8004 AgentIdentityRegistry address */
+    agentIdentityRegistry?: `0x${string}`;
+    /** ERC-8004 AgentValidationRegistry address */
+    agentValidationRegistry?: `0x${string}`;
+    /** ERC-8004 AgentReputationRegistry address */
+    agentReputationRegistry?: `0x${string}`;
+    /** Phala zkDCAP verifier address (MockPhalaVerifier on testnet) */
+    phalaVerifier?: `0x${string}`;
   };
 }
 
@@ -85,6 +174,12 @@ export interface DeploymentInfo {
     PredictionMarketHook: string;
     PoolManager: string;
     OptimisticOracleV3?: string;
+    BondCurrency?: string;
+    ENSRegistry?: string;
+    AgentIdentityRegistry?: string;
+    AgentValidationRegistry?: string;
+    AgentReputationRegistry?: string;
+    PhalaVerifier?: string;
   };
 }
 

@@ -109,6 +109,8 @@ export function loadConfigFromDeployment(
       ? ARC_TESTNET_RPC_URL
       : ARBITRUM_SEPOLIA_RPC_URL;
 
+  const zero = '0x0000000000000000000000000000000000000000' as `0x${string}`;
+
   return {
     chainId: deployment.chainId,
     rpcUrl: rpcUrl ?? defaultRpc,
@@ -116,8 +118,13 @@ export function loadConfigFromDeployment(
       agentRegistry: deployment.contracts.AgentRegistry as `0x${string}`,
       predictionMarketHook: deployment.contracts.PredictionMarketHook as `0x${string}`,
       poolManager: deployment.contracts.PoolManager as `0x${string}`,
-      optimisticOracleV3: (deployment.contracts.OptimisticOracleV3 ??
-        '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      optimisticOracleV3: (deployment.contracts.OptimisticOracleV3 ?? zero) as `0x${string}`,
+      bondCurrency: (deployment.contracts.BondCurrency ?? zero) as `0x${string}`,
+      ensRegistry: (deployment.contracts.ENSRegistry ?? zero) as `0x${string}`,
+      agentIdentityRegistry: (deployment.contracts.AgentIdentityRegistry ?? zero) as `0x${string}`,
+      agentValidationRegistry: (deployment.contracts.AgentValidationRegistry ?? zero) as `0x${string}`,
+      agentReputationRegistry: (deployment.contracts.AgentReputationRegistry ?? zero) as `0x${string}`,
+      phalaVerifier: (deployment.contracts.PhalaVerifier ?? zero) as `0x${string}`,
     },
   };
 }

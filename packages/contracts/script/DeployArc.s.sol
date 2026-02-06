@@ -13,6 +13,8 @@ import {HookMiner} from "v4-periphery/src/utils/HookMiner.sol";
 import {AgentRegistry} from "../src/AgentRegistry.sol";
 import {PredictionMarketHook} from "../src/PredictionMarketHook.sol";
 import {IAgentRegistry} from "../src/interfaces/IAgentRegistry.sol";
+import {IENS} from "../src/interfaces/IENS.sol";
+import {IERC8004AgentValidation} from "../src/interfaces/erc8004/IERC8004AgentValidation.sol";
 import {OptimisticOracleV3Interface} from "../src/interfaces/uma/OptimisticOracleV3Interface.sol";
 
 import {DeployableMockOOV3} from "../src/mocks/DeployableMockOOV3.sol";
@@ -70,7 +72,7 @@ contract DeployArcScript is Script {
 
     function run() external {
         // ── 1. Read environment variables ───────────────────────────────────
-        uint256 deployerPk = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        uint256 deployerPk = vm.envUint("PRIVATE_KEY");
         uint64 liveness = uint64(vm.envOr("DEFAULT_LIVENESS", uint256(DEFAULT_LIVENESS)));
 
         address deployer = vm.addr(deployerPk);
@@ -134,7 +136,7 @@ contract DeployArcScript is Script {
         // ── 3. Deploy AgentRegistry ─────────────────────────────────────────
         vm.startBroadcast(deployerPk);
 
-        AgentRegistry registry = new AgentRegistry();
+        AgentRegistry registry = new AgentRegistry(IENS(address(0)), IERC8004AgentValidation(address(0)));
         console2.log("AgentRegistry:   ", address(registry));
 
         vm.stopBroadcast();

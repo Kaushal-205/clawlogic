@@ -36,6 +36,7 @@ import { runAlpha } from './agent-alpha.js';
 import { runBeta } from './agent-beta.js';
 import { runHumanDemo } from './human-demo.js';
 import { runAssertDemo } from './assert-demo.js';
+import { runSettleDemo } from './settle-demo.js';
 import { negotiatePositions } from './yellow/negotiate.js';
 import type { NegotiationResult } from './yellow/types.js';
 
@@ -257,6 +258,35 @@ async function main(): Promise<void> {
     console.error('This may be expected if bond currency is not configured.');
   }
 
+  // Brief pause before settlement
+  await sleep(3000);
+
+  // =========================================================================
+  // Phase 6: UMA Settlement + Token Redemption
+  // =========================================================================
+
+  separator();
+  console.log('>>> PHASE 6: Settlement - Resolve assertion & redeem tokens');
+  separator();
+
+  try {
+    await runSettleDemo(marketId, alphaClient);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`\nSettlement Demo failed: ${msg}`);
+    console.error('This may be expected if assertion was not submitted.');
+  }
+
+  // Also settle for Beta (they hold tokens too)
+  try {
+    console.log('\n[Orchestrator] Settling Beta tokens...');
+    await runSettleDemo(marketId, betaClient);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`\nBeta Settlement failed: ${msg}`);
+    console.error('This is expected if Beta holds the losing tokens.');
+  }
+
   // =========================================================================
   // Final Summary
   // =========================================================================
@@ -276,11 +306,12 @@ async function main(): Promise<void> {
   console.log('  3. Both agents minted outcome tokens (skin in the game)');
   console.log('  4. A human wallet was REJECTED by the protocol');
   console.log('  5. Agent Alpha asserted the outcome via UMA OOV3');
+  console.log('  6. Assertion settled -> market resolved -> tokens redeemed');
   console.log('');
-  console.log('Lifecycle:');
+  console.log('Lifecycle (COMPLETE):');
   console.log('  registerAgent -> initializeMarket -> [Yellow Network negotiation]');
-  console.log('  -> mintOutcomeTokens -> assertMarket -> [120s liveness]');
-  console.log('  -> settleOutcomeTokens');
+  console.log('  -> mintOutcomeTokens -> assertMarket -> settleAssertion');
+  console.log('  -> assertionResolvedCallback -> settleOutcomeTokens -> ETH payout');
   console.log('');
   console.log('Key Insight:');
   console.log('  Agents did not just trade -- they CREATED the market,');

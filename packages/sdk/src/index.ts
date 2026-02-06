@@ -5,6 +5,10 @@
 // Main client
 export { ClawlogicClient } from './client.js';
 
+// Phase 1: Identity & Trust infrastructure
+export { IdentityClient } from './identity.js';
+export type { IdentityContracts } from './identity.js';
+
 // Type definitions
 export type {
   MarketInfo,
@@ -13,7 +17,12 @@ export type {
   DeploymentInfo,
   MarketEvent,
   MarketEventCallback,
+  ReputationScore,
+  GlobalReputationScore,
+  ValidationProof,
+  AgentRegistrationOptions,
 } from './types.js';
+export { ValidationType } from './types.js';
 
 // Configuration helpers
 export {
@@ -32,3 +41,8 @@ export {
 export { agentRegistryAbi } from './abis/agentRegistryAbi.js';
 export { predictionMarketHookAbi } from './abis/predictionMarketHookAbi.js';
 export { outcomeTokenAbi } from './abis/outcomeTokenAbi.js';
+
+// Phase 1: Identity ABIs
+export { agentIdentityRegistryAbi } from './abis/agentIdentityRegistryAbi.js';
+export { agentReputationRegistryAbi } from './abis/agentReputationRegistryAbi.js';
+export { agentValidationRegistryAbi } from './abis/agentValidationRegistryAbi.js';

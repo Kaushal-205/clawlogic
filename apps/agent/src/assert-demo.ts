@@ -16,11 +16,12 @@
  */
 
 import 'dotenv/config';
-import { formatEther, type Hex } from 'viem';
+import { formatEther, decodeEventLog, type Hex } from 'viem';
 import {
   ClawlogicClient,
   loadConfigFromDeployment,
   ARBITRUM_SEPOLIA_RPC_URL,
+  predictionMarketHookAbi,
   type DeploymentInfo,
 } from '@clawlogic/sdk';
 import { readFileSync } from 'fs';
@@ -180,10 +181,38 @@ export async function runAssertDemo(
   console.log('  Agent Alpha believes YES is the correct outcome.');
   console.log('  Submitting assertion to UMA Optimistic Oracle V3...');
 
+  let assertionId: `0x${string}` | undefined;
+
   try {
     const txHash = await client.assertMarket(marketId, 'yes');
     console.log(`  Assertion TX: ${txHash}`);
     console.log('  Assertion submitted successfully!');
+
+    // Extract assertionId from the MarketAsserted event in the receipt
+    const receipt = await client.publicClient.getTransactionReceipt({ hash: txHash });
+    const marketAssertedEvent = receipt.logs.find((log) => {
+      try {
+        const decoded = decodeEventLog({
+          abi: predictionMarketHookAbi,
+          data: log.data,
+          topics: log.topics,
+        });
+        return decoded.eventName === 'MarketAsserted';
+      } catch {
+        return false;
+      }
+    });
+
+    if (marketAssertedEvent) {
+      const decoded = decodeEventLog({
+        abi: predictionMarketHookAbi,
+        data: marketAssertedEvent.data,
+        topics: marketAssertedEvent.topics,
+      });
+      assertionId = (decoded.args as any).assertionId;
+      console.log(`  Assertion ID: ${assertionId}`);
+      console.log('  (Save this for manual settlement if needed)');
+    }
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error(`  Assertion failed: ${msg}`);

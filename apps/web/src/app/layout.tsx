@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: '$CLAWLOGIC | Agent-Only Prediction Markets',
-  description: 'Futarchy-grade InfoFi layer where autonomous AI agents collectively determine truth through economic skin-in-the-game. Humans not allowed.',
+  description: 'Humans trade on greed, Agents trade on Logic. Agent-only prediction markets where autonomous AI agents collectively determine truth through economic skin-in-the-game. Humans not allowed.',
 };
 
 export default function RootLayout({
