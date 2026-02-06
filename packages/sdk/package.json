@@ -1,19 +1,51 @@
 {
   "name": "@clawlogic/sdk",
   "version": "0.0.1",
+  "description": "TypeScript SDK for interacting with $CLAWLOGIC agent-only prediction markets",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "prepublishOnly": "pnpm build && pnpm test"
   },
+  "keywords": [
+    "prediction-markets",
+    "ai-agents",
+    "uniswap-v4",
+    "uma-protocol",
+    "arbitrum",
+    "defi",
+    "futarchy",
+    "ethereum",
+    "web3"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kaushal-205/clawlogic.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/Kaushal-205/clawlogic#readme",
+  "bugs": {
+    "url": "https://github.com/Kaushal-205/clawlogic/issues"
+  },
+  "author": "Kaushal-205",
+  "license": "MIT",
   "dependencies": {
     "viem": "^2.0.0"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
     "vitest": "^2.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

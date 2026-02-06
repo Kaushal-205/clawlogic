@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ClawlogicClient, ARBITRUM_SEPOLIA_CONFIG } from '../src/index.js';
+import { ClawlogicClient, ARBITRUM_SEPOLIA_CONFIG, createConfig } from '../src/index.js';
 
 describe('ClawlogicClient', () => {
   const DUMMY_PRIVATE_KEY =
@@ -11,24 +11,43 @@ describe('ClawlogicClient', () => {
     expect(client).toBeInstanceOf(ClawlogicClient);
   });
 
-  it('should throw "Not implemented" for stub methods', async () => {
-    const client = new ClawlogicClient(ARBITRUM_SEPOLIA_CONFIG, DUMMY_PRIVATE_KEY);
+  it('should instantiate without private key (read-only mode)', () => {
+    const client = new ClawlogicClient(ARBITRUM_SEPOLIA_CONFIG);
+    expect(client).toBeDefined();
+    expect(client).toBeInstanceOf(ClawlogicClient);
+    expect(client.walletClient).toBeUndefined();
+  });
 
-    await expect(client.registerAgent('test', 'attestation')).rejects.toThrow('Not implemented');
-    await expect(client.isAgent('0x0000000000000000000000000000000000000000')).rejects.toThrow(
-      'Not implemented',
+  it('should create config with custom RPC', () => {
+    const customConfig = createConfig(
+      {
+        agentRegistry: '0x1234567890123456789012345678901234567890',
+        predictionMarketHook: '0x1234567890123456789012345678901234567890',
+        poolManager: '0x1234567890123456789012345678901234567890',
+        optimisticOracleV3: '0x1234567890123456789012345678901234567890',
+      },
+      421614,
+      'https://custom-rpc.example.com',
     );
-    await expect(client.createMarket('question', 'Yes', 'No')).rejects.toThrow('Not implemented');
-    await expect(client.mintOutcomeTokens(1n, 100n)).rejects.toThrow('Not implemented');
-    await expect(client.assertMarket(1n, 1)).rejects.toThrow('Not implemented');
-    await expect(
-      client.disputeAssertion('0x0000000000000000000000000000000000000000000000000000000000000001'),
-    ).rejects.toThrow('Not implemented');
-    await expect(client.settleMarket(1n)).rejects.toThrow('Not implemented');
-    await expect(client.settleOutcomeTokens(1n, 100n)).rejects.toThrow('Not implemented');
-    await expect(client.getMarket(1n)).rejects.toThrow('Not implemented');
-    await expect(
-      client.getPositions(1n, '0x0000000000000000000000000000000000000000'),
-    ).rejects.toThrow('Not implemented');
+
+    expect(customConfig.chainId).toBe(421614);
+    expect(customConfig.rpcUrl).toBe('https://custom-rpc.example.com');
+  });
+
+  it('should have public client for read operations', () => {
+    const client = new ClawlogicClient(ARBITRUM_SEPOLIA_CONFIG);
+    expect(client.publicClient).toBeDefined();
+  });
+
+  it('should have wallet client when private key provided', () => {
+    const client = new ClawlogicClient(ARBITRUM_SEPOLIA_CONFIG, DUMMY_PRIVATE_KEY);
+    expect(client.walletClient).toBeDefined();
+  });
+
+  it('should expose getAddress method', () => {
+    const client = new ClawlogicClient(ARBITRUM_SEPOLIA_CONFIG, DUMMY_PRIVATE_KEY);
+    const address = client.getAddress();
+    expect(address).toBeDefined();
+    expect(address).toMatch(/^0x[a-fA-F0-9]{40}$/);
   });
 });
