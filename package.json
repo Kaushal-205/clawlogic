@@ -1,0 +1,18 @@
+{
+    "name": "clawlogic",
+    "version": "0.0.1",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "pnpm -r build",
+        "test": "pnpm -r test",
+        "dev:sdk": "pnpm --filter @clawlogic/sdk dev",
+        "agent:alpha": "pnpm --filter @clawlogic/agent agent:alpha",
+        "agent:beta": "pnpm --filter @clawlogic/agent agent:beta",
+        "agent:human": "pnpm --filter @clawlogic/agent agent:human"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "typescript": "^5.4.0"
+    }
+}

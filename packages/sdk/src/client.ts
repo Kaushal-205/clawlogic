@@ -1,0 +1,722 @@
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  getContract,
+  type PublicClient,
+  type WalletClient,
+  type Transport,
+  type Chain,
+  type Account,
+  type GetContractReturnType,
+  type Log,
+  type WatchContractEventReturnType,
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import type {
+  ClawlogicConfig,
+  MarketInfo,
+  AgentInfo,
+  MarketEvent,
+  MarketEventCallback,
+} from './types.js';
+import { agentRegistryAbi } from './abis/agentRegistryAbi.js';
+import { predictionMarketHookAbi } from './abis/predictionMarketHookAbi.js';
+import { outcomeTokenAbi } from './abis/outcomeTokenAbi.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chain definition for Arbitrum Sepolia (in case viem does not export it)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const arbitrumSepolia: Chain = {
+  id: 421614,
+  name: 'Arbitrum Sepolia',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://sepolia-rollup.arbitrum.io/rpc'] },
+  },
+  blockExplorers: {
+    default: { name: 'Arbiscan', url: 'https://sepolia.arbiscan.io' },
+  },
+  testnet: true,
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: build a viem Chain object from a config
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildChain(config: ClawlogicConfig): Chain {
+  if (config.chainId === 421614) {
+    return {
+      ...arbitrumSepolia,
+      rpcUrls: {
+        default: { http: [config.rpcUrl] },
+      },
+    };
+  }
+  return {
+    id: config.chainId,
+    name: `Chain ${config.chainId}`,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: {
+      default: { http: [config.rpcUrl] },
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ClawlogicClient
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Main client for interacting with the $CLAWLOGIC protocol.
+ *
+ * Provides methods for:
+ * - Agent registration & lookup (AgentRegistry)
+ * - Market creation, minting, assertion & settlement (PredictionMarketHook)
+ * - Outcome token balance queries (OutcomeToken ERC-20)
+ * - Event watching for real-time market activity
+ *
+ * Requires a private key for write operations. Read-only operations work
+ * without a private key (pass `undefined` and only use read methods).
+ */
+export class ClawlogicClient {
+  /** Protocol configuration (chain, RPC, contract addresses). */
+  readonly config: ClawlogicConfig;
+
+  /** viem public client for read operations. */
+  readonly publicClient: PublicClient<Transport, Chain>;
+
+  /** viem wallet client for write operations (undefined if read-only). */
+  readonly walletClient: WalletClient<Transport, Chain, Account> | undefined;
+
+  /** The account derived from the private key (undefined if read-only). */
+  readonly account: Account | undefined;
+
+  /** Typed contract handle for AgentRegistry (read-only). */
+  private readonly registryRead: GetContractReturnType<
+    typeof agentRegistryAbi,
+    PublicClient<Transport, Chain>
+  >;
+
+  /** Typed contract handle for PredictionMarketHook (read-only). */
+  private readonly hookRead: GetContractReturnType<
+    typeof predictionMarketHookAbi,
+    PublicClient<Transport, Chain>
+  >;
+
+  /**
+   * Create a new ClawlogicClient.
+   *
+   * @param config - Protocol configuration with chain info and contract addresses.
+   * @param privateKey - Hex-encoded private key for signing transactions.
+   *                     Pass `undefined` for a read-only client.
+   */
+  constructor(config: ClawlogicConfig, privateKey?: `0x${string}`) {
+    this.config = config;
+
+    const chain = buildChain(config);
+
+    this.publicClient = createPublicClient({
+      chain,
+      transport: http(config.rpcUrl),
+    });
+
+    if (privateKey) {
+      this.account = privateKeyToAccount(privateKey);
+      this.walletClient = createWalletClient({
+        account: this.account,
+        chain,
+        transport: http(config.rpcUrl),
+      });
+    }
+
+    this.registryRead = getContract({
+      address: config.contracts.agentRegistry,
+      abi: agentRegistryAbi,
+      client: this.publicClient,
+    });
+
+    this.hookRead = getContract({
+      address: config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      client: this.publicClient,
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Private helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Ensure a wallet client is available for write operations.
+   * Throws a descriptive error if the client was created in read-only mode.
+   */
+  private requireWallet(): WalletClient<Transport, Chain, Account> {
+    if (!this.walletClient || !this.account) {
+      throw new Error(
+        'ClawlogicClient: No private key provided. ' +
+          'Write operations require a private key in the constructor.',
+      );
+    }
+    return this.walletClient;
+  }
+
+  /**
+   * Wait for a transaction receipt and return the transaction hash.
+   */
+  private async waitForTx(hash: `0x${string}`): Promise<`0x${string}`> {
+    await this.publicClient.waitForTransactionReceipt({ hash });
+    return hash;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Agent Registry Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Register the caller as an agent in the AgentRegistry.
+   *
+   * @param name - Human-readable agent name (e.g., "AlphaTrader"). Must be non-empty.
+   * @param attestation - TEE attestation bytes (hex-encoded). Defaults to "0x" (empty).
+   * @returns Transaction hash of the registration.
+   */
+  async registerAgent(
+    name: string,
+    attestation: `0x${string}` = '0x',
+  ): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.agentRegistry,
+      abi: agentRegistryAbi,
+      functionName: 'registerAgent',
+      args: [name, attestation],
+    });
+
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Check whether an address is a registered agent.
+   *
+   * @param address - The address to check.
+   * @returns True if the address is registered as an agent.
+   */
+  async isAgent(address: `0x${string}`): Promise<boolean> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.agentRegistry,
+      abi: agentRegistryAbi,
+      functionName: 'isAgent',
+      args: [address],
+    });
+    return result as boolean;
+  }
+
+  /**
+   * Get the full agent info for a registered address.
+   *
+   * @param address - The agent address to look up.
+   * @returns AgentInfo with name, attestation, registeredAt, and exists flag.
+   */
+  async getAgent(address: `0x${string}`): Promise<AgentInfo> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.agentRegistry,
+      abi: agentRegistryAbi,
+      functionName: 'getAgent',
+      args: [address],
+    });
+
+    // The result is a tuple struct: { name, attestation, registeredAt, exists }
+    const agent = result as {
+      name: string;
+      attestation: `0x${string}`;
+      registeredAt: bigint;
+      exists: boolean;
+    };
+
+    return {
+      address,
+      name: agent.name,
+      attestation: agent.attestation,
+      registeredAt: agent.registeredAt,
+      exists: agent.exists,
+    };
+  }
+
+  /**
+   * Get the total number of registered agents.
+   *
+   * @returns The agent count as a bigint.
+   */
+  async getAgentCount(): Promise<bigint> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.agentRegistry,
+      abi: agentRegistryAbi,
+      functionName: 'getAgentCount',
+    });
+    return result as bigint;
+  }
+
+  /**
+   * Get all registered agent addresses.
+   *
+   * @returns Array of agent addresses.
+   */
+  async getAgentAddresses(): Promise<`0x${string}`[]> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.agentRegistry,
+      abi: agentRegistryAbi,
+      functionName: 'getAgentAddresses',
+    });
+    return result as `0x${string}`[];
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Prediction Market Methods (Write)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Create a new prediction market.
+   *
+   * The caller must be a registered agent. If `reward > 0`, the caller must
+   * have previously approved that amount of the bond currency (i_currency)
+   * to the PredictionMarketHook contract.
+   *
+   * @param outcome1 - Label for outcome 1 (e.g., "yes").
+   * @param outcome2 - Label for outcome 2 (e.g., "no").
+   * @param description - Human-readable market question.
+   * @param reward - Amount of bond currency offered as incentive to the asserter.
+   * @param requiredBond - Minimum bond required from an asserter.
+   * @returns Transaction hash of the market creation.
+   */
+  async initializeMarket(
+    outcome1: string,
+    outcome2: string,
+    description: string,
+    reward: bigint,
+    requiredBond: bigint,
+  ): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'initializeMarket',
+      args: [outcome1, outcome2, description, reward, requiredBond],
+    });
+
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Deposit ETH collateral to mint equal amounts of both outcome tokens.
+   *
+   * The caller must be a registered agent. Sends `ethAmount` in wei as
+   * msg.value and receives that amount of outcome1Token AND outcome2Token.
+   *
+   * @param marketId - The market to mint tokens for (bytes32).
+   * @param ethAmount - Amount of ETH to deposit as collateral (in wei).
+   * @returns Transaction hash of the mint operation.
+   */
+  async mintOutcomeTokens(
+    marketId: `0x${string}`,
+    ethAmount: bigint,
+  ): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'mintOutcomeTokens',
+      args: [marketId],
+      value: ethAmount,
+    });
+
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Assert the outcome of a market via UMA Optimistic Oracle V3.
+   *
+   * The caller must be a registered agent. The asserted outcome must exactly
+   * match `outcome1`, `outcome2`, or the literal string "Unresolvable".
+   * The caller must have approved the required bond amount of `i_currency`
+   * to the PredictionMarketHook contract.
+   *
+   * @param marketId - The market to assert (bytes32).
+   * @param assertedOutcome - The outcome string being asserted.
+   * @returns Transaction hash of the assertion.
+   */
+  async assertMarket(
+    marketId: `0x${string}`,
+    assertedOutcome: string,
+  ): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'assertMarket',
+      args: [marketId, assertedOutcome],
+    });
+
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Redeem winning outcome tokens for proportional ETH collateral.
+   *
+   * The market must be resolved. The caller's winning tokens are burned and
+   * they receive a proportional share of the total collateral.
+   *
+   * @param marketId - The resolved market (bytes32).
+   * @returns Transaction hash of the settlement.
+   */
+  async settleOutcomeTokens(marketId: `0x${string}`): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'settleOutcomeTokens',
+      args: [marketId],
+    });
+
+    return this.waitForTx(hash);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Prediction Market Methods (Read)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get full market details for a given marketId.
+   *
+   * Parses the 11-value tuple returned by PredictionMarketHook.getMarket()
+   * into a structured MarketInfo object.
+   *
+   * @param marketId - The market identifier (bytes32).
+   * @returns MarketInfo with all market details.
+   */
+  async getMarket(marketId: `0x${string}`): Promise<MarketInfo> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'getMarket',
+      args: [marketId],
+    });
+
+    // The result is a tuple of 11 values matching the getMarket return signature.
+    const [
+      description,
+      outcome1,
+      outcome2,
+      outcome1Token,
+      outcome2Token,
+      reward,
+      requiredBond,
+      resolved,
+      assertedOutcomeId,
+      poolId,
+      totalCollateral,
+    ] = result as [
+      string,
+      string,
+      string,
+      `0x${string}`,
+      `0x${string}`,
+      bigint,
+      bigint,
+      boolean,
+      `0x${string}`,
+      `0x${string}`,
+      bigint,
+    ];
+
+    return {
+      marketId,
+      description,
+      outcome1,
+      outcome2,
+      outcome1Token,
+      outcome2Token,
+      reward,
+      requiredBond,
+      resolved,
+      assertedOutcomeId,
+      poolId,
+      totalCollateral,
+    };
+  }
+
+  /**
+   * Get all market IDs.
+   *
+   * @returns Array of all created market IDs (bytes32[]).
+   */
+  async getMarketIds(): Promise<`0x${string}`[]> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'getMarketIds',
+    });
+    return result as `0x${string}`[];
+  }
+
+  /**
+   * Get all markets with full details.
+   *
+   * Calls getMarketIds() then getMarket() for each.
+   * For large numbers of markets, consider using getMarketIds() + getMarket()
+   * individually with pagination.
+   *
+   * @returns Array of MarketInfo for all markets.
+   */
+  async getAllMarkets(): Promise<MarketInfo[]> {
+    const ids = await this.getMarketIds();
+    const markets = await Promise.all(ids.map((id) => this.getMarket(id)));
+    return markets;
+  }
+
+  /**
+   * Get the total number of created markets.
+   *
+   * @returns The market count as a bigint.
+   */
+  async getMarketCount(): Promise<bigint> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 's_marketCount',
+    });
+    return result as bigint;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Outcome Token Methods (Read)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get the balance of an outcome token for a given owner.
+   *
+   * @param tokenAddress - The OutcomeToken contract address.
+   * @param ownerAddress - The address to check the balance of.
+   * @returns The token balance as a bigint.
+   */
+  async getOutcomeTokenBalance(
+    tokenAddress: `0x${string}`,
+    ownerAddress: `0x${string}`,
+  ): Promise<bigint> {
+    const result = await this.publicClient.readContract({
+      address: tokenAddress,
+      abi: outcomeTokenAbi,
+      functionName: 'balanceOf',
+      args: [ownerAddress],
+    });
+    return result as bigint;
+  }
+
+  /**
+   * Get the total supply of an outcome token.
+   *
+   * @param tokenAddress - The OutcomeToken contract address.
+   * @returns The total supply as a bigint.
+   */
+  async getOutcomeTokenTotalSupply(tokenAddress: `0x${string}`): Promise<bigint> {
+    const result = await this.publicClient.readContract({
+      address: tokenAddress,
+      abi: outcomeTokenAbi,
+      functionName: 'totalSupply',
+    });
+    return result as bigint;
+  }
+
+  /**
+   * Get both outcome token balances for a given agent in a specific market.
+   *
+   * @param marketId - The market identifier.
+   * @param ownerAddress - The address to check balances for.
+   * @returns Object with outcome1Balance and outcome2Balance.
+   */
+  async getPositions(
+    marketId: `0x${string}`,
+    ownerAddress: `0x${string}`,
+  ): Promise<{ outcome1Balance: bigint; outcome2Balance: bigint }> {
+    const market = await this.getMarket(marketId);
+
+    const [outcome1Balance, outcome2Balance] = await Promise.all([
+      this.getOutcomeTokenBalance(market.outcome1Token, ownerAddress),
+      this.getOutcomeTokenBalance(market.outcome2Token, ownerAddress),
+    ]);
+
+    return { outcome1Balance, outcome2Balance };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Protocol Info Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get the bond currency address used by the PredictionMarketHook.
+   *
+   * @returns The ERC-20 bond currency contract address.
+   */
+  async getBondCurrency(): Promise<`0x${string}`> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'i_currency',
+    });
+    return result as `0x${string}`;
+  }
+
+  /**
+   * Get the default liveness window for UMA assertions (in seconds).
+   *
+   * @returns The liveness window as a bigint (seconds).
+   */
+  async getDefaultLiveness(): Promise<bigint> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'i_defaultLiveness',
+    });
+    return result as bigint;
+  }
+
+  /**
+   * Get the UMA Optimistic Oracle V3 address used by the hook.
+   *
+   * @returns The OOV3 contract address.
+   */
+  async getOracleAddress(): Promise<`0x${string}`> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'i_oo',
+    });
+    return result as `0x${string}`;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Event Watching
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Watch for all prediction market events in real time.
+   *
+   * Subscribes to: MarketInitialized, TokensMinted, MarketAsserted,
+   * MarketResolved, AssertionFailed, AssertionDisputed, TokensSettled.
+   *
+   * @param callback - Function called for each new event.
+   * @returns An unwatch function. Call it to stop watching.
+   */
+  watchMarketEvents(callback: MarketEventCallback): () => void {
+    const hookAddress = this.config.contracts.predictionMarketHook;
+    const unwatchers: WatchContractEventReturnType[] = [];
+
+    // Helper to create a watcher for a specific event
+    const watchEvent = (
+      eventName: MarketEvent['type'],
+    ) => {
+      const unwatch = this.publicClient.watchContractEvent({
+        address: hookAddress,
+        abi: predictionMarketHookAbi,
+        eventName,
+        onLogs: (logs: Log[]) => {
+          for (const log of logs) {
+            const typedLog = log as Log & { args?: Record<string, unknown> };
+            const marketId =
+              (typedLog.args?.['marketId'] as `0x${string}`) ??
+              '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+            callback({
+              type: eventName,
+              marketId,
+              blockNumber: log.blockNumber ?? 0n,
+              transactionHash: log.transactionHash ?? ('0x' as `0x${string}`),
+              args: (typedLog.args ?? {}) as Record<string, unknown>,
+            });
+          }
+        },
+      });
+      unwatchers.push(unwatch);
+    };
+
+    watchEvent('MarketInitialized');
+    watchEvent('TokensMinted');
+    watchEvent('MarketAsserted');
+    watchEvent('MarketResolved');
+    watchEvent('AssertionFailed');
+    watchEvent('AssertionDisputed');
+    watchEvent('TokensSettled');
+
+    // Return a single unwatch function that stops all watchers
+    return () => {
+      for (const unwatch of unwatchers) {
+        unwatch();
+      }
+    };
+  }
+
+  /**
+   * Watch for AgentRegistered events from the AgentRegistry.
+   *
+   * @param callback - Function called with (agent address, name) for each registration.
+   * @returns An unwatch function. Call it to stop watching.
+   */
+  watchAgentRegistrations(
+    callback: (agent: `0x${string}`, name: string) => void,
+  ): () => void {
+    return this.publicClient.watchContractEvent({
+      address: this.config.contracts.agentRegistry,
+      abi: agentRegistryAbi,
+      eventName: 'AgentRegistered',
+      onLogs: (logs: Log[]) => {
+        for (const log of logs) {
+          const typedLog = log as Log & { args?: Record<string, unknown> };
+          const agent = (typedLog.args?.['agent'] as `0x${string}`) ?? '0x';
+          const name = (typedLog.args?.['name'] as string) ?? '';
+          callback(agent, name);
+        }
+      },
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Utility Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get the address of the account associated with this client.
+   *
+   * @returns The account address, or undefined if read-only.
+   */
+  getAddress(): `0x${string}` | undefined {
+    return this.account?.address;
+  }
+
+  /**
+   * Get the ETH balance of the connected account.
+   *
+   * @returns The balance in wei.
+   */
+  async getBalance(): Promise<bigint> {
+    const address = this.getAddress();
+    if (!address) {
+      throw new Error('ClawlogicClient: No account available (read-only client).');
+    }
+    return this.publicClient.getBalance({ address });
+  }
+
+  /**
+   * Get the ETH balance of any address.
+   *
+   * @param address - The address to check.
+   * @returns The balance in wei.
+   */
+  async getBalanceOf(address: `0x${string}`): Promise<bigint> {
+    return this.publicClient.getBalance({ address });
+  }
+}

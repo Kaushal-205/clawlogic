@@ -1,0 +1,25 @@
+{
+  "name": "@clawlogic/agent",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "agent:alpha": "tsx src/agent-alpha.ts",
+    "agent:beta": "tsx src/agent-beta.ts",
+    "agent:human": "tsx src/human-demo.ts",
+    "agent:assert": "tsx src/assert-demo.ts",
+    "yellow:demo": "tsx src/yellow/demo.ts"
+  },
+  "dependencies": {
+    "@clawlogic/sdk": "workspace:*",
+    "@erc7824/nitrolite": "^0.5.2",
+    "viem": "^2.0.0",
+    "dotenv": "^16.4.0",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "tsx": "^4.0.0",
+    "@types/ws": "^8.5.0"
+  }
+}
