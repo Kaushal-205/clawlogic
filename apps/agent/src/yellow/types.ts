@@ -18,8 +18,16 @@ export interface PositionIntent {
   amount: string;
   /** The agent's on-chain address */
   agent: `0x${string}`;
+  /** Short thesis for why this position is being taken */
+  reasoning: string;
+  /** Confidence in basis points (0-10000) */
+  confidenceBps: number;
   /** Unix timestamp when the intent was created */
   timestamp: number;
+  /** Deterministic hash of the canonical intent payload */
+  intentHash?: `0x${string}`;
+  /** Signature over intentHash by the agent's key */
+  signature?: `0x${string}`;
 }
 
 /**
@@ -36,6 +44,8 @@ export interface NegotiationResult {
   sessionId?: string;
   /** Whether this was a simulated negotiation (no live ClearNode) */
   simulated: boolean;
+  /** Absolute or relative path where transcript was persisted */
+  transcriptPath?: string;
 }
 
 // ---------------------------------------------------------------------------

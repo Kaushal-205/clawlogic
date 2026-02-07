@@ -22,7 +22,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import {
   createECDSAMessageSigner,
   createAuthRequestMessage,
-  createAuthVerifyMessage,
+  createAuthVerifyMessageFromChallenge,
   createAppSessionMessage,
   createCloseAppSessionMessage,
   createApplicationMessage,
@@ -122,8 +122,19 @@ async function authenticateWithClearNode(
 
           if (method === 'auth_challenge') {
             log('Received auth challenge, signing verification...');
+            const rawParams = message.res[2] as
+              | { challengeMessage?: string; challenge_message?: string }
+              | undefined;
+            const challenge =
+              rawParams?.challengeMessage ?? rawParams?.challenge_message;
+            if (!challenge) {
+              throw new Error('Missing challenge in auth_challenge payload');
+            }
             // Sign and send auth verification using the Nitrolite SDK
-            const verifyMsg = await createAuthVerifyMessage(signer, message);
+            const verifyMsg = await createAuthVerifyMessageFromChallenge(
+              signer,
+              challenge,
+            );
             ws.send(verifyMsg);
           } else if (method === 'auth_verify') {
             clearTimeout(timeout);

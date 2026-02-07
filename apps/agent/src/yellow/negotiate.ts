@@ -15,7 +15,9 @@
  * If ClearNode is unreachable, the entire negotiation is simulated locally.
  */
 
-import { type Hex, keccak256, encodePacked } from 'viem';
+import { mkdir, readFile, writeFile } from 'fs/promises';
+import { dirname, resolve } from 'path';
+import { type Hex, encodePacked, keccak256, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
@@ -37,6 +39,10 @@ import {
 // ---------------------------------------------------------------------------
 
 const LOG_PREFIX = '[Yellow/Negotiate]';
+const DEFAULT_TRANSCRIPT_FILE = resolve(
+  process.cwd(),
+  '.clawlogic/yellow-negotiations.json',
+);
 
 function log(msg: string): void {
   console.log(`  ${LOG_PREFIX} ${msg}`);
@@ -44,6 +50,68 @@ function log(msg: string): void {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+interface TranscriptRecord {
+  sessionId?: string;
+  simulated: boolean;
+  marketId: `0x${string}`;
+  agreed: boolean;
+  alphaIntent: PositionIntent;
+  betaIntent: PositionIntent;
+  recordedAt: string;
+}
+
+function transcriptPath(): string {
+  return process.env.YELLOW_TRANSCRIPT_FILE ?? DEFAULT_TRANSCRIPT_FILE;
+}
+
+async function readTranscripts(): Promise<TranscriptRecord[]> {
+  try {
+    const text = await readFile(transcriptPath(), 'utf-8');
+    const parsed = JSON.parse(text) as TranscriptRecord[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function appendTranscript(record: TranscriptRecord): Promise<string> {
+  const filePath = transcriptPath();
+  const existing = await readTranscripts();
+  const next = [record, ...existing].slice(0, 200);
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, JSON.stringify(next, null, 2), 'utf-8');
+  return filePath;
+}
+
+async function signIntent(
+  privateKey: Hex,
+  intent: PositionIntent,
+): Promise<PositionIntent> {
+  const account = privateKeyToAccount(privateKey);
+  const intentHash = keccak256(
+    encodePacked(
+      ['bytes32', 'address', 'uint8', 'uint256', 'uint32', 'uint64'],
+      [
+        intent.marketId,
+        intent.agent,
+        intent.outcome === 'yes' ? 1 : 0,
+        parseEther(intent.amount),
+        intent.confidenceBps,
+        BigInt(intent.timestamp),
+      ],
+    ),
+  );
+  const signature = await account.signMessage({
+    message: { raw: intentHash },
+  });
+
+  return {
+    ...intent,
+    intentHash,
+    signature,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +129,8 @@ function sleep(ms: number): Promise<void> {
  * - Both agree, producing a valid NegotiationResult
  */
 async function simulateNegotiation(
+  alphaPrivateKey: Hex,
+  betaPrivateKey: Hex,
   alphaAddress: `0x${string}`,
   betaAddress: `0x${string}`,
   marketId: `0x${string}`,
@@ -90,30 +160,38 @@ async function simulateNegotiation(
   await sleep(500);
 
   // Step 3: Alpha sends position intent
-  const alphaIntent: PositionIntent = {
+  const alphaIntent = await signIntent(alphaPrivateKey, {
     marketId,
     outcome: 'yes',
     amount,
     agent: alphaAddress,
+    reasoning:
+      'Momentum + macro trend signals imply higher probability of upside realization.',
+    confidenceBps: 7200,
     timestamp: Date.now(),
-  };
+  });
 
   log(`[Step 3] Alpha sends position intent via state channel`);
   log(`  Intent: YES @ ${amount} ETH`);
+  log(`  Confidence: ${(alphaIntent.confidenceBps / 100).toFixed(2)}%`);
   log(`  Signed by: ${alphaAddress.slice(0, 10)}...`);
   await sleep(500);
 
   // Step 4: Beta sends complementary position intent
-  const betaIntent: PositionIntent = {
+  const betaIntent = await signIntent(betaPrivateKey, {
     marketId,
     outcome: 'no',
     amount,
     agent: betaAddress,
+    reasoning:
+      'Contrarian mean-reversion model indicates downside risk is currently underpriced.',
+    confidenceBps: 6700,
     timestamp: Date.now(),
-  };
+  });
 
   log(`[Step 4] Beta sends position intent via state channel`);
   log(`  Intent: NO @ ${amount} ETH`);
+  log(`  Confidence: ${(betaIntent.confidenceBps / 100).toFixed(2)}%`);
   log(`  Signed by: ${betaAddress.slice(0, 10)}...`);
   await sleep(500);
 
@@ -171,7 +249,14 @@ async function liveNegotiation(
   if (!alphaSession) {
     // Fallback to simulation if session creation fails
     log('Session creation returned null -- falling back to simulation.');
-    return simulateNegotiation(alphaAddress, betaAddress, marketId, amount);
+    return simulateNegotiation(
+      alphaPrivateKey,
+      betaPrivateKey,
+      alphaAddress,
+      betaAddress,
+      marketId,
+      amount,
+    );
   }
 
   // Step 2: Beta joins session
@@ -185,34 +270,49 @@ async function liveNegotiation(
   if (!betaSession) {
     await closeSession(alphaSession);
     log('Beta join failed -- falling back to simulation.');
-    return simulateNegotiation(alphaAddress, betaAddress, marketId, amount);
+    return simulateNegotiation(
+      alphaPrivateKey,
+      betaPrivateKey,
+      alphaAddress,
+      betaAddress,
+      marketId,
+      amount,
+    );
   }
 
   // Step 3: Alpha sends position intent
-  const alphaIntent: PositionIntent = {
+  const alphaIntent = await signIntent(alphaPrivateKey, {
     marketId,
     outcome: 'yes',
     amount,
     agent: alphaAddress,
+    reasoning:
+      'Momentum + macro trend signals imply higher probability of upside realization.',
+    confidenceBps: 7200,
     timestamp: Date.now(),
-  };
+  });
 
   log('[Step 3] Alpha sends position intent via state channel');
   log(`  Intent: YES @ ${amount} ETH`);
+  log(`  Confidence: ${(alphaIntent.confidenceBps / 100).toFixed(2)}%`);
   await sendPositionIntent(alphaSession, alphaIntent);
   await sleep(300);
 
   // Step 4: Beta sends complementary position intent
-  const betaIntent: PositionIntent = {
+  const betaIntent = await signIntent(betaPrivateKey, {
     marketId,
     outcome: 'no',
     amount,
     agent: betaAddress,
+    reasoning:
+      'Contrarian mean-reversion model indicates downside risk is currently underpriced.',
+    confidenceBps: 6700,
     timestamp: Date.now(),
-  };
+  });
 
   log('[Step 4] Beta sends position intent via state channel');
   log(`  Intent: NO @ ${amount} ETH`);
+  log(`  Confidence: ${(betaIntent.confidenceBps / 100).toFixed(2)}%`);
   await sendPositionIntent(betaSession, betaIntent);
   await sleep(300);
 
@@ -275,7 +375,7 @@ export async function negotiatePositions(
 
   try {
     // Attempt live negotiation first
-    return await liveNegotiation(
+    const result = await liveNegotiation(
       alphaPrivateKey,
       betaPrivateKey,
       alphaAddress,
@@ -284,13 +384,46 @@ export async function negotiatePositions(
       amount,
       config,
     );
+    const transcriptPath = await appendTranscript({
+      sessionId: result.sessionId,
+      simulated: result.simulated,
+      marketId,
+      agreed: result.agreed,
+      alphaIntent: result.alphaIntent,
+      betaIntent: result.betaIntent,
+      recordedAt: new Date().toISOString(),
+    });
+    return {
+      ...result,
+      transcriptPath,
+    };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     log(`Live negotiation failed: ${msg}`);
 
     if (config.enableSimulationFallback) {
       log('Falling back to local simulation...');
-      return simulateNegotiation(alphaAddress, betaAddress, marketId, amount);
+      const result = await simulateNegotiation(
+        alphaPrivateKey,
+        betaPrivateKey,
+        alphaAddress,
+        betaAddress,
+        marketId,
+        amount,
+      );
+      const transcriptPath = await appendTranscript({
+        sessionId: result.sessionId,
+        simulated: result.simulated,
+        marketId,
+        agreed: result.agreed,
+        alphaIntent: result.alphaIntent,
+        betaIntent: result.betaIntent,
+        recordedAt: new Date().toISOString(),
+      });
+      return {
+        ...result,
+        transcriptPath,
+      };
     }
 
     throw err;
