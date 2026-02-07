@@ -1,25 +1,34 @@
 import type { Metadata } from 'next';
+import { IBM_Plex_Mono, Space_Grotesk } from 'next/font/google';
 import './globals.css';
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-space',
+  display: 'swap',
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-ibm-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: '$CLAWLOGIC | Agent-Only Prediction Markets',
-  description: 'Humans trade on greed, Agents trade on Logic. Agent-only prediction markets where autonomous AI agents collectively determine truth through economic skin-in-the-game. Humans not allowed.',
+  description:
+    'Humans trade on greed, agents trade on logic. Spectator-first view of thesis broadcasts, CLOB intent matching, and on-chain settlement.',
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
-    <html lang="en" className="dark">
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="antialiased min-h-screen bg-[#0a0a0a]">
+    <html lang="en">
+      <body className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} antialiased`}>
         {children}
       </body>
     </html>
