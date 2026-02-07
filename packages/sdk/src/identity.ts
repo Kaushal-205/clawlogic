@@ -30,16 +30,23 @@ import { ValidationType } from './types.js';
 import { agentIdentityRegistryAbi } from './abis/agentIdentityRegistryAbi.js';
 import { agentReputationRegistryAbi } from './abis/agentReputationRegistryAbi.js';
 import { agentValidationRegistryAbi } from './abis/agentValidationRegistryAbi.js';
+import { agentRegistryAbi } from './abis/agentRegistryAbi.js';
 
 /**
  * Extended contract addresses for Phase 1 identity infrastructure.
  */
 export interface IdentityContracts {
+  agentRegistry?: `0x${string}`;
   agentIdentityRegistry: `0x${string}`;
   agentReputationRegistry: `0x${string}`;
   agentValidationRegistry: `0x${string}`;
   ensRegistry?: `0x${string}`; // Optional: 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e on most chains
 }
+
+const ZERO_BYTES32 =
+  '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
+const ZERO_ADDRESS =
+  '0x0000000000000000000000000000000000000000' as const;
 
 /**
  * Identity client for Phase 1 ENS + ERC-8004 + TEE functionality.
@@ -65,12 +72,23 @@ export class IdentityClient {
    * @returns Agent address, or null if not found
    */
   async resolveAgentENS(ensName: string): Promise<`0x${string}` | null> {
-    try {
-      // ENS resolution is handled by AgentRegistry.getAgentByENS(), not the
-      // identity registry.  Use the main ClawlogicClient for ENS resolution.
-      // This method is a no-op placeholder; callers should use
-      // ClawlogicClient.getAgentByENS() directly.
+    const registry = this.contracts.agentRegistry;
+    if (!registry) {
       return null;
+    }
+
+    try {
+      const ensNode = namehash(ensName) as `0x${string}`;
+      const agent = await this.publicClient.readContract({
+        address: registry,
+        abi: agentRegistryAbi,
+        functionName: 'getAgentByENS',
+        args: [ensNode],
+      }) as `0x${string}`;
+      if (agent.toLowerCase() === ZERO_ADDRESS) {
+        return null;
+      }
+      return agent;
     } catch {
       return null;
     }
@@ -83,10 +101,58 @@ export class IdentityClient {
    * @returns ENS name, or null if not linked
    */
   async getAgentENSName(address: `0x${string}`): Promise<string | null> {
+    const ensCapableClient = this.publicClient as PublicClient<Transport, Chain> & {
+      getEnsName?: (args: { address: `0x${string}` }) => Promise<string | null>;
+    };
+
     try {
-      // This will be implemented once AgentRegistry includes ENS reverse mapping
-      // For now, return null (requires contract support)
+      if (typeof ensCapableClient.getEnsName === 'function') {
+        const ensName = await ensCapableClient.getEnsName({ address });
+        if (ensName) {
+          return ensName;
+        }
+      }
+    } catch {
+      // Fall through to registry-based fallback.
+    }
+
+    const ensNode = await this.getAgentENSNode(address);
+    if (!ensNode) {
       return null;
+    }
+    return `ens-node:${ensNode}`;
+  }
+
+  /**
+   * Get the ENS node linked to a given agent address.
+   *
+   * @param address - Agent address
+   * @returns ENS node (bytes32) if linked, otherwise null
+   */
+  async getAgentENSNode(address: `0x${string}`): Promise<`0x${string}` | null> {
+    const registry = this.contracts.agentRegistry;
+    if (!registry) {
+      return null;
+    }
+
+    try {
+      const result = await this.publicClient.readContract({
+        address: registry,
+        abi: agentRegistryAbi,
+        functionName: 'getAgent',
+        args: [address],
+      });
+
+      const agent = result as {
+        exists: boolean;
+        ensNode?: `0x${string}`;
+      };
+
+      if (!agent.exists || !agent.ensNode || agent.ensNode === ZERO_BYTES32) {
+        return null;
+      }
+
+      return agent.ensNode;
     } catch {
       return null;
     }
@@ -362,6 +428,7 @@ export class IdentityClient {
 
     // Get ENS name
     const ensName = await this.getAgentENSName(address);
+    const ensNode = await this.getAgentENSNode(address);
 
     // Get identity token
     const identityToken = await this.getAgentIdentityToken(address);
@@ -384,7 +451,7 @@ export class IdentityClient {
       attestation: '0x', // Will be filled by caller
       registeredAt: 0n, // Will be filled by caller
       exists: true,
-      ensNode: ensName ? namehash(ensName) : undefined,
+      ensNode: ensNode ?? (ensName && !ensName.startsWith('ens-node:') ? namehash(ensName) : undefined),
       agentId: identityToken?.tokenId,
       reputationScore,
       ensName,

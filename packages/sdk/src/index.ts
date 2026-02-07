@@ -4,6 +4,20 @@
 
 // Main client
 export { ClawlogicClient } from './client.js';
+export {
+  bridge,
+  bridgeQuote,
+  bridgeStatus,
+  bridgeExecute,
+} from './bridge.js';
+export type {
+  LiFiQuoteRequest,
+  LiFiQuoteResponse,
+  LiFiStatusRequest,
+  LiFiStatusResponse,
+  LiFiExecuteRequest,
+  LiFiExecuteResult,
+} from './bridge.js';
 
 // Phase 1: Identity & Trust infrastructure
 export { IdentityClient } from './identity.js';
