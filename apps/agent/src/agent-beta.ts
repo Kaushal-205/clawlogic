@@ -25,6 +25,8 @@ import {
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { ensureAgentOnboarding } from './onboarding.js';
+import { publishAgentBroadcast } from './broadcast.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -50,6 +52,85 @@ function createBetaClient(privateKey: Hex): ClawlogicClient {
   return new ClawlogicClient(config, privateKey);
 }
 
+export interface BetaDirectionalTradeOptions {
+  amountEth?: string;
+  sessionId?: string;
+  reasoning?: string;
+  confidence?: number;
+  requireSessionLink?: boolean;
+}
+
+export interface RunBetaOptions {
+  skipDirectionalBuy?: boolean;
+  directionalTrade?: BetaDirectionalTradeOptions;
+}
+
+export async function executeBetaDirectionalTrade(
+  client: ClawlogicClient,
+  marketId: `0x${string}`,
+  options: BetaDirectionalTradeOptions = {},
+): Promise<`0x${string}` | null> {
+  const address = client.getAddress();
+  if (!address) {
+    throw new Error('Beta directional trade requires wallet-backed client.');
+  }
+
+  const ensName = process.env.AGENT_BETA_ENS_NAME;
+  const ensNode = process.env.AGENT_BETA_ENS_NODE as Hex | undefined;
+  const amountEth = options.amountEth ?? '0.005';
+  const buyAmount = parseEther(amountEth);
+  const sessionId = options.sessionId ?? process.env.NEGOTIATION_SESSION_ID;
+  const requireSessionLink = options.requireSessionLink ?? false;
+
+  if (requireSessionLink && !sessionId) {
+    throw new Error(
+      'Negotiation link is required but sessionId is missing for beta directional trade.',
+    );
+  }
+
+  console.log('\n[Phase 3b] Buying NO tokens via AMM (contrarian position)...');
+  console.log(`  Buying NO with ${amountEth} ETH...`);
+
+  try {
+    const buyTxHash = await client.buyOutcomeToken(marketId, false, buyAmount);
+    console.log(`  Buy TX: ${buyTxHash}`);
+
+    try {
+      await publishAgentBroadcast({
+        type: 'TradeRationale',
+        agent: 'BetaAnalyst',
+        agentAddress: address,
+        ensName,
+        ensNode,
+        marketId,
+        sessionId,
+        side: 'no',
+        stakeEth: amountEth,
+        tradeTxHash: buyTxHash,
+        confidence: options.confidence ?? 66,
+        reasoning:
+          options.reasoning ??
+          'Adding NO through CPMM because downside tail risk is underpriced relative to my model.',
+      });
+    } catch (error: unknown) {
+      if (requireSessionLink) {
+        throw error;
+      }
+    }
+
+    const probability = await client.getMarketProbability(marketId);
+    console.log(
+      `  Market probability: YES=${probability.outcome1Probability.toFixed(1)}%, ` +
+        `NO=${probability.outcome2Probability.toFixed(1)}%`,
+    );
+    return buyTxHash;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.log(`  Buy skipped (no AMM liquidity): ${msg}`);
+    return null;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Exported functions for orchestrator
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,6 +149,7 @@ function createBetaClient(privateKey: Hex): ClawlogicClient {
 export async function runBeta(
   marketId?: `0x${string}`,
   client?: ClawlogicClient,
+  options: RunBetaOptions = {},
 ): Promise<void> {
   if (!client) {
     const privateKey = process.env.AGENT_BETA_PRIVATE_KEY as Hex;
@@ -81,6 +163,8 @@ export async function runBeta(
   }
 
   const address = client.getAddress()!;
+  const ensName = process.env.AGENT_BETA_ENS_NAME;
+  const ensNode = process.env.AGENT_BETA_ENS_NODE as Hex | undefined;
 
   console.log('');
   console.log('================================================================');
@@ -97,22 +181,31 @@ export async function runBeta(
   // ── Phase 1: Register ────────────────────────────────────────────────────
 
   console.log('\n[Phase 1] Checking agent registration...');
+  try {
+    const onboarding = await ensureAgentOnboarding(client, {
+      name: 'BetaAnalyst',
+      attestation: '0x',
+      ensName: process.env.AGENT_BETA_ENS_NAME,
+      ensNode: process.env.AGENT_BETA_ENS_NODE as Hex | undefined,
+      identityMetadataUri: process.env.AGENT_BETA_IDENTITY_METADATA_URI,
+    });
 
-  const isRegistered = await client.isAgent(address);
-
-  if (isRegistered) {
-    const agent = await client.getAgent(address);
-    console.log(`  Already registered as "${agent.name}"`);
-  } else {
-    console.log('  Registering as "BetaAnalyst"...');
-    try {
-      const txHash = await client.registerAgent('BetaAnalyst', '0x');
-      console.log(`  Registration complete. TX: ${txHash}`);
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error(`  Registration failed: ${msg}`);
-      throw error;
+    if (onboarding.alreadyRegistered) {
+      const agent = await client.getAgent(address);
+      console.log(`  Already registered as "${agent.name}"`);
+    } else {
+      console.log(`  Registration complete. TX: ${onboarding.registrationTxHash}`);
+      console.log(`  Method: ${onboarding.registrationMethod}`);
     }
+
+    if (onboarding.identityAgentId) {
+      const suffix = onboarding.identityMinted ? ' (minted in this run)' : '';
+      console.log(`  ERC-8004 ID: ${onboarding.identityAgentId}${suffix}`);
+    }
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`  Registration failed: ${msg}`);
+    throw error;
   }
 
   // ── Phase 2: Find Active Market ──────────────────────────────────────────
@@ -161,6 +254,25 @@ export async function runBeta(
   console.log(`  Minting with 0.01 ETH...`);
 
   try {
+    await publishAgentBroadcast({
+      type: 'TradeRationale',
+      agent: 'BetaAnalyst',
+      agentAddress: address,
+      ensName,
+      ensNode,
+      marketId,
+      sessionId: process.env.NEGOTIATION_SESSION_ID,
+      side: 'no',
+      stakeEth: '0.01',
+      confidence: 68,
+      reasoning:
+        'I am taking the contrarian side to capture mispricing and diversify aggregate agent positioning.',
+    });
+  } catch {
+    // Non-fatal.
+  }
+
+  try {
     const txHash = await client.mintOutcomeTokens(marketId, mintAmount);
     console.log(`  Mint TX: ${txHash}`);
   } catch (error: unknown) {
@@ -176,24 +288,14 @@ export async function runBeta(
   );
 
   // ── Phase 3b: Buy NO tokens (contrarian bet via CPMM) ─────────────────
-
-  console.log('\n[Phase 3b] Buying NO tokens via AMM (contrarian position)...');
-
-  const buyAmount = parseEther('0.005');
-  console.log(`  Buying NO with 0.005 ETH...`);
-
-  try {
-    const buyTxHash = await client.buyOutcomeToken(marketId, false, buyAmount);
-    console.log(`  Buy TX: ${buyTxHash}`);
-
-    const probability = await client.getMarketProbability(marketId);
-    console.log(
-      `  Market probability: YES=${probability.outcome1Probability.toFixed(1)}%, ` +
-        `NO=${probability.outcome2Probability.toFixed(1)}%`,
+  if (!options.skipDirectionalBuy) {
+    await executeBetaDirectionalTrade(
+      client,
+      marketId,
+      options.directionalTrade,
     );
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.log(`  Buy skipped (no AMM liquidity): ${msg}`);
+  } else {
+    console.log('\n[Phase 3b] Directional buy skipped by orchestration plan.');
   }
 
   // ── Phase 4: Monitor Assertions ──────────────────────────────────────────

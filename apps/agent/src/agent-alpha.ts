@@ -25,6 +25,8 @@ import {
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { ensureAgentOnboarding } from './onboarding.js';
+import { publishAgentBroadcast } from './broadcast.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -47,6 +49,83 @@ function createAlphaClient(privateKey: Hex): ClawlogicClient {
   return new ClawlogicClient(config, privateKey);
 }
 
+export interface AlphaDirectionalTradeOptions {
+  amountEth?: string;
+  sessionId?: string;
+  reasoning?: string;
+  confidence?: number;
+  requireSessionLink?: boolean;
+}
+
+export interface RunAlphaOptions {
+  skipDirectionalBuy?: boolean;
+  directionalTrade?: AlphaDirectionalTradeOptions;
+}
+
+export async function executeAlphaDirectionalTrade(
+  client: ClawlogicClient,
+  marketId: `0x${string}`,
+  options: AlphaDirectionalTradeOptions = {},
+): Promise<`0x${string}` | null> {
+  const address = client.getAddress();
+  if (!address) {
+    throw new Error('Alpha directional trade requires wallet-backed client.');
+  }
+
+  const ensName = process.env.AGENT_ALPHA_ENS_NAME;
+  const ensNode = process.env.AGENT_ALPHA_ENS_NODE as Hex | undefined;
+  const amountEth = options.amountEth ?? '0.005';
+  const buyAmount = parseEther(amountEth);
+  const sessionId = options.sessionId ?? process.env.NEGOTIATION_SESSION_ID;
+  const requireSessionLink = options.requireSessionLink ?? false;
+
+  if (requireSessionLink && !sessionId) {
+    throw new Error('Alpha trade requires a negotiation session link, but sessionId is missing.');
+  }
+
+  console.log('\n[Phase 4] Buying YES tokens via AMM...');
+  console.log(`  Buying YES with ${amountEth} ETH...`);
+
+  try {
+    const buyTxHash = await client.buyOutcomeToken(marketId, true, buyAmount);
+    console.log(`  Buy TX: ${buyTxHash}`);
+
+    try {
+      await publishAgentBroadcast({
+        type: 'TradeRationale',
+        agent: 'AlphaTrader',
+        agentAddress: address,
+        ensName,
+        ensNode,
+        marketId,
+        sessionId,
+        side: 'yes',
+        stakeEth: amountEth,
+        tradeTxHash: buyTxHash,
+        confidence: options.confidence ?? 74,
+        reasoning:
+          options.reasoning ??
+          'I am increasing YES exposure because post-mint probability remains below my internal fair value estimate.',
+      });
+    } catch (error: unknown) {
+      if (requireSessionLink) {
+        throw error;
+      }
+    }
+
+    const probability = await client.getMarketProbability(marketId);
+    console.log(
+      `  Market probability: YES=${probability.outcome1Probability.toFixed(1)}%, ` +
+        `NO=${probability.outcome2Probability.toFixed(1)}%`,
+    );
+    return buyTxHash;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.log(`  Buy skipped (no AMM liquidity): ${msg}`);
+    return null;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Exported functions for orchestrator
 // ─────────────────────────────────────────────────────────────────────────────
@@ -61,7 +140,10 @@ function createAlphaClient(privateKey: Hex): ClawlogicClient {
  *                 If not provided, will create one from AGENT_ALPHA_PRIVATE_KEY env var.
  * @returns The marketId of the created (or existing) market.
  */
-export async function runAlpha(client?: ClawlogicClient): Promise<`0x${string}`> {
+export async function runAlpha(
+  client?: ClawlogicClient,
+  options: RunAlphaOptions = {},
+): Promise<`0x${string}`> {
   if (!client) {
     const privateKey = process.env.AGENT_ALPHA_PRIVATE_KEY as Hex;
     if (!privateKey) {
@@ -74,6 +156,8 @@ export async function runAlpha(client?: ClawlogicClient): Promise<`0x${string}`>
   }
 
   const address = client.getAddress()!;
+  const ensName = process.env.AGENT_ALPHA_ENS_NAME;
+  const ensNode = process.env.AGENT_ALPHA_ENS_NODE as Hex | undefined;
 
   console.log('');
   console.log('================================================================');
@@ -90,22 +174,31 @@ export async function runAlpha(client?: ClawlogicClient): Promise<`0x${string}`>
   // ── Phase 1: Register ────────────────────────────────────────────────────
 
   console.log('\n[Phase 1] Checking agent registration...');
+  try {
+    const onboarding = await ensureAgentOnboarding(client, {
+      name: 'AlphaTrader',
+      attestation: '0x',
+      ensName: process.env.AGENT_ALPHA_ENS_NAME,
+      ensNode: process.env.AGENT_ALPHA_ENS_NODE as Hex | undefined,
+      identityMetadataUri: process.env.AGENT_ALPHA_IDENTITY_METADATA_URI,
+    });
 
-  const isRegistered = await client.isAgent(address);
-
-  if (isRegistered) {
-    const agent = await client.getAgent(address);
-    console.log(`  Already registered as "${agent.name}"`);
-  } else {
-    console.log('  Registering as "AlphaTrader"...');
-    try {
-      const txHash = await client.registerAgent('AlphaTrader', '0x');
-      console.log(`  Registration complete. TX: ${txHash}`);
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error(`  Registration failed: ${msg}`);
-      throw error;
+    if (onboarding.alreadyRegistered) {
+      const agent = await client.getAgent(address);
+      console.log(`  Already registered as "${agent.name}"`);
+    } else {
+      console.log(`  Registration complete. TX: ${onboarding.registrationTxHash}`);
+      console.log(`  Method: ${onboarding.registrationMethod}`);
     }
+
+    if (onboarding.identityAgentId) {
+      const suffix = onboarding.identityMinted ? ' (minted in this run)' : '';
+      console.log(`  ERC-8004 ID: ${onboarding.identityAgentId}${suffix}`);
+    }
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`  Registration failed: ${msg}`);
+    throw error;
   }
 
   // ── Phase 2: Create Market ───────────────────────────────────────────────
@@ -115,6 +208,7 @@ export async function runAlpha(client?: ClawlogicClient): Promise<`0x${string}`>
   // Check if there are already markets
   const existingMarkets = await client.getMarketIds();
   let marketId: `0x${string}`;
+  let createdNewMarket = false;
 
   if (existingMarkets.length > 0) {
     console.log(`  Found ${existingMarkets.length} existing market(s)`);
@@ -146,6 +240,26 @@ export async function runAlpha(client?: ClawlogicClient): Promise<`0x${string}`>
     const markets = await client.getMarketIds();
     marketId = markets[markets.length - 1];
     console.log(`  Market ID: ${marketId}`);
+    createdNewMarket = true;
+  }
+
+  try {
+    await publishAgentBroadcast({
+      type: 'MarketBroadcast',
+      agent: 'AlphaTrader',
+      agentAddress: address,
+      ensName,
+      ensNode,
+      marketId,
+      side: 'yes',
+      stakeEth: '0.01',
+      confidence: 72,
+      reasoning: createdNewMarket
+        ? 'Macro + on-chain momentum favor an upside breakout, so I am broadcasting this market with initial capital.'
+        : 'This market still has unresolved price discovery and enough uncertainty for a directional position.',
+    });
+  } catch {
+    // Non-fatal: on-chain execution should continue if file broadcast fails.
   }
 
   // ── Phase 3: Mint Outcome Tokens ─────────────────────────────────────────
@@ -177,24 +291,14 @@ export async function runAlpha(client?: ClawlogicClient): Promise<`0x${string}`>
   );
 
   // ── Phase 4: Buy YES tokens (directional bet via CPMM) ────────────────
-
-  console.log('\n[Phase 4] Buying YES tokens via AMM...');
-
-  const buyAmount = parseEther('0.005');
-  console.log(`  Buying YES with 0.005 ETH...`);
-
-  try {
-    const buyTxHash = await client.buyOutcomeToken(marketId, true, buyAmount);
-    console.log(`  Buy TX: ${buyTxHash}`);
-
-    const probability = await client.getMarketProbability(marketId);
-    console.log(
-      `  Market probability: YES=${probability.outcome1Probability.toFixed(1)}%, ` +
-        `NO=${probability.outcome2Probability.toFixed(1)}%`,
+  if (!options.skipDirectionalBuy) {
+    await executeAlphaDirectionalTrade(
+      client,
+      marketId,
+      options.directionalTrade,
     );
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.log(`  Buy skipped (no AMM liquidity): ${msg}`);
+  } else {
+    console.log('\n[Phase 4] Directional buy skipped by orchestration plan.');
   }
 
   console.log('\n================================================================');
