@@ -5,7 +5,12 @@ import { createConfig, ARBITRUM_SEPOLIA_RPC_URL } from '@clawlogic/sdk';
 import MarketList from '@/components/MarketList';
 import AgentFeed from '@/components/AgentFeed';
 import HumanTrap from '@/components/HumanTrap';
-import { DEMO_MARKETS, DEMO_AGENTS } from '@/lib/client';
+import {
+  DEMO_MARKETS,
+  DEMO_AGENTS,
+  getAgentDisplayIdentity,
+  getAgentOnboardingStatus,
+} from '@/lib/client';
 
 // Arbitrum Sepolia deployed addresses
 const DEPLOYED_CONFIG = createConfig(
@@ -179,6 +184,14 @@ function ProtocolInfo() {
 function AgentTable() {
   const [agents, setAgents] = useState(DEMO_AGENTS);
 
+  async function copyAddress(address: `0x${string}`): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(address);
+    } catch {
+      // Ignore clipboard failures for this compact panel.
+    }
+  }
+
   useEffect(() => {
     async function fetchAgents() {
       try {
@@ -213,22 +226,56 @@ function AgentTable() {
       </div>
 
       <div className="divide-y divide-[#00ff41]/5">
-        {agents.map((agent) => (
-          <div
-            key={agent.address}
-            className="px-3 py-2 flex items-center justify-between hover:bg-[#00ff41]/5 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00ff41] status-pulse" />
-              <span className="text-[11px] text-[#00ff41] font-mono font-bold">
-                {agent.name}
-              </span>
+        {agents.map((agent) => {
+          const identity = getAgentDisplayIdentity({
+            address: agent.address,
+            name: agent.name,
+            ensNode: agent.ensNode,
+          });
+          return (
+            <div
+              key={agent.address}
+              className="group px-3 py-2 flex items-center justify-between hover:bg-[#00ff41]/5 transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00ff41] status-pulse" />
+                <span
+                  className="text-[11px] text-[#00ff41] font-mono font-bold truncate"
+                  title={`${identity.displayName}\n${identity.address}`}
+                >
+                  {identity.displayName}
+                </span>
+                {identity.identityProof === 'ens-linked' && (
+                  <span
+                    className="text-[8px] text-[#ffb800] border border-[#ffb800]/30 px-1 rounded-sm shrink-0"
+                    title="ENS linked on-chain"
+                  >
+                    ENS
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span
+                  className="text-[10px] text-[#a0a0a0] opacity-0 group-hover:opacity-60 transition-opacity font-mono"
+                  title={identity.address}
+                >
+                  {identity.shortAddress}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void copyAddress(identity.address);
+                  }}
+                  className="text-[8px] text-[#a0a0a0] border border-[#00ff41]/20 px-1 rounded-sm opacity-0 group-hover:opacity-90 hover:text-[#00ff41] transition-opacity"
+                  title={`Copy ${identity.address}`}
+                  aria-label={`Copy address for ${identity.displayName}`}
+                >
+                  COPY
+                </button>
+              </div>
             </div>
-            <span className="text-[10px] text-[#a0a0a0] opacity-40 font-mono">
-              {agent.address.slice(0, 8)}...{agent.address.slice(-4)}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -263,6 +310,124 @@ function LinksPanel() {
             {link.label}
           </a>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function ExecutionModePanel() {
+  const flags = [
+    {
+      label: 'YELLOW_LIVE',
+      enabled: process.env.NEXT_PUBLIC_YELLOW_LIVE === 'true',
+    },
+    {
+      label: 'LIFI_LIVE',
+      enabled: process.env.NEXT_PUBLIC_LIFI_LIVE === 'true',
+    },
+    {
+      label: 'CLOB_MATCH',
+      enabled: process.env.NEXT_PUBLIC_CLOB_MATCH === 'true',
+    },
+    {
+      label: 'ONCHAIN_SETTLEMENT',
+      enabled: process.env.NEXT_PUBLIC_ONCHAIN_SETTLEMENT !== 'false',
+    },
+  ];
+
+  return (
+    <div className="border border-[#00ff41]/15 rounded-sm bg-black/50 overflow-hidden">
+      <div className="px-3 py-2 border-b border-[#00ff41]/10 bg-[#111111]">
+        <span className="text-[10px] text-[#a0a0a0] font-mono tracking-wider">
+          EXECUTION_MODE
+        </span>
+      </div>
+      <div className="p-3 grid grid-cols-2 gap-2">
+        {flags.map((flag) => (
+          <div
+            key={flag.label}
+            className={`text-[10px] font-mono border px-2 py-1 rounded-sm ${
+              flag.enabled
+                ? 'text-[#00ff41] border-[#00ff41]/30 bg-[#00ff41]/5'
+                : 'text-[#a0a0a0] border-[#a0a0a0]/20 bg-[#0f0f0f]'
+            }`}
+          >
+            {flag.label}: {flag.enabled ? 'ON' : 'OFF'}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OnboardingStatusPanel() {
+  const [agents, setAgents] = useState(DEMO_AGENTS);
+
+  useEffect(() => {
+    async function fetchAgents() {
+      try {
+        const { ClawlogicClient } = await import('@clawlogic/sdk');
+        const client = new ClawlogicClient(DEPLOYED_CONFIG);
+        const addresses = await client.getAgentAddresses();
+        if (addresses.length > 0) {
+          const infos = await Promise.all(addresses.map((addr) => client.getAgent(addr)));
+          setAgents(infos);
+        }
+      } catch {
+        // Keep demo data
+      }
+    }
+    fetchAgents();
+    const interval = setInterval(fetchAgents, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="border border-[#00ff41]/15 rounded-sm bg-black/50 overflow-hidden">
+      <div className="px-3 py-2 border-b border-[#00ff41]/10 bg-[#111111]">
+        <span className="text-[10px] text-[#a0a0a0] font-mono tracking-wider">
+          ONBOARDING_STATUS
+        </span>
+      </div>
+      <div className="divide-y divide-[#00ff41]/5">
+        {agents.map((agent) => {
+          const status = getAgentOnboardingStatus(agent);
+          const badges = [
+            { label: 'ENS', ok: status.ensLinked },
+            { label: 'REG', ok: status.registryRegistered },
+            { label: 'ID', ok: status.identityMinted },
+            { label: 'TEE', ok: status.teeVerified },
+            { label: 'READY', ok: status.marketReady },
+          ];
+
+          return (
+            <div
+              key={agent.address}
+              className="px-3 py-2 flex items-center justify-between gap-2"
+            >
+              <span
+                className="text-[10px] text-[#00ff41] font-mono truncate max-w-[145px]"
+                title={`${status.identity.displayName}\n${agent.address}`}
+              >
+                {status.identity.displayName}
+              </span>
+              <div className="flex items-center gap-1 shrink-0">
+                {badges.map((badge) => (
+                  <span
+                    key={`${agent.address}-${badge.label}`}
+                    className={`text-[8px] px-1 rounded-sm border font-mono ${
+                      badge.ok
+                        ? 'text-[#00ff41] border-[#00ff41]/30'
+                        : 'text-[#a0a0a0] border-[#a0a0a0]/20'
+                    }`}
+                  >
+                    {badge.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -354,6 +519,12 @@ export default function Home() {
 
             {/* Registered Agents */}
             <AgentTable />
+
+            {/* Onboarding Status */}
+            <OnboardingStatusPanel />
+
+            {/* Execution Mode */}
+            <ExecutionModePanel />
 
             {/* Protocol Info */}
             <ProtocolInfo />

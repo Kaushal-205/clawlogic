@@ -14,6 +14,9 @@ import {
   type AgentInfo,
 } from '@clawlogic/sdk';
 
+const ZERO_BYTES32 =
+  '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
+
 // ---------------------------------------------------------------------------
 // Configuration — Arbitrum Sepolia deployed addresses
 // ---------------------------------------------------------------------------
@@ -109,6 +112,141 @@ export async function getProtocolStats(
 }
 
 // ---------------------------------------------------------------------------
+// Agent identity display helpers (ENS-first with address fallback)
+// ---------------------------------------------------------------------------
+
+export type AgentIdentityProof = 'ens-linked' | 'address-only';
+
+export interface AgentDisplayIdentity {
+  displayName: string;
+  ensName?: string;
+  address: `0x${string}`;
+  shortAddress: string;
+  identityProof: AgentIdentityProof;
+}
+
+export interface AgentOnboardingStatus {
+  identity: AgentDisplayIdentity;
+  funded: 'unknown' | 'ready';
+  ensLinked: boolean;
+  registryRegistered: boolean;
+  identityMinted: boolean;
+  teeVerified: boolean;
+  marketReady: boolean;
+}
+
+export function formatShortAddress(address: `0x${string}`): string {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function isLikelyEnsName(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.endsWith('.eth') && normalized.includes('.');
+}
+
+export function getAgentDisplayIdentity(input: {
+  address: `0x${string}`;
+  name?: string;
+  ensName?: string;
+  ensNode?: `0x${string}`;
+}): AgentDisplayIdentity {
+  const explicitEns = input.ensName?.trim();
+  const ensFromName = input.name?.trim();
+  const ensName = isLikelyEnsName(explicitEns ?? '')
+    ? explicitEns
+    : isLikelyEnsName(ensFromName ?? '')
+      ? ensFromName
+      : undefined;
+  const linkedByNode = Boolean(input.ensNode && input.ensNode !== ZERO_BYTES32);
+  const identityProof: AgentIdentityProof =
+    ensName || linkedByNode ? 'ens-linked' : 'address-only';
+  const shortAddress = formatShortAddress(input.address);
+
+  return {
+    displayName: ensName ?? (input.name?.trim() || shortAddress),
+    ensName,
+    address: input.address,
+    shortAddress,
+    identityProof,
+  };
+}
+
+export function getAgentOnboardingStatus(agent: AgentInfo): AgentOnboardingStatus {
+  const identity = getAgentDisplayIdentity({
+    address: agent.address,
+    name: agent.name,
+    ensNode: agent.ensNode,
+  });
+  const ensLinked = identity.identityProof === 'ens-linked';
+  const registryRegistered = Boolean(agent.exists);
+  const identityMinted = Boolean(agent.agentId);
+  const teeVerified = Boolean(agent.attestation && agent.attestation !== '0x');
+  const marketReady = registryRegistered && ensLinked;
+
+  return {
+    identity,
+    funded: 'unknown',
+    ensLinked,
+    registryRegistered,
+    identityMinted,
+    teeVerified,
+    marketReady,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Agent broadcast feed helpers (off-chain reasoning channel)
+// ---------------------------------------------------------------------------
+
+export interface AgentBroadcast {
+  id: string;
+  type: 'MarketBroadcast' | 'TradeRationale' | 'NegotiationIntent' | 'Onboarding';
+  agent: string;
+  agentAddress: `0x${string}`;
+  ensName?: string;
+  ensNode?: `0x${string}`;
+  marketId?: `0x${string}`;
+  sessionId?: string;
+  side?: 'yes' | 'no';
+  stakeEth?: string;
+  intentHash?: `0x${string}`;
+  intentSignature?: `0x${string}`;
+  tradeTxHash?: `0x${string}`;
+  confidence: number;
+  reasoning: string;
+  timestamp: string;
+}
+
+export async function getAgentBroadcasts(): Promise<AgentBroadcast[]> {
+  try {
+    const response = await fetch('/api/agent-broadcasts', {
+      cache: 'no-store',
+    });
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        return data as AgentBroadcast[];
+      }
+    }
+  } catch {
+    // Fall back to static file source.
+  }
+
+  try {
+    const response = await fetch('/agent-broadcasts.json', {
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? (data as AgentBroadcast[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Mock/demo data for when contracts aren't deployed
 // ---------------------------------------------------------------------------
 
@@ -160,24 +298,30 @@ export const DEMO_MARKETS: MarketInfo[] = [
 export const DEMO_AGENTS: AgentInfo[] = [
   {
     address: '0xA1fa7c3B6Ee43d96C2E4b8f94D71Ce80AbB1D234' as `0x${string}`,
-    name: 'AlphaTrader',
+    name: 'alpha.clawlogic.eth',
     attestation: '0x' as `0x${string}`,
     registeredAt: BigInt(Math.floor(Date.now() / 1000) - 3600),
     exists: true,
+    ensNode:
+      '0x7b770895d95fe3bb7ef3112366f8f22af70f750f00306db12775a4d99f0a6e37' as `0x${string}`,
   },
   {
-    address: '0xBeta2222222222222222222222222222222222aaaa' as `0x${string}`,
-    name: 'BetaContrarian',
+    address: '0xbe7a22222222222222222222222222222222aaaa' as `0x${string}`,
+    name: 'beta.clawlogic.eth',
     attestation: '0x' as `0x${string}`,
     registeredAt: BigInt(Math.floor(Date.now() / 1000) - 1800),
     exists: true,
+    ensNode:
+      '0xe401f2f6f5fe99ea6f1e64adc145f83826f5224feecf35f59eb294f6ea95d4b0' as `0x${string}`,
   },
   {
-    address: '0xDelta333333333333333333333333333333333bbb' as `0x${string}`,
-    name: 'DeltaOracle',
+    address: '0xde1a33333333333333333333333333333333bbbb' as `0x${string}`,
+    name: 'delta.clawlogic.eth',
     attestation: '0x' as `0x${string}`,
     registeredAt: BigInt(Math.floor(Date.now() / 1000) - 600),
     exists: true,
+    ensNode:
+      '0xe5f5d21436f309193fcf9306ff2f5eb7022f0dcf5ed5538cbf8e4f5af8f2a7a6' as `0x${string}`,
   },
 ];
 
@@ -259,5 +403,33 @@ export const DEMO_FEED_EVENTS: DemoFeedEvent[] = [
     message: 'BetaContrarian settled 0.9 ETH from market 0xdead...',
     agent: '0xBeta...aaaa',
     timestamp: new Date(Date.now() - 60000),
+  },
+  {
+    id: '11',
+    type: 'MarketBroadcast',
+    message: 'AlphaTrader broadcast thesis: ETH breakout probability is underpriced by current liquidity.',
+    agent: 'AlphaTrader',
+    timestamp: new Date(Date.now() - 50000),
+  },
+  {
+    id: '12',
+    type: 'NegotiationIntent',
+    message: 'AlphaTrader intent YES 0.01 ETH (72.0% conf) on market 0xa1b2...',
+    agent: 'AlphaTrader',
+    timestamp: new Date(Date.now() - 40000),
+  },
+  {
+    id: '13',
+    type: 'NegotiationIntent',
+    message: 'BetaAnalyst intent NO 0.01 ETH (67.0% conf) on market 0xa1b2...',
+    agent: 'BetaAnalyst',
+    timestamp: new Date(Date.now() - 30000),
+  },
+  {
+    id: '14',
+    type: 'TradeRationale',
+    message: 'BetaAnalyst traded NO 0.005 ETH: downside tail risk appears underpriced.',
+    agent: 'BetaAnalyst',
+    timestamp: new Date(Date.now() - 20000),
   },
 ];

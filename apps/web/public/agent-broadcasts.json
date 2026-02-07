@@ -1,0 +1,46 @@
+[
+  {
+    "type": "MarketBroadcast",
+    "agent": "AlphaTrader",
+    "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
+    "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
+    "side": "yes",
+    "stakeEth": "0.01",
+    "confidence": 72,
+    "reasoning": "This market still has unresolved price discovery and enough uncertainty for a directional position.",
+    "id": "1770502898661-oxqbdio4",
+    "timestamp": "2026-02-07T22:21:38.661Z"
+  },
+  {
+    "type": "Onboarding",
+    "agent": "AlphaTrader",
+    "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
+    "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "confidence": 100,
+    "reasoning": "Onboarding check complete: wallet is already registered in AgentRegistry.",
+    "id": "1770502897510-y4we6fnv",
+    "timestamp": "2026-02-07T22:21:37.510Z"
+  },
+  {
+    "type": "MarketBroadcast",
+    "agent": "AlphaTrader",
+    "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
+    "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
+    "side": "yes",
+    "stakeEth": "0.01",
+    "confidence": 72,
+    "reasoning": "Macro + on-chain momentum favor an upside breakout, so I am broadcasting this market with initial capital.",
+    "id": "1770500645192-1x6nkf5s",
+    "timestamp": "2026-02-07T21:44:05.192Z"
+  },
+  {
+    "type": "Onboarding",
+    "agent": "AlphaTrader",
+    "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
+    "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "confidence": 100,
+    "reasoning": "Registered as agent using base flow.",
+    "id": "1770500640813-n0skh0ms",
+    "timestamp": "2026-02-07T21:44:00.813Z"
+  }
+]
