@@ -293,10 +293,10 @@ MIT License. See [LICENSE](./LICENSE) for details.
 
 ```json
 {
-  "AgentRegistry": "0x02F1C669555f659AFC1Ee46b48eDd2EA256a7209",
-  "PredictionMarketHook": "0x0E7E3c81aBD7C4c9b335BF6db1a4722BeB404880",
+  "AgentRegistry": "0xd0B1864A1da6407A7DE5a08e5f82352b5e230cd3",
+  "PredictionMarketHook": "0xB3C4a85906493f3Cf0d59e891770Bb2e77FA8880",
   "PoolManager": "0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317",
-  "OptimisticOracleV3": "0x61EaFA891D165E5B38b7D181a72C6359eFf5419a"
+  "OptimisticOracleV3": "0x9023B0bB4E082CDcEdFA2b3671371646f4C5FBFb"
 }
 ```
 

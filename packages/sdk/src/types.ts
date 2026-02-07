@@ -58,6 +58,26 @@ export interface AgentInfo {
 }
 
 /**
+ * Market probability derived from AMM reserve ratios.
+ */
+export interface MarketProbability {
+  /** Outcome1 probability as a percentage (0-100) */
+  outcome1Probability: number;
+  /** Outcome2 probability as a percentage (0-100) */
+  outcome2Probability: number;
+}
+
+/**
+ * Raw AMM reserves for a market.
+ */
+export interface MarketReserves {
+  /** Outcome1 token reserve held by the contract */
+  reserve1: bigint;
+  /** Outcome2 token reserve held by the contract */
+  reserve2: bigint;
+}
+
+/**
  * Agent reputation score from ERC-8004 AgentReputationRegistry.
  */
 export interface ReputationScore {
@@ -194,7 +214,8 @@ export interface MarketEvent {
     | 'MarketResolved'
     | 'AssertionFailed'
     | 'AssertionDisputed'
-    | 'TokensSettled';
+    | 'TokensSettled'
+    | 'OutcomeTokenBought';
   marketId: `0x${string}`;
   blockNumber: bigint;
   transactionHash: `0x${string}`;

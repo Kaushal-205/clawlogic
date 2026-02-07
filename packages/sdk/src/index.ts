@@ -17,6 +17,8 @@ export type {
   DeploymentInfo,
   MarketEvent,
   MarketEventCallback,
+  MarketProbability,
+  MarketReserves,
   ReputationScore,
   GlobalReputationScore,
   ValidationProof,

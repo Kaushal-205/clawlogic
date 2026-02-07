@@ -1,16 +1,17 @@
 'use client';
 
-import type { MarketInfo } from '@clawlogic/sdk';
+import type { MarketInfo, MarketProbability } from '@clawlogic/sdk';
 
 interface MarketCardProps {
   market: MarketInfo;
   index: number;
+  probability?: MarketProbability;
 }
 
 const ZERO_BYTES32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-export default function MarketCard({ market, index }: MarketCardProps) {
+export default function MarketCard({ market, index, probability }: MarketCardProps) {
   const formatEth = (wei: bigint) => {
     const eth = Number(wei) / 1e18;
     if (eth === 0) return '0.0000';
@@ -54,10 +55,8 @@ export default function MarketCard({ market, index }: MarketCardProps) {
 
   const status = getStatus();
 
-  // Calculate probabilities (50/50 for now - will be based on AMM pricing later)
-  // TODO: When V4 swaps are active, calculate from token prices
-  const yesProbability = 50;
-  const noProbability = 50;
+  const yesProbability = probability ? Math.round(probability.outcome1Probability) : 50;
+  const noProbability = probability ? Math.round(probability.outcome2Probability) : 50;
 
   return (
     <div
@@ -105,7 +104,7 @@ export default function MarketCard({ market, index }: MarketCardProps) {
             <div className="flex items-center justify-between text-[10px] font-mono">
               <span className="text-[#a0a0a0] opacity-70">MARKET PROBABILITY</span>
               <span className="text-[#a0a0a0] opacity-50">
-                {market.totalCollateral === 0n ? 'NO LIQUIDITY' : 'EQUAL SPLIT'}
+                {market.totalCollateral === 0n ? 'NO LIQUIDITY' : yesProbability === 50 ? 'EQUAL SPLIT' : 'AMM PRICE'}
               </span>
             </div>
             <div className="relative h-2 bg-black/50 rounded-sm overflow-hidden border border-[#00ff41]/20">

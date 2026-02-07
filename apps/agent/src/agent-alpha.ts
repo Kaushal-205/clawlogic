@@ -176,8 +176,29 @@ export async function runAlpha(client?: ClawlogicClient): Promise<`0x${string}`>
       `NO=${formatEther(positionAfter.outcome2Balance)}`,
   );
 
+  // ── Phase 4: Buy YES tokens (directional bet via CPMM) ────────────────
+
+  console.log('\n[Phase 4] Buying YES tokens via AMM...');
+
+  const buyAmount = parseEther('0.005');
+  console.log(`  Buying YES with 0.005 ETH...`);
+
+  try {
+    const buyTxHash = await client.buyOutcomeToken(marketId, true, buyAmount);
+    console.log(`  Buy TX: ${buyTxHash}`);
+
+    const probability = await client.getMarketProbability(marketId);
+    console.log(
+      `  Market probability: YES=${probability.outcome1Probability.toFixed(1)}%, ` +
+        `NO=${probability.outcome2Probability.toFixed(1)}%`,
+    );
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.log(`  Buy skipped (no AMM liquidity): ${msg}`);
+  }
+
   console.log('\n================================================================');
-  console.log('  Agent Alpha: Phases 1-3 complete!');
+  console.log('  Agent Alpha: Phases 1-4 complete!');
   console.log(`  Market ID: ${marketId}`);
   console.log('================================================================\n');
 

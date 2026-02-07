@@ -28,8 +28,8 @@ import {OptimisticOracleV3CallbackRecipientInterface} from
 // ──────────────────────────────────────────────────────────────────────────────
 // Project Contracts
 // ──────────────────────────────────────────────────────────────────────────────
-import {IAgentRegistry} from "./interfaces/IAgentRegistry.sol";
 import {OutcomeToken} from "./OutcomeToken.sol";
+import {IAgentRegistry} from "./interfaces/IAgentRegistry.sol";
 
 /// @title PredictionMarketHook
 /// @author $CLAWLOGIC Team
@@ -58,6 +58,7 @@ import {OutcomeToken} from "./OutcomeToken.sol";
 ///         This is a deliberate hackathon trade-off; in production the sender address
 ///         would be forwarded through the hookData parameter or a router contract.
 contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientInterface {
+
     using SafeERC20 for IERC20;
     using PoolIdLibrary for PoolKey;
 
@@ -78,26 +79,35 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
         bytes32 assertedOutcomeId; // keccak256 of the currently asserted outcome string
         PoolId poolId; // V4 pool associated with this market (zero if none)
         uint256 totalCollateral; // total ETH locked as collateral
+        uint256 reserve1; // AMM reserve of outcome1 tokens held by contract
+        uint256 reserve2; // AMM reserve of outcome2 tokens held by contract
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Immutables
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice The agent identity registry used for Silicon Gate checks.
-    IAgentRegistry public immutable i_registry;
-
     /// @notice UMA Optimistic Oracle V3 instance.
     OptimisticOracleV3Interface public immutable i_oo;
+
+    /// @notice The agent identity registry used for Silicon Gate checks.
+    IAgentRegistry public immutable i_registry;
 
     /// @notice ERC-20 used as the UMA assertion bond currency.
     IERC20 public immutable i_currency;
 
+    /// @notice Default UMA identifier, fetched from the OOV3 at deploy time.
+    bytes32 public immutable i_defaultIdentifier;
+    
     /// @notice Default liveness window for UMA assertions (seconds). 120 s for demo.
     uint64 public immutable i_defaultLiveness;
 
-    /// @notice Default UMA identifier, fetched from the OOV3 at deploy time.
-    bytes32 public immutable i_defaultIdentifier;
+    // ─────────────────────────────────────────────────────────────────────────
+    // Constants
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @dev UMA's standard assertion identifier. Hardcoded to avoid external call in constructor.
+    bytes32 private constant ASSERT_TRUTH_IDENTIFIER = bytes32("ASSERT_TRUTH");
 
     // ─────────────────────────────────────────────────────────────────────────
     // Storage
@@ -153,6 +163,9 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
     /// @notice Thrown when an ETH transfer fails during settlement.
     error EthTransferFailed();
 
+    /// @notice Thrown when the output tokens from a buy are below the caller's minimum.
+    error InsufficientOutput();
+
     // ─────────────────────────────────────────────────────────────────────────
     // Events
     // ─────────────────────────────────────────────────────────────────────────
@@ -180,6 +193,11 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
     /// @notice Emitted when an agent redeems winning outcome tokens for ETH.
     event TokensSettled(bytes32 indexed marketId, address indexed agent, uint256 payout);
 
+    /// @notice Emitted when an agent buys directional outcome tokens via the built-in CPMM.
+    event OutcomeTokenBought(
+        bytes32 indexed marketId, address indexed buyer, bool isOutcome1, uint256 ethIn, uint256 tokensOut
+    );
+
     // ─────────────────────────────────────────────────────────────────────────
     // Constructor
     // ─────────────────────────────────────────────────────────────────────────
@@ -202,7 +220,7 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
         i_oo = _oo;
         i_currency = _currency;
         i_defaultLiveness = _defaultLiveness;
-        i_defaultIdentifier = _oo.defaultIdentifier();
+        i_defaultIdentifier = ASSERT_TRUTH_IDENTIFIER;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -285,7 +303,7 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
         string calldata description,
         uint256 reward,
         uint256 requiredBond
-    ) external returns (bytes32 marketId) {
+    ) external payable returns (bytes32 marketId) {
         if (!i_registry.isAgent(msg.sender)) {
             revert NotRegisteredAgent();
         }
@@ -324,6 +342,15 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
         // m.assertedOutcomeId defaults to bytes32(0)
         // m.poolId defaults to bytes32(0) -- V4 pool association is optional for MVP
         // m.totalCollateral defaults to 0
+
+        // Seed AMM liquidity if ETH is sent with the call.
+        if (msg.value > 0) {
+            token1.mint(address(this), msg.value);
+            token2.mint(address(this), msg.value);
+            m.reserve1 = msg.value;
+            m.reserve2 = msg.value;
+            m.totalCollateral = msg.value;
+        }
 
         s_marketIds.push(marketId);
         s_marketCount++;
@@ -561,6 +588,76 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Built-in CPMM (Constant Product Market Maker)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice Buy directional outcome tokens via the built-in CPMM.
+    /// @dev The caller sends ETH which is used to mint equal quantities of both outcome
+    ///      tokens into the reserves. The constant product invariant (k = reserve1 * reserve2)
+    ///      is then used to calculate how many tokens of the chosen side can be released.
+    ///      This shifts the probability: buying outcome1 increases outcome1's price.
+    /// @param marketId      The market to trade on.
+    /// @param isOutcome1    True to buy outcome1 tokens, false to buy outcome2 tokens.
+    /// @param minTokensOut  Minimum tokens the buyer expects to receive (slippage protection).
+    function buyOutcomeToken(bytes32 marketId, bool isOutcome1, uint256 minTokensOut) external payable {
+        if (!i_registry.isAgent(msg.sender)) {
+            revert NotRegisteredAgent();
+        }
+        if (msg.value == 0) {
+            revert ZeroMintAmount();
+        }
+
+        Market storage m = s_markets[marketId];
+        if (address(m.outcome1Token) == address(0)) {
+            revert MarketNotFound();
+        }
+        if (m.resolved) {
+            revert MarketAlreadyResolved();
+        }
+        if (m.reserve1 == 0 || m.reserve2 == 0) {
+            revert MarketNotFound(); // No liquidity seeded
+        }
+
+        // Save the old invariant before adding new tokens.
+        uint256 k = m.reserve1 * m.reserve2;
+
+        // Mint both tokens to the contract (adds to reserves).
+        m.outcome1Token.mint(address(this), msg.value);
+        m.outcome2Token.mint(address(this), msg.value);
+        m.totalCollateral += msg.value;
+
+        // Add to both reserves.
+        m.reserve1 += msg.value;
+        m.reserve2 += msg.value;
+
+        // Calculate how many tokens to release from the chosen side using the
+        // constant product formula: newReserve = k / otherReserve.
+        uint256 tokensOut;
+        if (isOutcome1) {
+            uint256 newReserve1 = k / m.reserve2;
+            tokensOut = m.reserve1 - newReserve1;
+            m.reserve1 = newReserve1;
+        } else {
+            uint256 newReserve2 = k / m.reserve1;
+            tokensOut = m.reserve2 - newReserve2;
+            m.reserve2 = newReserve2;
+        }
+
+        if (tokensOut < minTokensOut) {
+            revert InsufficientOutput();
+        }
+
+        // Transfer the bought tokens to the buyer.
+        if (isOutcome1) {
+            m.outcome1Token.transfer(msg.sender, tokensOut);
+        } else {
+            m.outcome2Token.transfer(msg.sender, tokensOut);
+        }
+
+        emit OutcomeTokenBought(marketId, msg.sender, isOutcome1, msg.value, tokensOut);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // View Helpers
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -614,6 +711,39 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
     /// @return An array of all created marketId values.
     function getMarketIds() external view returns (bytes32[] memory) {
         return s_marketIds;
+    }
+
+    /// @notice Returns the implied probability for each outcome in basis points (0-10000).
+    /// @dev Probability is derived from the CPMM reserve ratio. Lower reserve = higher price
+    ///      = higher probability. If no liquidity is seeded, returns 50/50.
+    ///      Formula: prob1 = reserve2 * 10000 / (reserve1 + reserve2)
+    /// @param marketId The market to query.
+    /// @return prob1Bps Outcome1 probability in basis points (e.g., 6000 = 60%).
+    /// @return prob2Bps Outcome2 probability in basis points (e.g., 4000 = 40%).
+    function getMarketProbability(bytes32 marketId)
+        external
+        view
+        returns (uint256 prob1Bps, uint256 prob2Bps)
+    {
+        Market storage m = s_markets[marketId];
+        if (m.reserve1 == 0 || m.reserve2 == 0) {
+            return (5000, 5000); // 50/50 when no liquidity
+        }
+        prob1Bps = (m.reserve2 * 10000) / (m.reserve1 + m.reserve2);
+        prob2Bps = 10000 - prob1Bps;
+    }
+
+    /// @notice Returns the raw AMM reserves for a market.
+    /// @param marketId The market to query.
+    /// @return reserve1 The outcome1 token reserve held by the contract.
+    /// @return reserve2 The outcome2 token reserve held by the contract.
+    function getMarketReserves(bytes32 marketId)
+        external
+        view
+        returns (uint256 reserve1, uint256 reserve2)
+    {
+        Market storage m = s_markets[marketId];
+        return (m.reserve1, m.reserve2);
     }
 
     /// @notice Allow the contract to receive ETH (required for mintOutcomeTokens).

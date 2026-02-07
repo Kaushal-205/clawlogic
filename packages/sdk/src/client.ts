@@ -19,6 +19,8 @@ import type {
   AgentInfo,
   MarketEvent,
   MarketEventCallback,
+  MarketProbability,
+  MarketReserves,
 } from './types.js';
 import { agentRegistryAbi } from './abis/agentRegistryAbi.js';
 import { predictionMarketHookAbi } from './abis/predictionMarketHookAbi.js';
@@ -386,6 +388,38 @@ export class ClawlogicClient {
     return this.waitForTx(hash);
   }
 
+  /**
+   * Buy directional outcome tokens via the built-in CPMM.
+   *
+   * Sends ETH to the contract, which mints both tokens into AMM reserves
+   * then releases tokens from the chosen side based on the constant product
+   * invariant. This shifts the market probability.
+   *
+   * @param marketId - The market to trade on (bytes32).
+   * @param isOutcome1 - True to buy outcome1 (YES) tokens, false for outcome2 (NO).
+   * @param ethAmount - Amount of ETH to spend (in wei).
+   * @param minTokensOut - Minimum tokens expected (slippage protection). Defaults to 0.
+   * @returns Transaction hash of the buy operation.
+   */
+  async buyOutcomeToken(
+    marketId: `0x${string}`,
+    isOutcome1: boolean,
+    ethAmount: bigint,
+    minTokensOut: bigint = 0n,
+  ): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'buyOutcomeToken',
+      args: [marketId, isOutcome1, minTokensOut],
+      value: ethAmount,
+    });
+
+    return this.waitForTx(hash);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // Prediction Market Methods (Read)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -477,6 +511,50 @@ export class ClawlogicClient {
     const ids = await this.getMarketIds();
     const markets = await Promise.all(ids.map((id) => this.getMarket(id)));
     return markets;
+  }
+
+  /**
+   * Get the implied probability for each outcome in a market.
+   *
+   * Derived from the CPMM reserve ratios. Returns 50/50 if no AMM
+   * liquidity has been seeded.
+   *
+   * @param marketId - The market identifier (bytes32).
+   * @returns MarketProbability with outcome1 and outcome2 percentages (0-100).
+   */
+  async getMarketProbability(marketId: `0x${string}`): Promise<MarketProbability> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'getMarketProbability',
+      args: [marketId],
+    });
+
+    const [prob1Bps, prob2Bps] = result as [bigint, bigint];
+
+    return {
+      outcome1Probability: Number(prob1Bps) / 100,
+      outcome2Probability: Number(prob2Bps) / 100,
+    };
+  }
+
+  /**
+   * Get the raw AMM reserves for a market.
+   *
+   * @param marketId - The market identifier (bytes32).
+   * @returns MarketReserves with reserve1 and reserve2 in wei.
+   */
+  async getMarketReserves(marketId: `0x${string}`): Promise<MarketReserves> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'getMarketReserves',
+      args: [marketId],
+    });
+
+    const [reserve1, reserve2] = result as [bigint, bigint];
+
+    return { reserve1, reserve2 };
   }
 
   /**
@@ -651,6 +729,7 @@ export class ClawlogicClient {
     watchEvent('AssertionFailed');
     watchEvent('AssertionDisputed');
     watchEvent('TokensSettled');
+    watchEvent('OutcomeTokenBought');
 
     // Return a single unwatch function that stops all watchers
     return () => {

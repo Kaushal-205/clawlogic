@@ -125,6 +125,29 @@ abstract contract TestSetup is Test {
         hook.mintOutcomeTokens{value: ethAmount}(marketId);
     }
 
+    /// @notice Helper to create a market with initial AMM liquidity
+    function _createMarketWithLiquidity(
+        address creator,
+        string memory description,
+        uint256 reward,
+        uint256 requiredBond,
+        uint256 initialLiquidity
+    ) internal returns (bytes32 marketId) {
+        if (reward > 0) {
+            vm.prank(creator);
+            mockCurrency.approve(address(hook), reward);
+        }
+
+        vm.prank(creator);
+        marketId = hook.initializeMarket{value: initialLiquidity}(
+            "yes",
+            "no",
+            description,
+            reward,
+            requiredBond
+        );
+    }
+
     /// @notice Helper to assert a market outcome
     function _assertMarket(
         address agent,

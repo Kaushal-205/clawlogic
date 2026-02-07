@@ -11,7 +11,7 @@
  */
 
 import 'dotenv/config';
-import { formatEther, decodeEventLog, type Hex } from 'viem';
+import { formatEther, parseEther, decodeEventLog, type Hex } from 'viem';
 import {
   ClawlogicClient,
   loadConfigFromDeployment,
@@ -100,6 +100,22 @@ async function main() {
   const txHash = await client.mintOutcomeTokens(marketId, mintAmount);
   console.log(`  ✓ Minted ${mintAmount} ETH worth of tokens`);
   console.log(`  TX: ${txHash}`);
+
+  // Step 3b: Buy YES tokens via AMM
+  console.log('\n[Step 3b] Buying YES tokens via AMM...');
+  try {
+    const buyTxHash = await client.buyOutcomeToken(marketId, true, parseEther('0.005'));
+    console.log(`  ✓ Bought YES tokens: ${buyTxHash}`);
+
+    const probability = await client.getMarketProbability(marketId);
+    console.log(
+      `  Market probability: YES=${probability.outcome1Probability.toFixed(1)}%, ` +
+        `NO=${probability.outcome2Probability.toFixed(1)}%`,
+    );
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.log(`  ⚠ Buy skipped (no AMM liquidity): ${msg}`);
+  }
 
   // Step 4: Assert outcome
   console.log('\n[Step 4] Asserting outcome "yes"...');

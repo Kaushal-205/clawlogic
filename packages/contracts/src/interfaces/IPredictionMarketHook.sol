@@ -36,6 +36,11 @@ interface IPredictionMarketHook {
     /// @notice Emitted when an agent redeems winning outcome tokens for ETH.
     event TokensSettled(bytes32 indexed marketId, address indexed agent, uint256 payout);
 
+    /// @notice Emitted when an agent buys directional outcome tokens via the built-in CPMM.
+    event OutcomeTokenBought(
+        bytes32 indexed marketId, address indexed buyer, bool isOutcome1, uint256 ethIn, uint256 tokensOut
+    );
+
     // ─────────────────────────────────────────────────────────────────────────
     // Errors
     // ─────────────────────────────────────────────────────────────────────────
@@ -70,6 +75,9 @@ interface IPredictionMarketHook {
     /// @notice Thrown when an ETH transfer fails during settlement.
     error EthTransferFailed();
 
+    /// @notice Thrown when the output tokens from a buy are below the caller's minimum.
+    error InsufficientOutput();
+
     // ─────────────────────────────────────────────────────────────────────────
     // Functions
     // ─────────────────────────────────────────────────────────────────────────
@@ -87,7 +95,7 @@ interface IPredictionMarketHook {
         string calldata description,
         uint256 reward,
         uint256 requiredBond
-    ) external returns (bytes32 marketId);
+    ) external payable returns (bytes32 marketId);
 
     /// @notice Deposit ETH collateral to mint equal amounts of both outcome tokens.
     /// @param marketId The market to mint tokens for.
@@ -120,6 +128,24 @@ interface IPredictionMarketHook {
             PoolId poolId,
             uint256 totalCollateral
         );
+
+    /// @notice Buy directional outcome tokens via the built-in CPMM.
+    /// @param marketId      The market to trade on.
+    /// @param isOutcome1    True to buy outcome1 tokens, false to buy outcome2 tokens.
+    /// @param minTokensOut  Minimum tokens the buyer expects to receive (slippage protection).
+    function buyOutcomeToken(bytes32 marketId, bool isOutcome1, uint256 minTokensOut) external payable;
+
+    /// @notice Returns the implied probability for each outcome in basis points (0-10000).
+    /// @param marketId The market to query.
+    /// @return prob1Bps Outcome1 probability in basis points.
+    /// @return prob2Bps Outcome2 probability in basis points.
+    function getMarketProbability(bytes32 marketId) external view returns (uint256 prob1Bps, uint256 prob2Bps);
+
+    /// @notice Returns the raw AMM reserves for a market.
+    /// @param marketId The market to query.
+    /// @return reserve1 The outcome1 token reserve.
+    /// @return reserve2 The outcome2 token reserve.
+    function getMarketReserves(bytes32 marketId) external view returns (uint256 reserve1, uint256 reserve2);
 
     /// @notice Returns all market IDs for enumeration.
     /// @return An array of all created marketId values.

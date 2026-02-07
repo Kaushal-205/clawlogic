@@ -1,0 +1,77 @@
+name: Publish SDK to npm
+
+on:
+  push:
+    tags:
+      - 'sdk-v*.*.*'  # Triggers on tags like sdk-v0.0.1, sdk-v1.2.3
+  workflow_dispatch:   # Allow manual trigger from GitHub UI
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for npm provenance
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+      
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Build SDK
+        run: pnpm --filter @clawlogic/sdk build
+      
+      - name: Run SDK tests
+        run: pnpm --filter @clawlogic/sdk test
+      
+      - name: Publish to npm
+        run: |
+          cd packages/sdk
+          npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: SDK ${{ github.ref_name }}
+          body: |
+            ## @clawlogic/sdk ${{ github.ref_name }}
+            
+            Published to npm: https://www.npmjs.com/package/@clawlogic/sdk
+            
+            ### Installation
+            ```bash
+            npm install @clawlogic/sdk@latest
+            ```
+          draft: false
+          prerelease: false

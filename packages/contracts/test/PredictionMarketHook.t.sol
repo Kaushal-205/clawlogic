@@ -659,6 +659,117 @@ contract PredictionMarketHookTest is TestSetup {
         assertTrue(ethAfter > ethBefore, "Alpha should receive payout");
     }
 
+    // -------------------------------------------------
+    // AMM / CPMM Tests
+    // -------------------------------------------------
+
+    function test_InitializeMarket_WithLiquidity() public {
+        bytes32 marketId = _createMarketWithLiquidity(
+            agentAlpha,
+            "Liquidity test",
+            0,
+            0,
+            5 ether
+        );
+
+        // Verify reserves
+        (uint256 r1, uint256 r2) = hook.getMarketReserves(marketId);
+        assertEq(r1, 5 ether, "Reserve1 should equal initial liquidity");
+        assertEq(r2, 5 ether, "Reserve2 should equal initial liquidity");
+
+        // Verify probability is 50/50
+        (uint256 p1, uint256 p2) = hook.getMarketProbability(marketId);
+        assertEq(p1, 5000, "Prob1 should be 50%");
+        assertEq(p2, 5000, "Prob2 should be 50%");
+
+        // Verify collateral tracked
+        (, , , , , , , , , , uint256 totalCollateral) = hook.getMarket(marketId);
+        assertEq(totalCollateral, 5 ether, "Collateral should track liquidity");
+    }
+
+    function test_BuyOutcomeToken_Outcome1() public {
+        bytes32 marketId = _createMarketWithLiquidity(
+            agentAlpha,
+            "Buy test",
+            0,
+            0,
+            10 ether
+        );
+
+        // Get token addresses
+        (, , , address outcome1Token, , , , , , , ) = hook.getMarket(marketId);
+
+        // Buy outcome1 tokens
+        vm.prank(agentBeta);
+        hook.buyOutcomeToken{value: 1 ether}(marketId, true, 0);
+
+        // Verify agent received outcome1 tokens
+        OutcomeToken token1 = OutcomeToken(outcome1Token);
+        uint256 balance = token1.balanceOf(agentBeta);
+        assertTrue(balance > 0, "Agent should have outcome1 tokens");
+    }
+
+    function test_BuyOutcomeToken_ShiftsProbability() public {
+        bytes32 marketId = _createMarketWithLiquidity(
+            agentAlpha,
+            "Probability shift test",
+            0,
+            0,
+            10 ether
+        );
+
+        // Buy outcome1 tokens (YES)
+        vm.prank(agentBeta);
+        hook.buyOutcomeToken{value: 2 ether}(marketId, true, 0);
+
+        // Probability should shift: outcome1 > 50%, outcome2 < 50%
+        (uint256 p1, uint256 p2) = hook.getMarketProbability(marketId);
+        assertTrue(p1 > 5000, "Outcome1 probability should be above 50%");
+        assertTrue(p2 < 5000, "Outcome2 probability should be below 50%");
+        assertEq(p1 + p2, 10000, "Probabilities should sum to 100%");
+    }
+
+    function test_BuyOutcomeToken_NotAgent_Reverts() public {
+        bytes32 marketId = _createMarketWithLiquidity(
+            agentAlpha,
+            "Agent gate test",
+            0,
+            0,
+            10 ether
+        );
+
+        vm.prank(humanUser);
+        vm.expectRevert(IPredictionMarketHook.NotRegisteredAgent.selector);
+        hook.buyOutcomeToken{value: 1 ether}(marketId, true, 0);
+    }
+
+    function test_GetMarketProbability_NoLiquidity() public {
+        bytes32 marketId = _createMarket(agentAlpha, "No liquidity", 0, 0);
+
+        (uint256 p1, uint256 p2) = hook.getMarketProbability(marketId);
+        assertEq(p1, 5000, "Should default to 50%");
+        assertEq(p2, 5000, "Should default to 50%");
+    }
+
+    function test_BuyOutcomeToken_InsufficientOutput_Reverts() public {
+        bytes32 marketId = _createMarketWithLiquidity(
+            agentAlpha,
+            "Slippage test",
+            0,
+            0,
+            10 ether
+        );
+
+        // Set minTokensOut unreasonably high
+        vm.prank(agentBeta);
+        vm.expectRevert(IPredictionMarketHook.InsufficientOutput.selector);
+        hook.buyOutcomeToken{value: 1 ether}(marketId, true, 100 ether);
+    }
+
+    // -------------------------------------------------
+    // Integration Tests (continued)
+    // -------------------------------------------------
+
     function test_FullMarketLifecycle_WithDispute() public {
         // 1. Create market
         bytes32 marketId = _createMarket(agentAlpha, "Disputed market", 0, 0);

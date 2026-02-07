@@ -1,18 +1,18 @@
 {
-  "blockNumber": 10205314,
+  "blockNumber": 10210362,
   "chainId": 421614,
   "contracts": {
-    "AgentIdentityRegistry": "0xA8e20F6ce96a0f8DC44Fc4B237dC9DdfA1aD73A5",
-    "AgentRegistry": "0x02F1C669555f659AFC1Ee46b48eDd2EA256a7209",
-    "AgentReputationRegistry": "0x44144FA830D4A282560B13c6C902b4bAda54340A",
-    "AgentValidationRegistry": "0x786721F886C5F0aab11d5A1D95cEd37AA626EEa6",
+    "AgentIdentityRegistry": "0x524a9DFc308140F758B29f8b20e3a6Fb0c2AEeFa",
+    "AgentRegistry": "0xd0B1864A1da6407A7DE5a08e5f82352b5e230cd3",
+    "AgentReputationRegistry": "0x480eC00AE5d5c786C4Ce3F39210c4D910d85f90f",
+    "AgentValidationRegistry": "0x78Aab51f5cc2F5fee50fCB8a73928EeD07184330",
     "BondCurrency": "0x2836ae2eA2c013acD38028fD0C77B92cccFa2EE4",
-    "ENSRegistry": "0x99Fb7dFa81f3D9b9b6980BE1Eaec6D208B10cfD5",
-    "OptimisticOracleV3": "0x61EaFA891D165E5B38b7D181a72C6359eFf5419a",
-    "PhalaVerifier": "0xe2554B7eaC3a5e382EDfF06178076985CdC2312F",
+    "ENSRegistry": "0xfC76fD768298ccCFbce5d16993181C0a69D459f2",
+    "OptimisticOracleV3": "0x9023B0bB4E082CDcEdFA2b3671371646f4C5FBFb",
+    "PhalaVerifier": "0x9a1C230e8B7033c2Ca52BF833AE40F2A082C1658",
     "PoolManager": "0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317",
-    "PredictionMarketHook": "0x0E7E3c81aBD7C4c9b335BF6db1a4722BeB404880"
+    "PredictionMarketHook": "0xB3C4a85906493f3Cf0d59e891770Bb2e77FA8880"
   },
-  "deployedAt": "1770403583",
-  "deployer": "0x0C00fb45B7E226EC7CEeAd762eB28066a0500B52"
+  "deployedAt": "1770465920",
+  "deployer": "0x4382E4d32F6Dc72812B51B956f43253d85cB23FD"
 }

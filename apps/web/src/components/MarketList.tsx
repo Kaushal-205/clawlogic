@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import type { MarketInfo, ClawlogicConfig } from '@clawlogic/sdk';
+import type { MarketInfo, MarketProbability, ClawlogicConfig } from '@clawlogic/sdk';
 import { ClawlogicClient } from '@clawlogic/sdk';
 import MarketCard from './MarketCard';
 import { DEMO_MARKETS } from '@/lib/client';
@@ -12,6 +12,7 @@ interface MarketListProps {
 
 export default function MarketList({ config }: MarketListProps) {
   const [markets, setMarkets] = useState<MarketInfo[]>([]);
+  const [probabilities, setProbabilities] = useState<Record<string, MarketProbability>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usingDemo, setUsingDemo] = useState(false);
@@ -25,9 +26,23 @@ export default function MarketList({ config }: MarketListProps) {
       setUsingDemo(false);
       setError(null);
       setLastRefresh(new Date());
+
+      // Fetch probabilities for all markets
+      const probs: Record<string, MarketProbability> = {};
+      await Promise.all(
+        allMarkets.map(async (m) => {
+          try {
+            probs[m.marketId] = await client.getMarketProbability(m.marketId);
+          } catch {
+            probs[m.marketId] = { outcome1Probability: 50, outcome2Probability: 50 };
+          }
+        }),
+      );
+      setProbabilities(probs);
     } catch {
       // Fallback to demo data
       setMarkets(DEMO_MARKETS);
+      setProbabilities({});
       setUsingDemo(true);
       setError(null);
       setLastRefresh(new Date());
@@ -116,7 +131,12 @@ export default function MarketList({ config }: MarketListProps) {
       ) : (
         <div className="space-y-4">
           {markets.map((market, i) => (
-            <MarketCard key={market.marketId} market={market} index={i + 1} />
+            <MarketCard
+              key={market.marketId}
+              market={market}
+              index={i + 1}
+              probability={probabilities[market.marketId]}
+            />
           ))}
         </div>
       )}

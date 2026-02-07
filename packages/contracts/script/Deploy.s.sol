@@ -178,13 +178,17 @@ contract DeployScript is Script {
         );
         console2.log("AgentRegistry:           ", address(registry));
 
-        vm.stopBroadcast();
-
         // ── 5. Mine a CREATE2 salt for the PredictionMarketHook ─────────
         //
         // The hook address must have BEFORE_SWAP_FLAG (bit 7) and
         // BEFORE_ADD_LIQUIDITY_FLAG (bit 11) set in its lowest 14 bits.
-        uint160 flags = uint160(Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_ADD_LIQUIDITY_FLAG);
+        //
+        // NOTE: Salt mining MUST happen inside the broadcast block so that
+        // the MockOOV3 contract actually exists when HookMiner simulates the
+        // PredictionMarketHook constructor (which calls _oo.defaultIdentifier()).
+        uint160 flags = uint160(
+            Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_ADD_LIQUIDITY_FLAG
+        );
 
         bytes memory constructorArgs = abi.encode(
             IPoolManager(poolManager),
@@ -208,7 +212,6 @@ contract DeployScript is Script {
         console2.log("");
 
         // ── 6. Deploy PredictionMarketHook via CREATE2 ──────────────────
-        vm.startBroadcast(deployerPk);
 
         PredictionMarketHook hook = new PredictionMarketHook{salt: salt}(
             IPoolManager(poolManager),
@@ -293,7 +296,11 @@ contract DeployScript is Script {
         string memory contractsJson = vm.serializeAddress(contracts, "PhalaVerifier", phalaVerifier);
 
         // Finalize the top-level JSON with the nested contracts.
-        string memory finalJson = vm.serializeString(json, "contracts", contractsJson);
+        string memory finalJson = vm.serializeString(
+            json,
+            "contracts",
+            contractsJson
+        );
 
         // Determine output path based on chain ID.
         string memory fileName;

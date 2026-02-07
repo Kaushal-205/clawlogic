@@ -17,7 +17,7 @@ export const predictionMarketHookAbi = [
       { name: 'requiredBond', type: 'uint256', internalType: 'uint256' },
     ],
     outputs: [{ name: 'marketId', type: 'bytes32', internalType: 'bytes32' }],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
   },
   {
     type: 'function',
@@ -42,6 +42,39 @@ export const predictionMarketHookAbi = [
     inputs: [{ name: 'marketId', type: 'bytes32', internalType: 'bytes32' }],
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+
+  // ── CPMM Functions ───────────────────────────────────────────────────
+  {
+    type: 'function',
+    name: 'buyOutcomeToken',
+    inputs: [
+      { name: 'marketId', type: 'bytes32', internalType: 'bytes32' },
+      { name: 'isOutcome1', type: 'bool', internalType: 'bool' },
+      { name: 'minTokensOut', type: 'uint256', internalType: 'uint256' },
+    ],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    name: 'getMarketProbability',
+    inputs: [{ name: 'marketId', type: 'bytes32', internalType: 'bytes32' }],
+    outputs: [
+      { name: 'prob1Bps', type: 'uint256', internalType: 'uint256' },
+      { name: 'prob2Bps', type: 'uint256', internalType: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getMarketReserves',
+    inputs: [{ name: 'marketId', type: 'bytes32', internalType: 'bytes32' }],
+    outputs: [
+      { name: 'reserve1', type: 'uint256', internalType: 'uint256' },
+      { name: 'reserve2', type: 'uint256', internalType: 'uint256' },
+    ],
+    stateMutability: 'view',
   },
 
   // ── View / Read Functions ──────────────────────────────────────────
@@ -192,6 +225,18 @@ export const predictionMarketHookAbi = [
     ],
     anonymous: false,
   },
+  {
+    type: 'event',
+    name: 'OutcomeTokenBought',
+    inputs: [
+      { name: 'marketId', type: 'bytes32', indexed: true, internalType: 'bytes32' },
+      { name: 'buyer', type: 'address', indexed: true, internalType: 'address' },
+      { name: 'isOutcome1', type: 'bool', indexed: false, internalType: 'bool' },
+      { name: 'ethIn', type: 'uint256', indexed: false, internalType: 'uint256' },
+      { name: 'tokensOut', type: 'uint256', indexed: false, internalType: 'uint256' },
+    ],
+    anonymous: false,
+  },
 
   // ── Errors ─────────────────────────────────────────────────────────
   { type: 'error', name: 'ActiveAssertionExists', inputs: [] },
@@ -210,5 +255,6 @@ export const predictionMarketHookAbi = [
     name: 'SafeERC20FailedOperation',
     inputs: [{ name: 'token', type: 'address', internalType: 'address' }],
   },
+  { type: 'error', name: 'InsufficientOutput', inputs: [] },
   { type: 'error', name: 'ZeroMintAmount', inputs: [] },
 ] as const;

@@ -174,8 +174,27 @@ export async function runBeta(
     `  New position: YES=${formatEther(positionAfter.outcome1Balance)}, ` +
       `NO=${formatEther(positionAfter.outcome2Balance)}`,
   );
-  console.log('  Note: In production, Beta would swap YES -> NO on Uniswap V4');
-  console.log('        to take the opposite side of Alpha.');
+
+  // ── Phase 3b: Buy NO tokens (contrarian bet via CPMM) ─────────────────
+
+  console.log('\n[Phase 3b] Buying NO tokens via AMM (contrarian position)...');
+
+  const buyAmount = parseEther('0.005');
+  console.log(`  Buying NO with 0.005 ETH...`);
+
+  try {
+    const buyTxHash = await client.buyOutcomeToken(marketId, false, buyAmount);
+    console.log(`  Buy TX: ${buyTxHash}`);
+
+    const probability = await client.getMarketProbability(marketId);
+    console.log(
+      `  Market probability: YES=${probability.outcome1Probability.toFixed(1)}%, ` +
+        `NO=${probability.outcome2Probability.toFixed(1)}%`,
+    );
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.log(`  Buy skipped (no AMM liquidity): ${msg}`);
+  }
 
   // ── Phase 4: Monitor Assertions ──────────────────────────────────────────
 
