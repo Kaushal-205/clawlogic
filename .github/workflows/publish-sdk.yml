@@ -49,6 +49,9 @@ jobs:
       
       - name: Run SDK tests
         run: pnpm --filter @clawlogic/sdk test
+
+      - name: Check SDK/Web version sync
+        run: pnpm sdk:check-web-dep
       
       - name: Publish to npm
         run: |
