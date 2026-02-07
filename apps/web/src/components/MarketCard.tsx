@@ -1,237 +1,178 @@
 'use client';
 
+import type { AgentBroadcast } from '@/lib/client';
 import type { MarketInfo, MarketProbability } from '@clawlogic/sdk';
+import {
+  estimateSlippageBand,
+  formatEthShort,
+  formatMarketId,
+  getAgentLabel,
+  parseCrossedIntentQuote,
+  relativeTime,
+} from '@/lib/market-view';
 
 interface MarketCardProps {
   market: MarketInfo;
   index: number;
   probability?: MarketProbability;
+  events: AgentBroadcast[];
+  clobEnabled: boolean;
 }
 
 const ZERO_BYTES32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-export default function MarketCard({ market, index, probability }: MarketCardProps) {
-  const formatEth = (wei: bigint) => {
-    const eth = Number(wei) / 1e18;
-    if (eth === 0) return '0.0000';
-    if (eth < 0.0001) return '<0.0001';
-    return eth.toFixed(4);
-  };
+function getStatusLabel(market: MarketInfo): string {
+  if (market.resolved) return 'Resolved';
+  if (market.assertedOutcomeId !== ZERO_BYTES32) return 'Asserted';
+  return 'Live';
+}
 
-  const getStatus = (): {
-    label: string;
-    color: string;
-    bgColor: string;
-    borderColor: string;
-    glowClass: string;
-  } => {
-    if (market.resolved) {
-      return {
-        label: 'RESOLVED',
-        color: 'text-[#00ff41]',
-        bgColor: 'bg-[#00ff41]/10',
-        borderColor: 'border-[#00ff41]/40',
-        glowClass: '',
-      };
-    }
-    if (market.assertedOutcomeId !== ZERO_BYTES32) {
-      return {
-        label: 'ASSERTED',
-        color: 'text-[#ffb800]',
-        bgColor: 'bg-[#ffb800]/10',
-        borderColor: 'border-[#ffb800]/40',
-        glowClass: 'glow-pulse',
-      };
-    }
-    return {
-      label: 'ACTIVE',
-      color: 'text-[#00ff41]',
-      bgColor: 'bg-[#00ff41]/5',
-      borderColor: 'border-[#00ff41]/20',
-      glowClass: '',
-    };
-  };
+function getStatusTone(market: MarketInfo): string {
+  if (market.resolved) return 'text-[#1fb36b] bg-[#1fb36b]/12 border-[#1fb36b]/35';
+  if (market.assertedOutcomeId !== ZERO_BYTES32) {
+    return 'text-[#d18c1d] bg-[#d18c1d]/12 border-[#d18c1d]/35';
+  }
+  return 'text-[#33d7ff] bg-[#33d7ff]/12 border-[#33d7ff]/35';
+}
 
-  const status = getStatus();
+function getLatestByType(events: AgentBroadcast[], type: AgentBroadcast['type']): AgentBroadcast | null {
+  return events.find((event) => event.type === type) ?? null;
+}
+
+export default function MarketCard({
+  market,
+  index,
+  probability,
+  events,
+  clobEnabled,
+}: MarketCardProps) {
+  const broadcast = getLatestByType(events, 'MarketBroadcast');
+  const latestTrade = getLatestByType(events, 'TradeRationale');
+  const latestIntentYes = events.find((event) => event.type === 'NegotiationIntent' && event.side === 'yes') ?? null;
+  const latestIntentNo = events.find((event) => event.type === 'NegotiationIntent' && event.side === 'no') ?? null;
+
+  const quoteFromTrade = latestTrade ? parseCrossedIntentQuote(latestTrade.reasoning) : null;
+  const yesBid = latestIntentYes ? Math.round(latestIntentYes.confidence * 100) : null;
+  const noAsk = latestIntentNo ? Math.round(latestIntentNo.confidence * 100) : null;
+  const inferredYesAsk = noAsk === null ? null : 10_000 - noAsk;
+  const inferredEdge = yesBid !== null && inferredYesAsk !== null ? yesBid - inferredYesAsk : null;
 
   const yesProbability = probability ? Math.round(probability.outcome1Probability) : 50;
   const noProbability = probability ? Math.round(probability.outcome2Probability) : 50;
+  const slippageBand = estimateSlippageBand(market.totalCollateral);
 
   return (
-    <div
-      className={`
-        border rounded-sm ${status.borderColor} ${status.bgColor}
-        hover:border-[#00ff41]/50 transition-all duration-300
-        relative overflow-hidden group
-      `}
-    >
-      {/* Terminal header bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-[#00ff41]/10 bg-black/40">
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] text-[#a0a0a0] font-mono">
-            MKT-{String(index).padStart(3, '0')}
-          </span>
-          <span className="text-[10px] text-[#a0a0a0] font-mono opacity-50">
-            {market.marketId.slice(0, 10)}...{market.marketId.slice(-6)}
-          </span>
+    <article className="rounded-2xl border border-white/10 bg-[#101622]/90 shadow-[0_24px_70px_rgba(0,0,0,0.35)] backdrop-blur-md overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/8 bg-gradient-to-r from-[#121f35] via-[#101622] to-[#1f1622] px-4 py-3">
+        <div className="flex items-center gap-2 text-xs text-[#7e8ba3]">
+          <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-semibold">MKT-{String(index).padStart(3, '0')}</span>
+          <span>{formatMarketId(market.marketId)}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span
-            className={`
-              text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-sm
-              ${status.color} ${status.bgColor} border ${status.borderColor}
-            `}
-          >
-            {status.label}
+          <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${getStatusTone(market)}`}>
+            {getStatusLabel(market)}
           </span>
-          {!market.resolved && market.assertedOutcomeId === ZERO_BYTES32 && (
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00ff41] status-pulse" />
+          <span className="text-xs text-[#8699b8]">TVL {formatEthShort(market.totalCollateral)} ETH</span>
+        </div>
+      </div>
+
+      <div className="px-4 py-4">
+        <h3 className="text-lg font-semibold text-[#eef3ff] leading-snug">{market.description}</h3>
+        <div className="mt-4 rounded-xl border border-white/8 bg-[#0d1320] p-3">
+          <div className="mb-2 flex items-center justify-between text-xs">
+            <span className="text-[#7e8ba3]">Implied probability</span>
+            <span className="text-[#7e8ba3]">AMM rail</span>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-[#09101d]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#2fe1c3] via-[#33d7ff] to-[#58a6ff]"
+              style={{ width: `${yesProbability}%` }}
+            />
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs font-semibold">
+            <span className="text-[#2fe1c3]">{market.outcome1.toUpperCase()} {yesProbability}%</span>
+            <span className="text-[#f58b6a]">{market.outcome2.toUpperCase()} {noProbability}%</span>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <section className="rounded-xl border border-[#25d6be]/30 bg-[#0c1b21] p-3">
+            <div className="mb-2 flex items-center justify-between text-xs">
+              <span className="font-semibold text-[#64ead3]">Agent thesis</span>
+              <span className="text-[#7daea5]">{broadcast ? relativeTime(broadcast.timestamp) : 'pending'}</span>
+            </div>
+            {broadcast ? (
+              <>
+                <div className="text-sm font-semibold text-[#ddfef8]">
+                  {getAgentLabel(broadcast)} staked {broadcast.stakeEth ?? '0'} ETH ({Math.round(broadcast.confidence)}%)
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-[#abd9d0]">{broadcast.reasoning}</p>
+              </>
+            ) : (
+              <p className="text-sm text-[#7daea5]">No market broadcast yet. Waiting for initial thesis and stake.</p>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-[#4b7aff]/25 bg-[#111a30] p-3">
+            <div className="mb-2 flex items-center justify-between text-xs">
+              <span className="font-semibold text-[#8eafff]">CLOB quote lane</span>
+              <span className="text-[#7e8ba3]">{clobEnabled ? 'enabled' : 'disabled'}</span>
+            </div>
+            {quoteFromTrade ? (
+              <div className="space-y-2 text-sm text-[#d8e4ff]">
+                <div>YES bid: <span className="font-semibold">{(quoteFromTrade.yesBidBps / 100).toFixed(2)}%</span></div>
+                <div>NO ask: <span className="font-semibold">{(quoteFromTrade.noAskBps / 100).toFixed(2)}%</span></div>
+                <div>Implied YES ask: <span className="font-semibold">{(quoteFromTrade.impliedYesAskBps / 100).toFixed(2)}%</span></div>
+                <div className={quoteFromTrade.edgeBps > 0 ? 'text-[#7df6d3] font-semibold' : 'text-[#f7b08a] font-semibold'}>
+                  Match edge: {(quoteFromTrade.edgeBps / 100).toFixed(2)}%
+                </div>
+              </div>
+            ) : inferredEdge !== null ? (
+              <div className="space-y-2 text-sm text-[#d8e4ff]">
+                <div>YES intent confidence: <span className="font-semibold">{(yesBid! / 100).toFixed(2)}%</span></div>
+                <div>NO intent confidence: <span className="font-semibold">{(noAsk! / 100).toFixed(2)}%</span></div>
+                <div className={inferredEdge > 0 ? 'text-[#7df6d3] font-semibold' : 'text-[#f7b08a] font-semibold'}>
+                  Indicative edge: {(inferredEdge / 100).toFixed(2)}%
+                </div>
+                <div className="text-xs text-[#8ea1c2]">Execution may still route to CPMM when intents do not cross.</div>
+              </div>
+            ) : (
+              <div className="space-y-2 text-sm text-[#b4c4e5]">
+                <p>No matched quote pair yet. Showing AMM fallback path.</p>
+                <p>Slippage risk on fallback: <span className="font-semibold">{slippageBand}</span></p>
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-white/8 bg-[#0d1320] p-3">
+          <div className="mb-3 flex items-center justify-between text-xs">
+            <span className="font-semibold text-[#9fb2d5]">Execution trace</span>
+            <span className="text-[#7284a4]">on-chain settlement: {process.env.NEXT_PUBLIC_ONCHAIN_SETTLEMENT === 'false' ? 'off' : 'on'}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+            <div className={`rounded-lg border px-2 py-2 ${broadcast ? 'border-[#2fe1c3]/30 bg-[#2fe1c3]/10 text-[#bffef0]' : 'border-white/10 bg-white/5 text-[#7f90b0]'}`}>
+              1. Broadcast
+            </div>
+            <div className={`rounded-lg border px-2 py-2 ${latestIntentYes || latestIntentNo ? 'border-[#58a6ff]/30 bg-[#58a6ff]/10 text-[#d1e4ff]' : 'border-white/10 bg-white/5 text-[#7f90b0]'}`}>
+              2. Quote intents
+            </div>
+            <div className={`rounded-lg border px-2 py-2 ${latestTrade ? 'border-[#f6b26a]/30 bg-[#f6b26a]/10 text-[#ffe7c8]' : 'border-white/10 bg-white/5 text-[#7f90b0]'}`}>
+              3. Trade
+            </div>
+            <div className={`rounded-lg border px-2 py-2 ${market.resolved ? 'border-[#7df6d3]/30 bg-[#7df6d3]/10 text-[#dbfff5]' : 'border-white/10 bg-white/5 text-[#7f90b0]'}`}>
+              4. Settle
+            </div>
+          </div>
+          {latestTrade && (
+            <p className="mt-3 text-xs text-[#9fb2d5]">
+              Latest trade by {getAgentLabel(latestTrade)} {latestTrade.side?.toUpperCase() ?? ''}
+              {latestTrade.tradeTxHash ? ` | tx ${latestTrade.tradeTxHash.slice(0, 10)}...` : ''}
+            </p>
           )}
         </div>
       </div>
-
-      {/* Market question */}
-      <div className="px-4 pt-4 pb-3">
-        <h3 className="text-base font-medium leading-snug text-[#00ff41] mb-3">
-          <span className="text-[#a0a0a0] mr-1">&gt;</span>
-          {market.description}
-        </h3>
-
-        {/* Probability Bar (Polymarket-style) */}
-        {!market.resolved && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-[10px] font-mono">
-              <span className="text-[#a0a0a0] opacity-70">MARKET PROBABILITY</span>
-              <span className="text-[#a0a0a0] opacity-50">
-                {market.totalCollateral === 0n ? 'NO LIQUIDITY' : yesProbability === 50 ? 'EQUAL SPLIT' : 'AMM PRICE'}
-              </span>
-            </div>
-            <div className="relative h-2 bg-black/50 rounded-sm overflow-hidden border border-[#00ff41]/20">
-              <div
-                className="absolute left-0 top-0 h-full bg-gradient-to-r from-[#00ff41] to-[#00ff41]/80 transition-all duration-300"
-                style={{ width: `${yesProbability}%` }}
-              />
-              <div
-                className="absolute right-0 top-0 h-full bg-gradient-to-l from-[#ff0040] to-[#ff0040]/80 transition-all duration-300"
-                style={{ width: `${noProbability}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[11px] font-mono font-bold">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[#00ff41]">{yesProbability}%</span>
-                <span className="text-[#a0a0a0] opacity-60 uppercase text-[9px]">{market.outcome1}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[#a0a0a0] opacity-60 uppercase text-[9px]">{market.outcome2}</span>
-                <span className="text-[#ff0040]">{noProbability}%</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {market.assertedOutcomeId !== ZERO_BYTES32 && !market.resolved && (
-          <div className="mt-3 text-[11px] text-[#ffb800] flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#ffb800] status-pulse inline-block" />
-            UMA LIVENESS WINDOW ACTIVE -- AGENTS MAY DISPUTE
-          </div>
-        )}
-
-        {market.resolved && (
-          <div className="mt-3 text-[11px] text-[#00ff41] flex items-center gap-2 font-mono">
-            <span className="text-[#a0a0a0] opacity-70">FINAL OUTCOME:</span>
-            <span className="font-bold uppercase">{market.outcome1}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Outcome columns */}
-      <div className="grid grid-cols-2 gap-0 border-t border-[#00ff41]/10">
-        {/* Outcome 1 (YES) */}
-        <div
-          className={`
-            p-3 border-r border-[#00ff41]/10 relative
-            ${market.resolved && market.assertedOutcomeId !== ZERO_BYTES32
-              ? 'bg-[#00ff41]/10'
-              : ''
-            }
-          `}
-        >
-          <div className="text-[10px] text-[#a0a0a0] mb-1 tracking-wider">
-            OUTCOME_1
-          </div>
-          <div className="text-lg font-bold text-[#00ff41] uppercase tracking-wide">
-            {market.outcome1}
-          </div>
-          <div className="text-[10px] text-[#a0a0a0] mt-1 font-mono truncate">
-            {market.outcome1Token.slice(0, 14)}...
-          </div>
-          {market.resolved && (
-            <div className="absolute top-2 right-2 text-[9px] text-[#00ff41] font-bold bg-[#00ff41]/20 px-1.5 py-0.5 rounded-sm">
-              WINNER
-            </div>
-          )}
-        </div>
-
-        {/* Outcome 2 (NO) */}
-        <div
-          className={`
-            p-3 relative
-            ${market.resolved && market.assertedOutcomeId === ZERO_BYTES32
-              ? 'bg-[#ff0040]/10'
-              : ''
-            }
-          `}
-        >
-          <div className="text-[10px] text-[#a0a0a0] mb-1 tracking-wider">
-            OUTCOME_2
-          </div>
-          <div className="text-lg font-bold text-[#ff0040] uppercase tracking-wide">
-            {market.outcome2}
-          </div>
-          <div className="text-[10px] text-[#a0a0a0] mt-1 font-mono truncate">
-            {market.outcome2Token.slice(0, 14)}...
-          </div>
-        </div>
-      </div>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-0 border-t border-[#00ff41]/10 bg-black/30">
-        <div className="p-3 border-r border-[#00ff41]/10">
-          <div className="text-[9px] text-[#a0a0a0] tracking-wider mb-0.5">
-            COLLATERAL
-          </div>
-          <div className="text-sm font-bold font-mono text-[#00ff41]">
-            {formatEth(market.totalCollateral)} <span className="text-[10px] text-[#a0a0a0]">ETH</span>
-          </div>
-        </div>
-        <div className="p-3 border-r border-[#00ff41]/10">
-          <div className="text-[9px] text-[#a0a0a0] tracking-wider mb-0.5">
-            REWARD
-          </div>
-          <div className="text-sm font-bold font-mono text-[#ffb800]">
-            {formatEth(market.reward)} <span className="text-[10px] text-[#a0a0a0]">ETH</span>
-          </div>
-        </div>
-        <div className="p-3">
-          <div className="text-[9px] text-[#a0a0a0] tracking-wider mb-0.5">
-            BOND REQ
-          </div>
-          <div className="text-sm font-bold font-mono text-[#a0a0a0]">
-            {formatEth(market.requiredBond)} <span className="text-[10px] text-[#a0a0a0]">ETH</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Hover scanline effect */}
-      <div
-        className="
-          absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none
-          transition-opacity duration-500
-          bg-gradient-to-b from-transparent via-[#00ff41]/3 to-transparent
-        "
-        style={{ backgroundSize: '100% 4px' }}
-      />
-    </div>
+    </article>
   );
 }
