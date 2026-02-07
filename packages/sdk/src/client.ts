@@ -13,6 +13,7 @@ import {
   type WatchContractEventReturnType,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { namehash } from 'viem/ens';
 import type {
   ClawlogicConfig,
   MarketInfo,
@@ -42,6 +43,22 @@ const arbitrumSepolia: Chain = {
   },
   testnet: true,
 };
+
+const ZERO_BYTES32 =
+  '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
+const ZERO_ADDRESS =
+  '0x0000000000000000000000000000000000000000' as const;
+
+function isBytes32Hex(value: string): value is `0x${string}` {
+  return /^0x[0-9a-fA-F]{64}$/.test(value);
+}
+
+function resolveEnsNode(ensNodeOrName: `0x${string}` | string): `0x${string}` {
+  if (isBytes32Hex(ensNodeOrName)) {
+    return ensNodeOrName;
+  }
+  return namehash(ensNodeOrName) as `0x${string}`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: build a viem Chain object from a config
@@ -200,6 +217,32 @@ export class ClawlogicClient {
   }
 
   /**
+   * Register the caller as an agent and link an ENS node.
+   *
+   * @param name - Human-readable agent name.
+   * @param ensNodeOrName - ENS namehash (`0x...`) or ENS name (`alpha.clawlogic.eth`).
+   * @param attestation - TEE attestation bytes (hex-encoded). Defaults to "0x".
+   * @returns Transaction hash of the registration.
+   */
+  async registerAgentWithENS(
+    name: string,
+    ensNodeOrName: `0x${string}` | string,
+    attestation: `0x${string}` = '0x',
+  ): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const ensNode = resolveEnsNode(ensNodeOrName);
+
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.agentRegistry,
+      abi: agentRegistryAbi,
+      functionName: 'registerAgentWithENS',
+      args: [name, attestation, ensNode],
+    });
+
+    return this.waitForTx(hash);
+  }
+
+  /**
    * Check whether an address is a registered agent.
    *
    * @param address - The address to check.
@@ -235,6 +278,7 @@ export class ClawlogicClient {
       attestation: `0x${string}`;
       registeredAt: bigint;
       exists: boolean;
+      ensNode?: `0x${string}`;
     };
 
     return {
@@ -243,7 +287,29 @@ export class ClawlogicClient {
       attestation: agent.attestation,
       registeredAt: agent.registeredAt,
       exists: agent.exists,
+      ensNode: agent.ensNode && agent.ensNode !== ZERO_BYTES32 ? agent.ensNode : undefined,
     };
+  }
+
+  /**
+   * Resolve an ENS-linked agent address from ENS namehash or name.
+   *
+   * @param ensNodeOrName - ENS namehash (`0x...`) or ENS name (`alpha.clawlogic.eth`).
+   * @returns The registered agent address linked to the ENS node.
+   */
+  async getAgentByENS(ensNodeOrName: `0x${string}` | string): Promise<`0x${string}`> {
+    const ensNode = resolveEnsNode(ensNodeOrName);
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.agentRegistry,
+      abi: agentRegistryAbi,
+      functionName: 'getAgentByENS',
+      args: [ensNode],
+    });
+    const agent = result as `0x${string}`;
+    if (agent.toLowerCase() === ZERO_ADDRESS) {
+      throw new Error(`No agent linked to ENS node ${ensNode}`);
+    }
+    return agent;
   }
 
   /**
