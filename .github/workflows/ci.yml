@@ -28,7 +28,7 @@ jobs:
       - name: Run Forge coverage
         run: |
           cd packages/contracts
-          forge coverage --report summary
+          forge coverage --report summary --ir-minimum
 
   test-sdk:
     runs-on: ubuntu-latest
@@ -99,6 +99,9 @@ jobs:
       
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Check SDK/Web version sync
+        run: pnpm sdk:check-web-dep
       
       - name: Build frontend
         run: pnpm --filter @clawlogic/web build

@@ -36,8 +36,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Update web to latest published SDK
-        run: pnpm --filter @clawlogic/web up @clawlogic/sdk@latest --latest
+      - name: Sync web dependency to SDK package version
+        run: pnpm sdk:sync-web-dep
+
+      - name: Refresh lockfile
+        run: pnpm install --lockfile-only
 
       - name: Build web app
         run: pnpm --filter @clawlogic/web build
