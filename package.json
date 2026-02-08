@@ -13,7 +13,9 @@
     "sdk:sync-web-dep": "node scripts/sync-sdk-version.mjs",
     "sdk:check-web-dep": "node scripts/sync-sdk-version.mjs --check",
     "skill:sync-web-doc": "node scripts/sync-skill-md.mjs",
-    "skill:check-web-doc": "node scripts/sync-skill-md.mjs --check"
+    "skill:check-web-doc": "node scripts/sync-skill-md.mjs --check",
+    "skill:sync-published": "node scripts/sync-published-skill.mjs",
+    "skill:check-published": "node scripts/sync-published-skill.mjs --check"
   },
     "devDependencies": {
         "@types/node": "^20.0.0",
