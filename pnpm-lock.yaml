@@ -49,8 +49,8 @@ importers:
   apps/web:
     dependencies:
       '@clawlogic/sdk':
-        specifier: ^0.1.0
-        version: 0.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+        specifier: ^0.1.1
+        version: link:../../packages/sdk
       next:
         specifier: ^15.5.12
         version: 15.5.12(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -108,10 +108,6 @@ packages:
   '@babel/runtime@7.28.6':
     resolution: {integrity: sha512-05WQkdpL9COIMz4LjTxGpPNCdlpyimKppYNoJ5Di5EUObifl8t4tuLuUBBZEpoLYOmfvIWrsp9fCl0HoPRVTdA==}
     engines: {node: '>=6.9.0'}
-
-  '@clawlogic/sdk@0.1.0':
-    resolution: {integrity: sha512-TDWgQbYofQbqPC1kZlbNz5hoJPxRG78tJ6D/Au12wwkdup60hJcNe7waIJFmcX6MSdyR80CrOK6GvHthBg1prg==}
-    hasBin: true
 
   '@emnapi/runtime@1.8.1':
     resolution: {integrity: sha512-mehfKSMWjjNol8659Z8KxEMrdSJDDot5SXMq00dM8BN4o+CLNXQ0xH2V7EchNHV4RmbZLmmPdEaXZc5H2FXmDg==}
@@ -1505,15 +1501,6 @@ snapshots:
 
   '@babel/runtime@7.28.6':
     optional: true
-
-  '@clawlogic/sdk@0.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)':
-    dependencies:
-      viem: 2.45.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
-    transitivePeerDependencies:
-      - bufferutil
-      - typescript
-      - utf-8-validate
-      - zod
 
   '@emnapi/runtime@1.8.1':
     dependencies:

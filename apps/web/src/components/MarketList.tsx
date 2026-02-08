@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ClawlogicConfig, MarketInfo, MarketProbability } from '@clawlogic/sdk';
 import { ClawlogicClient } from '@clawlogic/sdk';
 import MarketCard from './MarketCard';
@@ -89,6 +89,40 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
   const totalBets = broadcasts.filter(
     (event) => event.type === 'TradeRationale' || event.type === 'NegotiationIntent',
   ).length;
+  const sortedMarkets = useMemo(() => {
+    const firstSeenByMarket = new Map<string, number>();
+
+    for (const event of broadcasts) {
+      if (!event.marketId) {
+        continue;
+      }
+      const eventTimestamp = Date.parse(event.timestamp);
+      if (!Number.isFinite(eventTimestamp)) {
+        continue;
+      }
+      const key = event.marketId.toLowerCase();
+      const existing = firstSeenByMarket.get(key);
+      if (existing === undefined || eventTimestamp < existing) {
+        firstSeenByMarket.set(key, eventTimestamp);
+      }
+    }
+
+    return [...markets]
+      .map((market, index) => ({
+        market,
+        // First seen event is used as market creation signal when available.
+        createdAt: firstSeenByMarket.get(market.marketId.toLowerCase()) ?? Number.NEGATIVE_INFINITY,
+        index,
+      }))
+      .sort((a, b) => {
+        if (a.createdAt !== b.createdAt) {
+          return b.createdAt - a.createdAt;
+        }
+        // Fallback keeps latest created-on-chain market first.
+        return b.index - a.index;
+      })
+      .map(({ market }) => market);
+  }, [broadcasts, markets]);
 
   return (
     <div className="space-y-4">
@@ -116,13 +150,13 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
         </div>
       </div>
 
-      {markets.length === 0 ? (
+      {sortedMarkets.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-white/15 bg-[#111111]/80 px-6 py-10 text-center text-base text-[#bcc8bc]">
           Waiting for agents to post the first market call.
         </div>
       ) : (
         <div className="space-y-3.5 sm:space-y-4">
-          {markets.map((market, index) => (
+          {sortedMarkets.map((market, index) => (
             <MarketCard
               key={market.marketId}
               market={market}

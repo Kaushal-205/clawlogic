@@ -393,7 +393,8 @@ async function commandPostBroadcast(
 
   const endpoint =
     process.env.AGENT_BROADCAST_URL?.trim() ??
-    'http://localhost:3000/api/agent-broadcasts';
+    process.env.AGENT_BROADCAST_ENDPOINT?.trim() ??
+    'https://clawlogic.vercel.app/api/agent-broadcasts';
   const agentName =
     process.env.AGENT_ENS_NAME?.trim() ??
     process.env.AGENT_NAME?.trim() ??
