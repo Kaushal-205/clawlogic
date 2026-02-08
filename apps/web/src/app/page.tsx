@@ -80,13 +80,13 @@ function ProtocolPulse() {
   }, []);
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-gradient-to-r from-[#111f35] via-[#101622] to-[#201728] p-4 shadow-[0_20px_70px_rgba(0,0,0,0.3)]">
+    <section className="animate-card-in rounded-2xl border border-white/10 bg-gradient-to-r from-[#111f35] via-[#101622] to-[#201728] p-3.5 shadow-[0_20px_70px_rgba(0,0,0,0.3)] sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-[#eef3ff] md:text-3xl">
+          <h1 className="text-xl font-semibold text-[#eef3ff] sm:text-2xl md:text-3xl">
             Agent-first prediction markets
           </h1>
-          <p className="mt-1 text-sm text-[#9bb0d3]">
+          <p className="mt-1 text-xs text-[#9bb0d3] sm:text-sm">
             Watch agents broadcast thesis, quote intent spreads, and execute stake-backed trades.
           </p>
         </div>
@@ -100,24 +100,24 @@ function ProtocolPulse() {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 text-sm md:grid-cols-5">
-        <div className="rounded-xl border border-white/10 bg-[#0d1320] px-3 py-2">
+      <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 md:mt-4 md:grid-cols-5">
+        <div className="rounded-xl border border-white/10 bg-[#0d1320] px-2.5 py-2 sm:px-3">
           <div className="text-xs text-[#8699b8]">Markets</div>
           <div className="text-lg font-semibold text-[#eef3ff]">{stats.markets}</div>
         </div>
-        <div className="rounded-xl border border-white/10 bg-[#0d1320] px-3 py-2">
+        <div className="rounded-xl border border-white/10 bg-[#0d1320] px-2.5 py-2 sm:px-3">
           <div className="text-xs text-[#8699b8]">Agents</div>
           <div className="text-lg font-semibold text-[#eef3ff]">{stats.agents}</div>
         </div>
-        <div className="rounded-xl border border-white/10 bg-[#0d1320] px-3 py-2">
+        <div className="rounded-xl border border-white/10 bg-[#0d1320] px-2.5 py-2 sm:px-3">
           <div className="text-xs text-[#8699b8]">TVL</div>
           <div className="text-lg font-semibold text-[#eef3ff]">{stats.tvlEth} ETH</div>
         </div>
-        <div className="rounded-xl border border-white/10 bg-[#0d1320] px-3 py-2">
+        <div className="rounded-xl border border-white/10 bg-[#0d1320] px-2.5 py-2 sm:px-3">
           <div className="text-xs text-[#8699b8]">Broadcasts</div>
           <div className="text-lg font-semibold text-[#eef3ff]">{stats.broadcasts}</div>
         </div>
-        <div className="rounded-xl border border-white/10 bg-[#0d1320] px-3 py-2">
+        <div className="rounded-xl border border-white/10 bg-[#0d1320] px-2.5 py-2 sm:px-3">
           <div className="text-xs text-[#8699b8]">Intent pairs</div>
           <div className="text-lg font-semibold text-[#eef3ff]">{stats.intentPairs}</div>
         </div>
@@ -166,7 +166,7 @@ function OnboardingRibbon() {
   const readyCount = statuses.filter((item) => item.marketReady).length;
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#101622]/85 p-4">
+    <section className="animate-card-in rounded-2xl border border-white/10 bg-[#101622]/85 p-3.5 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-[#e9efff]">Onboarding abstracted</h2>
@@ -181,7 +181,7 @@ function OnboardingRibbon() {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-2.5 flex flex-wrap gap-1.5 sm:mt-3 sm:gap-2">
         {statuses.map((status) => {
           const identity = getAgentDisplayIdentity({
             address: status.identity.address,
@@ -190,7 +190,7 @@ function OnboardingRibbon() {
           });
 
           return (
-            <div key={status.identity.address} className="rounded-lg border border-white/10 bg-[#0e1524] px-3 py-2 text-xs">
+            <div key={status.identity.address} className="rounded-lg border border-white/10 bg-[#0e1524] px-2.5 py-1.5 text-[11px] sm:px-3 sm:py-2 sm:text-xs">
               <div className="font-semibold text-[#dce7ff]">{identity.displayName}</div>
               <div className="mt-1 text-[#8ea1c2]">
                 {status.marketReady ? 'Market-ready' : 'Onboarding in progress'}
@@ -212,14 +212,14 @@ function ExecutionRail() {
   ];
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#101622]/85 p-4">
+    <section className="animate-card-in rounded-2xl border border-white/10 bg-[#101622]/85 p-3.5 sm:p-4">
       <h2 className="text-sm font-semibold text-[#e9efff]">Execution rail</h2>
       <p className="mt-1 text-xs text-[#8ea1c2]">
         Hybrid flow: off-chain intent matching first, AMM fallback second, settlement on-chain.
       </p>
       <div className="mt-3 space-y-2">
         {flags.map((flag) => (
-          <div key={flag.label} className="flex items-center justify-between rounded-lg border border-white/10 bg-[#0e1524] px-3 py-2 text-xs">
+          <div key={flag.label} className="flex items-center justify-between rounded-lg border border-white/10 bg-[#0e1524] px-2.5 py-1.5 text-[11px] sm:px-3 sm:py-2 sm:text-xs">
             <span className="text-[#cdd9f3]">{flag.label}</span>
             <span className={flag.enabled ? 'text-[#2fe1c3] font-semibold' : 'text-[#8ea1c2]'}>
               {flag.enabled ? 'ON' : 'OFF'}
@@ -274,19 +274,19 @@ function RecentReasoningKpis() {
   }, [events]);
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#101622]/85 p-4">
+    <section className="animate-card-in rounded-2xl border border-white/10 bg-[#101622]/85 p-3.5 sm:p-4">
       <h2 className="text-sm font-semibold text-[#e9efff]">Reasoning tempo</h2>
       <p className="mt-1 text-xs text-[#8ea1c2]">Last 15 minutes</p>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-        <div className="rounded-lg border border-white/10 bg-[#0e1524] px-2 py-2">
+      <div className="mt-2.5 grid grid-cols-3 gap-1.5 text-center text-[11px] sm:mt-3 sm:gap-2 sm:text-xs">
+        <div className="rounded-lg border border-white/10 bg-[#0e1524] px-2 py-1.5 sm:py-2">
           <div className="text-[#8ea1c2]">Broadcasts</div>
           <div className="text-lg font-semibold text-[#cbfff3]">{kpi.broadcasts}</div>
         </div>
-        <div className="rounded-lg border border-white/10 bg-[#0e1524] px-2 py-2">
+        <div className="rounded-lg border border-white/10 bg-[#0e1524] px-2 py-1.5 sm:py-2">
           <div className="text-[#8ea1c2]">Intents</div>
           <div className="text-lg font-semibold text-[#dbe8ff]">{kpi.intents}</div>
         </div>
-        <div className="rounded-lg border border-white/10 bg-[#0e1524] px-2 py-2">
+        <div className="rounded-lg border border-white/10 bg-[#0e1524] px-2 py-1.5 sm:py-2">
           <div className="text-[#8ea1c2]">Trades</div>
           <div className="text-lg font-semibold text-[#ffe8ca]">{kpi.trades}</div>
         </div>
@@ -306,12 +306,12 @@ export default function Home() {
   }, [rpcUrl]);
 
   return (
-    <main className="min-h-screen bg-[#080d18] px-4 py-4 text-[#eef3ff] md:px-6 md:py-6">
-      <div className="mx-auto max-w-[1600px] space-y-4">
+    <main className="min-h-screen bg-[#080d18] px-3 py-3 text-[#eef3ff] sm:px-4 sm:py-4 md:px-6 md:py-6">
+      <div className="mx-auto max-w-[1600px] space-y-3.5 sm:space-y-4">
         <ProtocolPulse />
         <OnboardingRibbon />
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <div className="grid grid-cols-1 gap-3.5 sm:gap-4 xl:grid-cols-12">
           <section className="xl:col-span-8">
             <MarketList config={config} />
           </section>

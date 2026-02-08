@@ -67,14 +67,14 @@ body::before {
   background: linear-gradient(180deg, rgba(51, 215, 255, 0.7), rgba(47, 225, 195, 0.7));
 }
 
-@keyframes fadeUp {
+@keyframes fadeUpSoft {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px) scale(0.995);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -88,8 +88,54 @@ body::before {
   }
 }
 
-.fade-up {
-  animation: fadeUp 300ms ease-out;
+@keyframes confidenceSweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+.animate-card-in {
+  animation: fadeUpSoft 320ms ease-out both;
+}
+
+.card-lift {
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.card-lift:hover {
+  transform: translateY(-2px);
+}
+
+.confidence-rail {
+  position: relative;
+  overflow: hidden;
+}
+
+.confidence-rail::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  animation: confidenceSweep 2.4s linear infinite;
+  pointer-events: none;
+}
+
+.reasoning-compact {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
+  .reasoning-compact {
+    -webkit-line-clamp: unset;
+    display: block;
+    overflow: visible;
+  }
 }
 
 .pulse-dot {

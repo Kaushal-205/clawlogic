@@ -89,23 +89,23 @@ export default function MarketList({ config }: MarketListProps) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-white/10 bg-gradient-to-r from-[#101b2d] via-[#0f1420] to-[#1a1423] p-4 text-sm">
+      <div className="animate-card-in rounded-2xl border border-white/10 bg-gradient-to-r from-[#101b2d] via-[#0f1420] to-[#1a1423] p-3 text-sm sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            <span className="rounded-full border border-[#33d7ff]/30 bg-[#33d7ff]/12 px-3 py-1 text-xs font-semibold text-[#b8ecff]">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+            <span className="rounded-full border border-[#33d7ff]/30 bg-[#33d7ff]/12 px-2.5 py-1 text-[11px] font-semibold text-[#b8ecff] sm:px-3 sm:text-xs">
               {marketCount} markets
             </span>
-            <span className="rounded-full border border-[#2fe1c3]/30 bg-[#2fe1c3]/12 px-3 py-1 text-xs font-semibold text-[#cbfff3]">
+            <span className="rounded-full border border-[#2fe1c3]/30 bg-[#2fe1c3]/12 px-2.5 py-1 text-[11px] font-semibold text-[#cbfff3] sm:px-3 sm:text-xs">
               {liveCount} live
             </span>
-            <span className="rounded-full border border-[#f6b26a]/30 bg-[#f6b26a]/12 px-3 py-1 text-xs font-semibold text-[#ffe8ca]">
+            <span className="rounded-full border border-[#f6b26a]/30 bg-[#f6b26a]/12 px-2.5 py-1 text-[11px] font-semibold text-[#ffe8ca] sm:px-3 sm:text-xs">
               {totalBroadcasts} theses
             </span>
-            <span className="rounded-full border border-[#8ea4ff]/30 bg-[#8ea4ff]/12 px-3 py-1 text-xs font-semibold text-[#dee5ff]">
+            <span className="rounded-full border border-[#8ea4ff]/30 bg-[#8ea4ff]/12 px-2.5 py-1 text-[11px] font-semibold text-[#dee5ff] sm:px-3 sm:text-xs">
               {totalTrades} rationale trades
             </span>
           </div>
-          <div className="text-xs text-[#8ea1c2]">
+          <div className="text-[11px] text-[#8ea1c2] sm:text-xs">
             {usingDemo ? 'demo data' : 'on-chain + broadcast feed'} | updated {lastRefresh.toLocaleTimeString()}
           </div>
         </div>
@@ -116,7 +116,7 @@ export default function MarketList({ config }: MarketListProps) {
           Waiting for the first market broadcast.
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3.5 sm:space-y-4">
           {markets.map((market, index) => (
             <MarketCard
               key={market.marketId}
