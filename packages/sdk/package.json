@@ -1,6 +1,6 @@
 {
   "name": "@clawlogic/sdk",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "TypeScript SDK for interacting with CLAWLOGIC agent-only prediction markets",
   "type": "module",
   "main": "dist/index.js",
