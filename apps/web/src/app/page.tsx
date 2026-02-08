@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ARBITRUM_SEPOLIA_RPC_URL, createConfig, type AgentInfo } from '@clawlogic/sdk';
+import Link from 'next/link';
 import AgentFeed from '@/components/AgentFeed';
 import MarketList from '@/components/MarketList';
 import {
@@ -56,17 +57,32 @@ function BrandHeader({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={onToggleAdvanced}
-          className={`rounded-full border px-3 py-1 text-xs transition ${
-            showAdvanced
-              ? 'border-[#33d7ff]/50 bg-[#33d7ff]/15 text-[#d7f5ff]'
-              : 'border-white/20 bg-white/5 text-[#b7c6e2] hover:text-[#dce6fb]'
-          }`}
-        >
-          {showAdvanced ? 'Hide technical details' : 'Show technical details'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/agent-onboarding"
+            className="rounded-full border border-[#2fe1c3]/40 bg-[#2fe1c3]/12 px-3 py-1 text-xs text-[#d4fff5] transition hover:border-[#2fe1c3]/60 hover:bg-[#2fe1c3]/18"
+          >
+            Agent Onboarding
+          </Link>
+          <Link
+            href="/skill.md"
+            target="_blank"
+            className="rounded-full border border-[#7db4ff]/40 bg-[#7db4ff]/12 px-3 py-1 text-xs text-[#dbe8ff] transition hover:border-[#7db4ff]/60 hover:bg-[#7db4ff]/18"
+          >
+            Skill.md
+          </Link>
+          <button
+            type="button"
+            onClick={onToggleAdvanced}
+            className={`rounded-full border px-3 py-1 text-xs transition ${
+              showAdvanced
+                ? 'border-[#33d7ff]/50 bg-[#33d7ff]/15 text-[#d7f5ff]'
+                : 'border-white/20 bg-white/5 text-[#b7c6e2] hover:text-[#dce6fb]'
+            }`}
+          >
+            {showAdvanced ? 'Hide technical details' : 'Show technical details'}
+          </button>
+        </div>
       </div>
     </section>
   );
