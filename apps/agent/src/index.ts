@@ -151,7 +151,9 @@ async function runLiFiFundingPreflight(
   requiredBalance: bigint,
   privateKey: Hex | undefined,
   mode: ExecutionModeFlags,
+  options: { hardFail?: boolean } = {},
 ): Promise<bigint> {
+  const hardFail = options.hardFail ?? (mode.strictMode || mode.lifiLive);
   const address = client.getAddress();
   if (!address) {
     throw new Error(`${label} wallet address is unavailable for funding preflight.`);
@@ -171,9 +173,9 @@ async function runLiFiFundingPreflight(
     const routes = await suggestBridgeRoutesToArbitrumSepolia(address, deficit);
     if (routes.length === 0) {
       console.log('  [Li.Fi] No eligible bridge route found (testnet liquidity/API limits).');
-      if (mode.strictMode) {
+      if (hardFail) {
         throw new Error(
-          `${label} funding failed in strict mode: no LI.FI route available for deficit ${formatEther(deficit)} ETH.`,
+          `${label} funding failed: no LI.FI route available for deficit ${formatEther(deficit)} ETH.`,
         );
       }
       return currentBalance;
@@ -238,7 +240,7 @@ async function runLiFiFundingPreflight(
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.log(`  [Li.Fi] Preflight skipped: ${msg}`);
-    if (mode.strictMode || mode.lifiLive) {
+    if (hardFail) {
       throw error;
     }
     return currentBalance;
@@ -384,6 +386,7 @@ async function main(): Promise<void> {
       alphaMin,
       alphaKey,
       executionMode,
+      { hardFail: true },
     );
     betaReadyBalance = await runLiFiFundingPreflight(
       'Beta',
@@ -391,6 +394,7 @@ async function main(): Promise<void> {
       betaMin,
       betaKey,
       executionMode,
+      { hardFail: true },
     );
     humanReadyBalance = await runLiFiFundingPreflight(
       'Human',
@@ -398,6 +402,7 @@ async function main(): Promise<void> {
       humanMin,
       humanKey,
       executionMode,
+      { hardFail: false },
     );
   }
 
@@ -440,6 +445,7 @@ async function main(): Promise<void> {
   try {
     marketId = await runAlpha(alphaClient, {
       skipDirectionalBuy: true,
+      forceNewMarket: executionMode.strictMode || executionMode.clobMatch,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);

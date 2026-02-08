@@ -356,6 +356,7 @@ export class ClawlogicClient {
    * @param description - Human-readable market question.
    * @param reward - Amount of bond currency offered as incentive to the asserter.
    * @param requiredBond - Minimum bond required from an asserter.
+   * @param initialLiquidityEth - Optional ETH value to seed CPMM reserves at market creation.
    * @returns Transaction hash of the market creation.
    */
   async initializeMarket(
@@ -364,6 +365,7 @@ export class ClawlogicClient {
     description: string,
     reward: bigint,
     requiredBond: bigint,
+    initialLiquidityEth: bigint = 0n,
   ): Promise<`0x${string}`> {
     const wallet = this.requireWallet();
 
@@ -372,6 +374,7 @@ export class ClawlogicClient {
       abi: predictionMarketHookAbi,
       functionName: 'initializeMarket',
       args: [outcome1, outcome2, description, reward, requiredBond],
+      value: initialLiquidityEth,
     });
 
     return this.waitForTx(hash);
