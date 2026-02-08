@@ -93,26 +93,26 @@ export default function AgentFeed({ config: _config }: AgentFeedProps) {
   const thinkingCount = events.filter((item) => item.type === 'MarketBroadcast' || item.type === 'TradeRationale').length;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#101622]/90 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
-      <div className="border-b border-white/10 px-4 py-3">
+    <div className="card-lift rounded-2xl border border-white/10 bg-[#101622]/90 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+      <div className="border-b border-white/10 px-3 py-2.5 sm:px-4 sm:py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-[#e7edff]">Agent reasoning stream</h3>
             <p className="text-xs text-[#8ea1c2]">Focus view: what they believed, quoted, and executed</p>
           </div>
-          <div className="text-right text-xs text-[#8ea1c2]">
+          <div className="hidden text-right text-xs text-[#8ea1c2] sm:block">
             <div>{totalAgents} active agents</div>
             <div>{thinkingCount} reasoning actions</div>
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-2.5 flex gap-2 overflow-x-auto pb-1 sm:mt-3">
           {FILTERS.map((item) => (
             <button
               key={item.key}
               type="button"
               onClick={() => setFilter(item.key)}
-              className={`rounded-full border px-2.5 py-1 text-xs transition ${
+              className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] transition sm:text-xs ${
                 filter === item.key
                   ? 'border-[#33d7ff]/45 bg-[#33d7ff]/15 text-[#cbf3ff]'
                   : 'border-white/15 bg-white/5 text-[#8ea1c2] hover:text-[#c8d4ef]'
@@ -124,7 +124,7 @@ export default function AgentFeed({ config: _config }: AgentFeedProps) {
         </div>
       </div>
 
-      <div className="max-h-[720px] overflow-y-auto p-3">
+      <div className="max-h-[700px] overflow-y-auto p-2.5 sm:max-h-[720px] sm:p-3">
         {loading ? (
           <div className="space-y-2">
             <div className="h-24 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]" />
@@ -135,8 +135,8 @@ export default function AgentFeed({ config: _config }: AgentFeedProps) {
             No events for this filter yet.
           </div>
         ) : (
-          <div className="space-y-3">
-            {filtered.slice(0, 120).map((event) => {
+          <div className="space-y-2.5 sm:space-y-3">
+            {filtered.slice(0, 120).map((event, index) => {
               const quote = event.type === 'TradeRationale'
                 ? parseCrossedIntentQuote(event.reasoning)
                 : null;
@@ -144,31 +144,32 @@ export default function AgentFeed({ config: _config }: AgentFeedProps) {
               return (
                 <article
                   key={event.id}
-                  className="rounded-xl border border-white/10 bg-[#0d1320] p-3"
+                  className="animate-card-in card-lift rounded-xl border border-white/10 bg-[#0d1320] p-2.5 sm:p-3"
+                  style={{ animationDelay: `${Math.min(index * 30, 180)}ms` }}
                 >
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 sm:mb-2">
                     <div className="flex items-center gap-2">
-                      <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${typeTone(event.type)}`}>
+                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:text-xs ${typeTone(event.type)}`}>
                         {event.type}
                       </span>
-                      <span className="text-xs text-[#8ea1c2]">{renderTitle(event)}</span>
+                      <span className="text-[11px] text-[#8ea1c2] sm:text-xs">{renderTitle(event)}</span>
                     </div>
-                    <span className="text-xs text-[#7f92b4]">{relativeTime(event.timestamp)}</span>
+                    <span className="text-[11px] text-[#7f92b4] sm:text-xs">{relativeTime(event.timestamp)}</span>
                   </div>
 
-                  <div className="text-sm font-semibold text-[#e7edff]">{getAgentLabel(event)}</div>
+                  <div className="text-xs font-semibold text-[#e7edff] sm:text-sm">{getAgentLabel(event)}</div>
 
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#0a1020]">
+                  <div className="confidence-rail mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#0a1020] sm:mt-2">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#2fe1c3] via-[#33d7ff] to-[#5a8bff]"
+                      className="h-full rounded-full bg-gradient-to-r from-[#2fe1c3] via-[#33d7ff] to-[#5a8bff] transition-all duration-500"
                       style={{ width: `${Math.max(0, Math.min(100, event.confidence))}%` }}
                     />
                   </div>
-                  <div className="mt-1 text-xs text-[#8ea1c2]">confidence {Math.round(event.confidence)}%</div>
+                  <div className="mt-1 text-[11px] text-[#8ea1c2] sm:text-xs">confidence {Math.round(event.confidence)}%</div>
 
-                  <p className="mt-3 text-sm leading-relaxed text-[#c8d5ee]">{event.reasoning}</p>
+                  <p className="reasoning-compact mt-2 text-xs leading-relaxed text-[#c8d5ee] sm:mt-3 sm:text-sm">{event.reasoning}</p>
 
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#8ea1c2]">
+                  <div className="mt-2.5 flex flex-wrap gap-1.5 text-[11px] text-[#8ea1c2] sm:mt-3 sm:gap-2 sm:text-xs">
                     {event.marketId && (
                       <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
                         market {formatMarketId(event.marketId)}
