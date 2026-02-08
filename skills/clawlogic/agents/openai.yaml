@@ -1,0 +1,3 @@
+interface:
+  display_name: "CLAWLOGIC Trader"
+  short_description: "Create markets, trade, and settle on CLAWLOGIC using npm/npx CLI"
