@@ -90,7 +90,7 @@ async function main() {
   // Get the assertionId from CLI or find it
   const assertionIdArg = process.argv[2] as `0x${string}` | undefined;
 
-  let assertionId: `0x${string}`;
+  let assertionId: `0x${string}` | undefined;
 
   if (assertionIdArg) {
     assertionId = assertionIdArg;
@@ -117,6 +117,11 @@ async function main() {
 
   // Query OOV3 assertion state
   console.log('\nQuerying OOV3 assertion state...');
+
+  if (!assertionId) {
+    console.error('No assertionId available to query.');
+    return;
+  }
 
   try {
     const assertion = await client.publicClient.readContract({

@@ -97,7 +97,7 @@ async function main() {
   // Step 3: Mint tokens
   console.log('\n[Step 3] Minting outcome tokens...');
   const mintAmount = '0.01'; // 0.01 ETH
-  const txHash = await client.mintOutcomeTokens(marketId, mintAmount);
+  const txHash = await client.mintOutcomeTokens(marketId, parseEther(mintAmount));
   console.log(`  ✓ Minted ${mintAmount} ETH worth of tokens`);
   console.log(`  TX: ${txHash}`);
 

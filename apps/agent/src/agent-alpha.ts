@@ -60,6 +60,8 @@ export interface AlphaDirectionalTradeOptions {
 export interface RunAlphaOptions {
   skipDirectionalBuy?: boolean;
   directionalTrade?: AlphaDirectionalTradeOptions;
+  forceNewMarket?: boolean;
+  initialMarketLiquidityEth?: string;
 }
 
 export async function executeAlphaDirectionalTrade(
@@ -209,8 +211,15 @@ export async function runAlpha(
   const existingMarkets = await client.getMarketIds();
   let marketId: `0x${string}`;
   let createdNewMarket = false;
+  const forceNewMarket =
+    options.forceNewMarket ?? process.env.FORCE_NEW_MARKET === 'true';
+  const initialMarketLiquidityEth =
+    options.initialMarketLiquidityEth ??
+    process.env.INITIAL_MARKET_LIQUIDITY_ETH ??
+    (forceNewMarket ? '0.01' : '0');
+  const initialMarketLiquidity = parseEther(initialMarketLiquidityEth);
 
-  if (existingMarkets.length > 0) {
+  if (!forceNewMarket && existingMarkets.length > 0) {
     console.log(`  Found ${existingMarkets.length} existing market(s)`);
     const latestMarket = await client.getMarket(
       existingMarkets[existingMarkets.length - 1],
@@ -218,6 +227,9 @@ export async function runAlpha(
     console.log(`  Using existing market: "${latestMarket.description}"`);
     marketId = existingMarkets[existingMarkets.length - 1];
   } else {
+    if (forceNewMarket && existingMarkets.length > 0) {
+      console.log('  FORCE_NEW_MARKET enabled -- creating a fresh market.');
+    }
     const description = 'Will ETH break $4000 this week?';
     console.log(`  Creating market: "${description}"`);
 
@@ -228,8 +240,14 @@ export async function runAlpha(
         description,
         0n, // reward (0 for simplicity with mock UMA)
         0n, // requiredBond (0 for simplicity with mock UMA)
+        initialMarketLiquidity,
       );
       console.log(`  Market creation TX: ${txHash}`);
+      if (initialMarketLiquidity > 0n) {
+        console.log(
+          `  Seeded initial AMM liquidity: ${initialMarketLiquidityEth} ETH`,
+        );
+      }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`  Market creation failed: ${msg}`);

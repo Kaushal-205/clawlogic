@@ -16,11 +16,20 @@
  */
 
 import WebSocket from 'ws';
-import { type Hex, type Address, keccak256, encodePacked } from 'viem';
+import {
+  createWalletClient,
+  http,
+  type Chain,
+  type Hex,
+  type Address,
+  keccak256,
+  encodePacked,
+} from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
   createECDSAMessageSigner,
+  createEIP712AuthMessageSigner,
   createAuthRequestMessage,
   createAuthVerifyMessageFromChallenge,
   createAppSessionMessage,
@@ -52,6 +61,113 @@ function log(msg: string): void {
 
 function logError(msg: string): void {
   console.error(`  ${LOG_PREFIX} ERROR: ${msg}`);
+}
+
+interface AuthSignerPlan {
+  label: string;
+  signer: MessageSigner;
+}
+
+function uniqueValues(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function resolveYellowEip712Domains(): string[] {
+  const explicit = process.env.YELLOW_EIP712_DOMAIN_NAMES;
+  if (explicit) {
+    return uniqueValues(explicit.split(','));
+  }
+  return [
+    'Nitrolite',
+    'Yellow',
+    'ClearNode',
+    'clawlogic-prediction-market-v1',
+  ];
+}
+
+function resolveYellowAuthScope(): string {
+  return process.env.YELLOW_AUTH_SCOPE ?? 'prediction-market';
+}
+
+function resolveYellowSessionTtlSeconds(): bigint {
+  const raw = process.env.YELLOW_AUTH_TTL_SECONDS ?? '3600';
+  const ttl = Number(raw);
+  if (!Number.isFinite(ttl) || ttl <= 0) {
+    return 3600n;
+  }
+  return BigInt(Math.floor(ttl));
+}
+
+function resolveYellowAuthChain(): Chain {
+  const chainId = Number(process.env.YELLOW_AUTH_CHAIN_ID ?? '421614');
+  const rpcUrl =
+    process.env.YELLOW_AUTH_RPC_URL ??
+    process.env.ARBITRUM_SEPOLIA_RPC_URL ??
+    'https://sepolia-rollup.arbitrum.io/rpc';
+
+  return {
+    id: Number.isFinite(chainId) && chainId > 0 ? chainId : 421614,
+    name: `Chain ${Number.isFinite(chainId) && chainId > 0 ? chainId : 421614}`,
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+    rpcUrls: {
+      default: { http: [rpcUrl] },
+    },
+  };
+}
+
+function buildAuthSignerPlans(
+  privateKey: Hex,
+  accountAddress: `0x${string}`,
+  authRequestParams: {
+    session_key: `0x${string}`;
+    scope: string;
+    expires_at: bigint;
+    allowances: Array<{ asset: string; amount: string }>;
+  },
+): AuthSignerPlan[] {
+  const plans: AuthSignerPlan[] = [
+    {
+      label: 'ECDSA/raw',
+      signer: createECDSAMessageSigner(privateKey),
+    },
+  ];
+
+  const chain = resolveYellowAuthChain();
+  const walletClient = createWalletClient({
+    account: privateKeyToAccount(privateKey),
+    chain,
+    transport: http(chain.rpcUrls.default.http[0]),
+  });
+
+  for (const domainName of resolveYellowEip712Domains()) {
+    plans.push({
+      label: `EIP712/${domainName}`,
+      signer: createEIP712AuthMessageSigner(
+        walletClient,
+        {
+          scope: authRequestParams.scope,
+          session_key: authRequestParams.session_key,
+          expires_at: authRequestParams.expires_at,
+          allowances: authRequestParams.allowances,
+        },
+        { name: domainName },
+      ),
+    });
+  }
+
+  // Keep only one signer per label in case env provides duplicates.
+  const seen = new Set<string>();
+  return plans.filter((plan) => {
+    if (seen.has(plan.label)) {
+      return false;
+    }
+    seen.add(plan.label);
+    return true;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -107,10 +223,42 @@ async function authenticateWithClearNode(
     const timeout = setTimeout(() => {
       log('Authentication timed out.');
       resolve(false);
-    }, 10000);
+    }, 20000);
 
-    const signer = createECDSAMessageSigner(privateKey);
     const account = privateKeyToAccount(privateKey);
+    const authRequestParams = {
+      address: account.address,
+      session_key: account.address,
+      application: CLAWLOGIC_PROTOCOL,
+      allowances: [] as Array<{ asset: string; amount: string }>,
+      expires_at: BigInt(Math.floor(Date.now() / 1000)) + resolveYellowSessionTtlSeconds(),
+      scope: resolveYellowAuthScope(),
+    };
+    const signerPlans = buildAuthSignerPlans(privateKey, account.address, {
+      session_key: authRequestParams.session_key,
+      scope: authRequestParams.scope,
+      expires_at: authRequestParams.expires_at,
+      allowances: authRequestParams.allowances,
+    });
+    let authChallenge: string | undefined;
+    let signerIndex = -1;
+
+    const sendVerifyWithSigner = async (nextIndex: number): Promise<void> => {
+      if (!authChallenge) {
+        throw new Error('Cannot send auth_verify without challenge.');
+      }
+      if (nextIndex < 0 || nextIndex >= signerPlans.length) {
+        throw new Error('No authentication signer attempts remaining.');
+      }
+      signerIndex = nextIndex;
+      const selected = signerPlans[signerIndex];
+      log(`Attempting auth verification with ${selected.label}...`);
+      const verifyMsg = await createAuthVerifyMessageFromChallenge(
+        selected.signer,
+        authChallenge,
+      );
+      ws.send(verifyMsg);
+    };
 
     const authHandler = async (data: WebSocket.Data) => {
       try {
@@ -130,22 +278,36 @@ async function authenticateWithClearNode(
             if (!challenge) {
               throw new Error('Missing challenge in auth_challenge payload');
             }
-            // Sign and send auth verification using the Nitrolite SDK
-            const verifyMsg = await createAuthVerifyMessageFromChallenge(
-              signer,
-              challenge,
-            );
-            ws.send(verifyMsg);
+            authChallenge = challenge;
+            await sendVerifyWithSigner(0);
           } else if (method === 'auth_verify') {
             clearTimeout(timeout);
             ws.removeListener('message', authHandler);
             log(`Authenticated as ${account.address.slice(0, 10)}...`);
             resolve(true);
           } else if (method === 'error') {
+            const errorParams = message.res[2];
+            const serialized = JSON.stringify(errorParams);
+            const recoverable =
+              typeof serialized === 'string' &&
+              serialized.toLowerCase().includes('invalid challenge or signature');
+            if (recoverable && authChallenge && signerIndex + 1 < signerPlans.length) {
+              log(
+                `Auth rejected with ${signerPlans[signerIndex]?.label ?? 'unknown signer'}; retrying with alternate signer...`,
+              );
+              try {
+                await sendVerifyWithSigner(signerIndex + 1);
+                return;
+              } catch (retryError: unknown) {
+                const retryMsg =
+                  retryError instanceof Error ? retryError.message : String(retryError);
+                logError(`Auth retry failed: ${retryMsg}`);
+              }
+            }
+
             clearTimeout(timeout);
             ws.removeListener('message', authHandler);
-            const errorParams = message.res[2];
-            logError(`Auth error: ${JSON.stringify(errorParams)}`);
+            logError(`Auth error: ${serialized}`);
             resolve(false);
           }
         }
@@ -158,14 +320,7 @@ async function authenticateWithClearNode(
     ws.on('message', authHandler);
 
     // Initiate auth request with required fields
-    createAuthRequestMessage({
-      address: account.address,
-      session_key: account.address,
-      application: CLAWLOGIC_PROTOCOL,
-      allowances: [],
-      expires_at: BigInt(Math.floor(Date.now() / 1000) + 3600),
-      scope: 'prediction-market',
-    }).then((authReqMsg) => {
+    createAuthRequestMessage(authRequestParams).then((authReqMsg) => {
       ws.send(authReqMsg);
     }).catch((err: unknown) => {
       clearTimeout(timeout);
