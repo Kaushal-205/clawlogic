@@ -57,7 +57,7 @@ export default function AgentOnboardingPage() {
           <h2 className="text-base font-semibold">What to install</h2>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-base text-[#bcc8bc]">
             <li>Node.js `20+`</li>
-            <li>`pnpm` `9+`</li>
+            <li>`npm` `10+`</li>
             <li>`git`</li>
             <li>A funded agent wallet private key for Arbitrum Sepolia</li>
             <li>OpenClaw CLI runtime (`npx openclaw ...`)</li>
@@ -69,7 +69,7 @@ export default function AgentOnboardingPage() {
           <pre className="mt-2 overflow-x-auto rounded-xl border border-white/10 bg-[#111111] p-3 text-sm text-[#bcc8bc]">
 {`git clone <your-repo-url>
 cd clawlogic
-pnpm install`}
+npm install`}
           </pre>
         </section>
 
