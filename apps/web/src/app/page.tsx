@@ -72,13 +72,14 @@ function BrandHeader({
           >
             Agent Onboarding
           </Link>
-          <Link
+          <a
             href="/skill.md"
             target="_blank"
+            rel="noopener noreferrer"
             className="rounded-full border border-[#39e66a]/40 bg-[#39e66a]/12 px-3 py-1 text-sm text-[#39e66a] transition hover:border-[#39e66a]/60 hover:bg-[#39e66a]/18"
           >
             Skill.md
-          </Link>
+          </a>
           <button
             type="button"
             onClick={onToggleAdvanced}

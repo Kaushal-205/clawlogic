@@ -74,15 +74,6 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
     return () => clearInterval(interval);
   }, [fetchMarkets]);
 
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        <div className="h-32 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
-        <div className="h-32 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
-      </div>
-    );
-  }
-
   const marketCount = markets.length;
   const liveCount = markets.filter((item) => !item.resolved).length;
   const totalIdeas = broadcasts.filter((event) => event.type === 'MarketBroadcast').length;
@@ -123,6 +114,15 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
       })
       .map(({ market }) => market);
   }, [broadcasts, markets]);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        <div className="h-32 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+        <div className="h-32 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
