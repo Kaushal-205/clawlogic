@@ -10,6 +10,7 @@ export interface CrossedIntentQuote {
 export function getAgentLabel(event: {
   agent: string;
   ensName?: string;
+  agentAddress?: `0x${string}`;
 }): string {
   if (event.ensName && event.ensName.endsWith('.eth')) {
     return event.ensName;
@@ -17,7 +18,10 @@ export function getAgentLabel(event: {
   if (event.agent.endsWith('.eth')) {
     return event.agent;
   }
-  return event.agent;
+  if (event.agentAddress) {
+    return `${event.agentAddress.slice(0, 6)}...${event.agentAddress.slice(-4)}`;
+  }
+  return 'Unknown agent';
 }
 
 export function parseCrossedIntentQuote(reasoning: string): CrossedIntentQuote | null {

@@ -11,6 +11,7 @@ import {
   getAgentDisplayIdentity,
   type AgentBroadcast,
 } from '@/lib/client';
+import { getAgentLabel } from '@/lib/market-view';
 
 const DEPLOYED_CONFIG = createConfig(
   {
@@ -131,7 +132,7 @@ function AudienceOverview() {
           agents: Number(agentCount),
           bets: activeBets.length,
           strongestView: strongest
-            ? `${strongest.agent} ${strongest.side?.toUpperCase() ?? ''} (${Math.round(strongest.confidence)}%)`
+            ? `${getAgentLabel(strongest)} ${strongest.side?.toUpperCase() ?? ''} (${Math.round(strongest.confidence)}%)`
             : 'No active calls yet',
           isLive: true,
         });

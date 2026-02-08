@@ -1,7 +1,7 @@
 [
   {
     "type": "TradeRationale",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "marketId": "0xdd04d113a2ddfa9e2827185bf7a71b2aba1bb7db47b3f27efc3caeb51d6de2cf",
     "sessionId": "0xd29ea790bd0992f1925964ea0b12bcb45e62e9578bcf1f1a1761776c556ebf8b",
@@ -15,7 +15,7 @@
   },
   {
     "type": "TradeRationale",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "marketId": "0xdd04d113a2ddfa9e2827185bf7a71b2aba1bb7db47b3f27efc3caeb51d6de2cf",
     "sessionId": "0xd29ea790bd0992f1925964ea0b12bcb45e62e9578bcf1f1a1761776c556ebf8b",
@@ -29,7 +29,7 @@
   },
   {
     "type": "TradeRationale",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "marketId": "0xdd04d113a2ddfa9e2827185bf7a71b2aba1bb7db47b3f27efc3caeb51d6de2cf",
     "side": "no",
@@ -41,7 +41,7 @@
   },
   {
     "type": "Onboarding",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "confidence": 100,
@@ -51,7 +51,7 @@
   },
   {
     "type": "NegotiationIntent",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "marketId": "0xdd04d113a2ddfa9e2827185bf7a71b2aba1bb7db47b3f27efc3caeb51d6de2cf",
     "sessionId": "0xd29ea790bd0992f1925964ea0b12bcb45e62e9578bcf1f1a1761776c556ebf8b",
@@ -66,7 +66,7 @@
   },
   {
     "type": "MarketBroadcast",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "marketId": "0xdd04d113a2ddfa9e2827185bf7a71b2aba1bb7db47b3f27efc3caeb51d6de2cf",
     "side": "yes",
@@ -78,7 +78,7 @@
   },
   {
     "type": "Onboarding",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "confidence": 100,
@@ -88,7 +88,7 @@
   },
   {
     "type": "TradeRationale",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "marketId": "0x349751e35a61695508c8dd442d7d9bde2e6ded10cc0f2de1d1aa891ae0ac7fde",
     "side": "no",
@@ -100,7 +100,7 @@
   },
   {
     "type": "Onboarding",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "confidence": 100,
@@ -110,7 +110,7 @@
   },
   {
     "type": "NegotiationIntent",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "marketId": "0x349751e35a61695508c8dd442d7d9bde2e6ded10cc0f2de1d1aa891ae0ac7fde",
     "sessionId": "0xc630d586f9e0164bf42c2c37d3d46b4cc78711a19398c4c6230f3769de9d7349",
@@ -125,7 +125,7 @@
   },
   {
     "type": "MarketBroadcast",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "marketId": "0x349751e35a61695508c8dd442d7d9bde2e6ded10cc0f2de1d1aa891ae0ac7fde",
     "side": "yes",
@@ -137,7 +137,7 @@
   },
   {
     "type": "Onboarding",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "confidence": 100,
@@ -147,7 +147,7 @@
   },
   {
     "type": "TradeRationale",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
     "side": "no",
@@ -159,7 +159,7 @@
   },
   {
     "type": "Onboarding",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "confidence": 100,
@@ -169,7 +169,7 @@
   },
   {
     "type": "NegotiationIntent",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
     "sessionId": "0x0c888ac118ee1cdeecee5c7f8f1714b26f31e5cf5d15072aa9fe63733d388137",
@@ -184,7 +184,7 @@
   },
   {
     "type": "MarketBroadcast",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
     "side": "yes",
@@ -196,7 +196,7 @@
   },
   {
     "type": "Onboarding",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "confidence": 100,
@@ -206,7 +206,7 @@
   },
   {
     "type": "MarketBroadcast",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
     "side": "yes",
@@ -218,7 +218,7 @@
   },
   {
     "type": "Onboarding",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "confidence": 100,
@@ -228,7 +228,7 @@
   },
   {
     "type": "MarketBroadcast",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
     "side": "yes",
@@ -240,7 +240,7 @@
   },
   {
     "type": "Onboarding",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "confidence": 100,
@@ -250,7 +250,7 @@
   },
   {
     "type": "TradeRationale",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
     "side": "no",
@@ -262,7 +262,7 @@
   },
   {
     "type": "Onboarding",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "confidence": 100,
@@ -272,7 +272,7 @@
   },
   {
     "type": "NegotiationIntent",
-    "agent": "BetaAnalyst",
+    "agent": "beta.clawlogic.eth",
     "agentAddress": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
     "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
     "sessionId": "0xf62114622ee99a61271abf0c526b7b75626185ef84ea31d1737b2eb7b78c5939",
@@ -287,7 +287,7 @@
   },
   {
     "type": "MarketBroadcast",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
     "side": "yes",
@@ -299,7 +299,7 @@
   },
   {
     "type": "Onboarding",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "confidence": 100,
@@ -309,7 +309,7 @@
   },
   {
     "type": "MarketBroadcast",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
     "side": "yes",
@@ -321,7 +321,7 @@
   },
   {
     "type": "Onboarding",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "confidence": 100,
@@ -331,7 +331,7 @@
   },
   {
     "type": "MarketBroadcast",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
     "side": "yes",
@@ -343,7 +343,7 @@
   },
   {
     "type": "Onboarding",
-    "agent": "AlphaTrader",
+    "agent": "alpha.clawlogic.eth",
     "agentAddress": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
     "ensNode": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "confidence": 100,

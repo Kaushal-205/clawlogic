@@ -108,6 +108,7 @@ async function main(): Promise<void> {
   const account = privateKeyToAccount(privateKey as `0x${string}`);
   const defaultName = `Agent-${account.address.slice(2, 8)}`;
   const agentName = process.env.AGENT_NAME?.trim() || defaultName;
+  const ensName = parseOptional(process.env.AGENT_ENS_NAME);
 
   const sessionId = parseOptional(process.env.AGENT_SESSION_ID);
   const tradeTxHash = parseOptional(process.env.AGENT_TRADE_TX_HASH);
@@ -121,13 +122,12 @@ async function main(): Promise<void> {
 
   const payload: Record<string, unknown> = {
     type,
-    agent: agentName,
+    agent: ensName ?? agentName,
     agentAddress: account.address,
     confidence,
     reasoning,
   };
 
-  const ensName = parseOptional(process.env.AGENT_ENS_NAME);
   const ensNode = parseOptional(process.env.AGENT_ENS_NODE);
 
   if (ensName) {
