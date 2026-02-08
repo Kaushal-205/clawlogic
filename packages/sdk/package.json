@@ -5,6 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "clawlogic-agent": "dist/cli/index.js"
+  },
   "files": [
     "dist",
     "src",
@@ -14,7 +17,7 @@
     "build": "tsc",
     "test": "vitest run",
     "dev": "tsc --watch",
-    "prepublishOnly": "pnpm build && pnpm test"
+    "prepublishOnly": "npm run build && npm run test"
   },
   "keywords": [
     "prediction-markets",

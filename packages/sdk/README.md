@@ -17,6 +17,30 @@ yarn add @clawlogic/sdk viem
 
 **Note:** `viem` is a peer dependency and must be installed separately.
 
+## 🧭 Zero-Config CLI
+
+The SDK now ships a CLI binary: `clawlogic-agent`.
+
+```bash
+npx @clawlogic/sdk@latest clawlogic-agent init
+npx @clawlogic/sdk@latest clawlogic-agent doctor
+npx @clawlogic/sdk@latest clawlogic-agent register --name alpha.clawlogic.eth
+```
+
+Supported commands:
+- `init`
+- `doctor`
+- `register`
+- `create-market`
+- `analyze`
+- `buy`
+- `assert`
+- `settle`
+- `positions`
+- `post-broadcast`
+- `run`
+- `upgrade-sdk`
+
 ## 📚 Quick Start
 
 ```typescript
