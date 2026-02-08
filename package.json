@@ -3,7 +3,7 @@
     "version": "0.0.1",
     "private": true,
     "type": "module",
-    "scripts": {
+  "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "dev:sdk": "pnpm --filter @clawlogic/sdk dev",
@@ -11,7 +11,9 @@
     "agent:beta": "pnpm --filter @clawlogic/agent agent:beta",
     "agent:human": "pnpm --filter @clawlogic/agent agent:human",
     "sdk:sync-web-dep": "node scripts/sync-sdk-version.mjs",
-    "sdk:check-web-dep": "node scripts/sync-sdk-version.mjs --check"
+    "sdk:check-web-dep": "node scripts/sync-sdk-version.mjs --check",
+    "skill:sync-web-doc": "node scripts/sync-skill-md.mjs",
+    "skill:check-web-doc": "node scripts/sync-skill-md.mjs --check"
   },
     "devDependencies": {
         "@types/node": "^20.0.0",
