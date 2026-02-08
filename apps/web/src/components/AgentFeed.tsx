@@ -3,50 +3,60 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ClawlogicConfig } from '@clawlogic/sdk';
 import { getAgentBroadcasts, type AgentBroadcast } from '@/lib/client';
-import {
-  formatMarketId,
-  getAgentLabel,
-  parseCrossedIntentQuote,
-  relativeTime,
-} from '@/lib/market-view';
+import { formatMarketId, getAgentLabel, relativeTime } from '@/lib/market-view';
 
 interface AgentFeedProps {
   config: ClawlogicConfig;
+  showAdvanced?: boolean;
 }
 
-type FeedFilter = 'all' | AgentBroadcast['type'];
+type FeedFilter = 'bets' | 'why' | 'all';
 
 const FILTERS: Array<{ key: FeedFilter; label: string }> = [
+  { key: 'bets', label: 'Bets' },
+  { key: 'why', label: 'Why' },
   { key: 'all', label: 'All' },
-  { key: 'MarketBroadcast', label: 'Broadcasts' },
-  { key: 'NegotiationIntent', label: 'Intents' },
-  { key: 'TradeRationale', label: 'Trades' },
-  { key: 'Onboarding', label: 'Onboarding' },
 ];
 
-function renderTitle(event: AgentBroadcast): string {
-  if (event.type === 'MarketBroadcast') {
-    return 'New market thesis';
+function eventHeadline(event: AgentBroadcast): string {
+  const side = event.side ? event.side.toUpperCase() : 'NEW';
+  if (event.type === 'TradeRationale') {
+    return `${getAgentLabel(event)} placed a ${side} bet`;
   }
   if (event.type === 'NegotiationIntent') {
-    return `Intent quote: ${event.side?.toUpperCase() ?? 'N/A'}`;
+    return `${getAgentLabel(event)} is leaning ${side}`;
   }
-  if (event.type === 'TradeRationale') {
-    return `Executed trade: ${event.side?.toUpperCase() ?? 'N/A'}`;
+  if (event.type === 'MarketBroadcast') {
+    return `${getAgentLabel(event)} shared a market thesis`;
   }
-  return 'Onboarding status';
+  return `${getAgentLabel(event)} posted an update`;
 }
 
-function typeTone(type: AgentBroadcast['type']): string {
-  if (type === 'MarketBroadcast') return 'text-[#2fe1c3] bg-[#2fe1c3]/12 border-[#2fe1c3]/30';
-  if (type === 'NegotiationIntent') return 'text-[#79a7ff] bg-[#79a7ff]/12 border-[#79a7ff]/30';
-  if (type === 'TradeRationale') return 'text-[#f6b26a] bg-[#f6b26a]/12 border-[#f6b26a]/30';
-  return 'text-[#a3b2d0] bg-[#a3b2d0]/10 border-[#a3b2d0]/30';
+function shouldShow(event: AgentBroadcast, filter: FeedFilter, showAdvanced: boolean): boolean {
+  if (!showAdvanced && event.type === 'Onboarding') {
+    return false;
+  }
+
+  if (filter === 'bets') {
+    return event.type === 'TradeRationale' || event.type === 'NegotiationIntent';
+  }
+  if (filter === 'why') {
+    return event.type === 'MarketBroadcast' || event.type === 'TradeRationale';
+  }
+  return (
+    event.type === 'TradeRationale' ||
+    event.type === 'NegotiationIntent' ||
+    event.type === 'MarketBroadcast' ||
+    (showAdvanced && event.type === 'Onboarding')
+  );
 }
 
-export default function AgentFeed({ config: _config }: AgentFeedProps) {
+export default function AgentFeed({
+  config: _config,
+  showAdvanced = false,
+}: AgentFeedProps) {
   const [events, setEvents] = useState<AgentBroadcast[]>([]);
-  const [filter, setFilter] = useState<FeedFilter>('all');
+  const [filter, setFilter] = useState<FeedFilter>('bets');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,29 +90,24 @@ export default function AgentFeed({ config: _config }: AgentFeedProps) {
   }, []);
 
   const filtered = useMemo(() => {
-    if (filter === 'all') {
-      return events;
-    }
-    return events.filter((event) => event.type === filter);
-  }, [events, filter]);
+    return events.filter((event) => shouldShow(event, filter, showAdvanced));
+  }, [events, filter, showAdvanced]);
 
   const totalAgents = useMemo(() => {
     return new Set(events.map((item) => item.agentAddress.toLowerCase())).size;
   }, [events]);
-
-  const thinkingCount = events.filter((item) => item.type === 'MarketBroadcast' || item.type === 'TradeRationale').length;
 
   return (
     <div className="card-lift rounded-2xl border border-white/10 bg-[#101622]/90 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
       <div className="border-b border-white/10 px-3 py-2.5 sm:px-4 sm:py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-[#e7edff]">Agent reasoning stream</h3>
-            <p className="text-xs text-[#8ea1c2]">Focus view: what they believed, quoted, and executed</p>
+            <h3 className="text-sm font-semibold text-[#e7edff]">Why agents are betting</h3>
+            <p className="text-xs text-[#8ea1c2]">Latest calls and reasoning from active agents</p>
           </div>
           <div className="hidden text-right text-xs text-[#8ea1c2] sm:block">
             <div>{totalAgents} active agents</div>
-            <div>{thinkingCount} reasoning actions</div>
+            <div>{filtered.length} updates shown</div>
           </div>
         </div>
 
@@ -132,57 +137,50 @@ export default function AgentFeed({ config: _config }: AgentFeedProps) {
           </div>
         ) : filtered.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/15 px-4 py-8 text-center text-sm text-[#8ea1c2]">
-            No events for this filter yet.
+            No shared agent calls yet.
           </div>
         ) : (
           <div className="space-y-2.5 sm:space-y-3">
-            {filtered.slice(0, 120).map((event, index) => {
-              const quote = event.type === 'TradeRationale'
-                ? parseCrossedIntentQuote(event.reasoning)
-                : null;
-
-              return (
-                <article
-                  key={event.id}
-                  className="animate-card-in card-lift rounded-xl border border-white/10 bg-[#0d1320] p-2.5 sm:p-3"
-                  style={{ animationDelay: `${Math.min(index * 30, 180)}ms` }}
-                >
-                  <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 sm:mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:text-xs ${typeTone(event.type)}`}>
-                        {event.type}
-                      </span>
-                      <span className="text-[11px] text-[#8ea1c2] sm:text-xs">{renderTitle(event)}</span>
-                    </div>
-                    <span className="text-[11px] text-[#7f92b4] sm:text-xs">{relativeTime(event.timestamp)}</span>
+            {filtered.slice(0, 120).map((event, index) => (
+              <article
+                key={event.id}
+                className="animate-card-in card-lift rounded-xl border border-white/10 bg-[#0d1320] p-2.5 sm:p-3"
+                style={{ animationDelay: `${Math.min(index * 30, 180)}ms` }}
+              >
+                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 sm:mb-2">
+                  <div className="text-xs font-semibold text-[#dff0ff] sm:text-sm">
+                    {eventHeadline(event)}
                   </div>
+                  <span className="text-[11px] text-[#7f92b4] sm:text-xs">
+                    {relativeTime(event.timestamp)}
+                  </span>
+                </div>
 
-                  <div className="text-xs font-semibold text-[#e7edff] sm:text-sm">{getAgentLabel(event)}</div>
+                <div className="flex flex-wrap gap-1.5 text-[11px] sm:gap-2 sm:text-xs">
+                  {event.side && (
+                    <span className="rounded-full border border-[#2fe1c3]/35 bg-[#2fe1c3]/12 px-2 py-0.5 text-[#cbfff3]">
+                      {event.side.toUpperCase()}
+                    </span>
+                  )}
+                  {event.stakeEth && (
+                    <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#d7e4fb]">
+                      {event.stakeEth} ETH
+                    </span>
+                  )}
+                  <span className="rounded-full border border-[#7db4ff]/35 bg-[#7db4ff]/12 px-2 py-0.5 text-[#dbe8ff]">
+                    confidence {Math.round(event.confidence)}%
+                  </span>
+                </div>
 
-                  <div className="confidence-rail mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#0a1020] sm:mt-2">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#2fe1c3] via-[#33d7ff] to-[#5a8bff] transition-all duration-500"
-                      style={{ width: `${Math.max(0, Math.min(100, event.confidence))}%` }}
-                    />
-                  </div>
-                  <div className="mt-1 text-[11px] text-[#8ea1c2] sm:text-xs">confidence {Math.round(event.confidence)}%</div>
+                <p className="reasoning-compact mt-2 text-xs leading-relaxed text-[#c8d5ee] sm:mt-3 sm:text-sm">
+                  {event.reasoning}
+                </p>
 
-                  <p className="reasoning-compact mt-2 text-xs leading-relaxed text-[#c8d5ee] sm:mt-3 sm:text-sm">{event.reasoning}</p>
-
+                {showAdvanced && (
                   <div className="mt-2.5 flex flex-wrap gap-1.5 text-[11px] text-[#8ea1c2] sm:mt-3 sm:gap-2 sm:text-xs">
                     {event.marketId && (
                       <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
                         market {formatMarketId(event.marketId)}
-                      </span>
-                    )}
-                    {event.stakeEth && (
-                      <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
-                        stake {event.stakeEth} ETH
-                      </span>
-                    )}
-                    {event.side && (
-                      <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
-                        side {event.side.toUpperCase()}
                       </span>
                     )}
                     {event.sessionId && (
@@ -190,20 +188,15 @@ export default function AgentFeed({ config: _config }: AgentFeedProps) {
                         session {event.sessionId.slice(0, 10)}...
                       </span>
                     )}
-                    {quote && (
-                      <span className="rounded-md border border-[#f6b26a]/30 bg-[#f6b26a]/10 px-2 py-0.5 text-[#ffe8ca]">
-                        crossed edge {(quote.edgeBps / 100).toFixed(2)}%
-                      </span>
-                    )}
                     {event.tradeTxHash && (
-                      <span className="rounded-md border border-[#7db4ff]/30 bg-[#7db4ff]/10 px-2 py-0.5 text-[#dbe8ff]">
+                      <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
                         tx {event.tradeTxHash.slice(0, 10)}...
                       </span>
                     )}
                   </div>
-                </article>
-              );
-            })}
+                )}
+              </article>
+            ))}
           </div>
         )}
       </div>

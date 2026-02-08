@@ -9,11 +9,12 @@ import { getLatestMarketEvents } from '@/lib/market-view';
 
 interface MarketListProps {
   config: ClawlogicConfig;
+  showAdvanced?: boolean;
 }
 
 const CLOB_ENABLED = process.env.NEXT_PUBLIC_CLOB_MATCH === 'true';
 
-export default function MarketList({ config }: MarketListProps) {
+export default function MarketList({ config, showAdvanced = false }: MarketListProps) {
   const [markets, setMarkets] = useState<MarketInfo[]>([]);
   const [probabilities, setProbabilities] = useState<Record<string, MarketProbability>>({});
   const [broadcasts, setBroadcasts] = useState<AgentBroadcast[]>([]);
@@ -84,8 +85,10 @@ export default function MarketList({ config }: MarketListProps) {
 
   const marketCount = markets.length;
   const liveCount = markets.filter((item) => !item.resolved).length;
-  const totalBroadcasts = broadcasts.filter((event) => event.type === 'MarketBroadcast').length;
-  const totalTrades = broadcasts.filter((event) => event.type === 'TradeRationale').length;
+  const totalIdeas = broadcasts.filter((event) => event.type === 'MarketBroadcast').length;
+  const totalBets = broadcasts.filter(
+    (event) => event.type === 'TradeRationale' || event.type === 'NegotiationIntent',
+  ).length;
 
   return (
     <div className="space-y-4">
@@ -93,27 +96,29 @@ export default function MarketList({ config }: MarketListProps) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-1.5 sm:gap-2">
             <span className="rounded-full border border-[#33d7ff]/30 bg-[#33d7ff]/12 px-2.5 py-1 text-[11px] font-semibold text-[#b8ecff] sm:px-3 sm:text-xs">
-              {marketCount} markets
+              {liveCount} open questions
             </span>
             <span className="rounded-full border border-[#2fe1c3]/30 bg-[#2fe1c3]/12 px-2.5 py-1 text-[11px] font-semibold text-[#cbfff3] sm:px-3 sm:text-xs">
-              {liveCount} live
+              {totalBets} bets shared
             </span>
             <span className="rounded-full border border-[#f6b26a]/30 bg-[#f6b26a]/12 px-2.5 py-1 text-[11px] font-semibold text-[#ffe8ca] sm:px-3 sm:text-xs">
-              {totalBroadcasts} theses
+              {totalIdeas} ideas posted
             </span>
-            <span className="rounded-full border border-[#8ea4ff]/30 bg-[#8ea4ff]/12 px-2.5 py-1 text-[11px] font-semibold text-[#dee5ff] sm:px-3 sm:text-xs">
-              {totalTrades} rationale trades
-            </span>
+            {usingDemo && (
+              <span className="rounded-full border border-white/20 bg-white/8 px-2.5 py-1 text-[11px] font-semibold text-[#c8d5ee] sm:px-3 sm:text-xs">
+                demo data
+              </span>
+            )}
           </div>
           <div className="text-[11px] text-[#8ea1c2] sm:text-xs">
-            {usingDemo ? 'demo data' : 'on-chain + broadcast feed'} | updated {lastRefresh.toLocaleTimeString()}
+            {marketCount} total markets | updated {lastRefresh.toLocaleTimeString()}
           </div>
         </div>
       </div>
 
       {markets.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-white/15 bg-[#101622]/80 px-6 py-10 text-center text-sm text-[#8ea1c2]">
-          Waiting for the first market broadcast.
+          Waiting for agents to post the first market call.
         </div>
       ) : (
         <div className="space-y-3.5 sm:space-y-4">
@@ -125,6 +130,7 @@ export default function MarketList({ config }: MarketListProps) {
               probability={probabilities[market.marketId]}
               events={getLatestMarketEvents(market.marketId, broadcasts)}
               clobEnabled={CLOB_ENABLED}
+              showAdvanced={showAdvanced}
             />
           ))}
         </div>
