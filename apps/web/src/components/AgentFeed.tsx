@@ -98,14 +98,14 @@ export default function AgentFeed({
   }, [events]);
 
   return (
-    <div className="card-lift rounded-2xl border border-white/10 bg-[#101622]/90 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+    <div className="card-lift rounded-2xl border border-white/10 bg-[#111111]/90 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
       <div className="border-b border-white/10 px-3 py-2.5 sm:px-4 sm:py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-[#e7edff]">Why agents are betting</h3>
-            <p className="text-xs text-[#8ea1c2]">Latest calls and reasoning from active agents</p>
+            <h3 className="text-sm font-semibold text-[#00ff41]">Why agents are betting</h3>
+            <p className="text-xs text-[#a0a0a0]">Latest calls and reasoning from active agents</p>
           </div>
-          <div className="hidden text-right text-xs text-[#8ea1c2] sm:block">
+          <div className="hidden text-right text-xs text-[#a0a0a0] sm:block">
             <div>{totalAgents} active agents</div>
             <div>{filtered.length} updates shown</div>
           </div>
@@ -119,8 +119,8 @@ export default function AgentFeed({
               onClick={() => setFilter(item.key)}
               className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] transition sm:text-xs ${
                 filter === item.key
-                  ? 'border-[#33d7ff]/45 bg-[#33d7ff]/15 text-[#cbf3ff]'
-                  : 'border-white/15 bg-white/5 text-[#8ea1c2] hover:text-[#c8d4ef]'
+                  ? 'border-[#00ff41]/45 bg-[#00ff41]/15 text-[#00ff41]'
+                  : 'border-white/15 bg-white/5 text-[#a0a0a0] hover:text-[#a0a0a0]'
               }`}
             >
               {item.label}
@@ -136,7 +136,7 @@ export default function AgentFeed({
             <div className="h-24 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/15 px-4 py-8 text-center text-sm text-[#8ea1c2]">
+          <div className="rounded-xl border border-dashed border-white/15 px-4 py-8 text-center text-sm text-[#a0a0a0]">
             No shared agent calls yet.
           </div>
         ) : (
@@ -144,40 +144,40 @@ export default function AgentFeed({
             {filtered.slice(0, 120).map((event, index) => (
               <article
                 key={event.id}
-                className="animate-card-in card-lift rounded-xl border border-white/10 bg-[#0d1320] p-2.5 sm:p-3"
+                className="animate-card-in card-lift rounded-xl border border-white/10 bg-[#111111] p-2.5 sm:p-3"
                 style={{ animationDelay: `${Math.min(index * 30, 180)}ms` }}
               >
                 <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 sm:mb-2">
-                  <div className="text-xs font-semibold text-[#dff0ff] sm:text-sm">
+                  <div className="text-xs font-semibold text-[#00ff41] sm:text-sm">
                     {eventHeadline(event)}
                   </div>
-                  <span className="text-[11px] text-[#7f92b4] sm:text-xs">
+                  <span className="text-[11px] text-[#a0a0a0] sm:text-xs">
                     {relativeTime(event.timestamp)}
                   </span>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 text-[11px] sm:gap-2 sm:text-xs">
                   {event.side && (
-                    <span className="rounded-full border border-[#2fe1c3]/35 bg-[#2fe1c3]/12 px-2 py-0.5 text-[#cbfff3]">
+                    <span className="rounded-full border border-[#00ff41]/35 bg-[#00ff41]/12 px-2 py-0.5 text-[#00ff41]">
                       {event.side.toUpperCase()}
                     </span>
                   )}
                   {event.stakeEth && (
-                    <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#d7e4fb]">
+                    <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#a0a0a0]">
                       {event.stakeEth} ETH
                     </span>
                   )}
-                  <span className="rounded-full border border-[#7db4ff]/35 bg-[#7db4ff]/12 px-2 py-0.5 text-[#dbe8ff]">
+                  <span className="rounded-full border border-[#00ff41]/35 bg-[#00ff41]/12 px-2 py-0.5 text-[#00ff41]">
                     confidence {Math.round(event.confidence)}%
                   </span>
                 </div>
 
-                <p className="reasoning-compact mt-2 text-xs leading-relaxed text-[#c8d5ee] sm:mt-3 sm:text-sm">
+                <p className="reasoning-compact mt-2 text-xs leading-relaxed text-[#a0a0a0] sm:mt-3 sm:text-sm">
                   {event.reasoning}
                 </p>
 
                 {showAdvanced && (
-                  <div className="mt-2.5 flex flex-wrap gap-1.5 text-[11px] text-[#8ea1c2] sm:mt-3 sm:gap-2 sm:text-xs">
+                  <div className="mt-2.5 flex flex-wrap gap-1.5 text-[11px] text-[#a0a0a0] sm:mt-3 sm:gap-2 sm:text-xs">
                     {event.marketId && (
                       <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
                         market {formatMarketId(event.marketId)}
