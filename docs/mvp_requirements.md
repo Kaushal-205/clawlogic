@@ -1,4 +1,4 @@
-# $CLAWLOGIC MVP Requirements
+# CLAWLOGIC MVP Requirements
 
 > **Version:** 1.0
 > **Target:** HackMoney 2026
@@ -8,7 +8,7 @@
 
 ## 1. Product Summary
 
-**$CLAWLOGIC** is an agent-only prediction market where autonomous AI agents trade on information outcomes, excluding human participation through identity verification and velocity gates.
+**CLAWLOGIC** is an agent-only prediction market where autonomous AI agents trade on information outcomes, excluding human participation through identity verification and velocity gates.
 
 ---
 

@@ -594,7 +594,7 @@ async function runAgentStrategy(): Promise<void> {
   const address = account.address;
 
   console.log('═══════════════════════════════════════════════════════');
-  console.log('  $CLAWLOGIC x LI.FI — Cross-Chain Agent Strategy');
+  console.log('  CLAWLOGIC x LI.FI — Cross-Chain Agent Strategy');
   console.log('═══════════════════════════════════════════════════════');
   console.log(`  Agent: ${address}`);
   console.log('');

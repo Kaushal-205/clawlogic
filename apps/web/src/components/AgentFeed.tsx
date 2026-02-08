@@ -18,6 +18,16 @@ const FILTERS: Array<{ key: FeedFilter; label: string }> = [
   { key: 'all', label: 'All' },
 ];
 
+function sideTagTone(side?: string): string {
+  if (side === 'no') {
+    return 'border-[#ff6b7d]/35 bg-[#ff6b7d]/12 text-[#ff9fad]';
+  }
+  if (side === 'yes') {
+    return 'border-[#39e66a]/35 bg-[#39e66a]/12 text-[#8ef3ab]';
+  }
+  return 'border-white/20 bg-white/5 text-[#bcc8bc]';
+}
+
 function eventHeadline(event: AgentBroadcast): string {
   const side = event.side ? event.side.toUpperCase() : 'NEW';
   if (event.type === 'TradeRationale') {
@@ -102,10 +112,10 @@ export default function AgentFeed({
       <div className="border-b border-white/10 px-3 py-2.5 sm:px-4 sm:py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-[#00ff41]">Why agents are betting</h3>
-            <p className="text-xs text-[#a0a0a0]">Latest calls and reasoning from active agents</p>
+            <h3 className="text-base font-semibold text-[#39e66a]">Why agents are betting</h3>
+            <p className="text-sm text-[#bcc8bc]">Latest calls and reasoning from active agents</p>
           </div>
-          <div className="hidden text-right text-xs text-[#a0a0a0] sm:block">
+          <div className="hidden text-right text-sm text-[#bcc8bc] sm:block">
             <div>{totalAgents} active agents</div>
             <div>{filtered.length} updates shown</div>
           </div>
@@ -117,10 +127,10 @@ export default function AgentFeed({
               key={item.key}
               type="button"
               onClick={() => setFilter(item.key)}
-              className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] transition sm:text-xs ${
+              className={`shrink-0 rounded-full border px-2.5 py-1 text-xs transition sm:text-sm ${
                 filter === item.key
-                  ? 'border-[#00ff41]/45 bg-[#00ff41]/15 text-[#00ff41]'
-                  : 'border-white/15 bg-white/5 text-[#a0a0a0] hover:text-[#a0a0a0]'
+                  ? 'border-[#39e66a]/45 bg-[#39e66a]/15 text-[#39e66a]'
+                  : 'border-white/15 bg-white/5 text-[#bcc8bc] hover:text-[#39e66a]'
               }`}
             >
               {item.label}
@@ -136,7 +146,7 @@ export default function AgentFeed({
             <div className="h-24 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/15 px-4 py-8 text-center text-sm text-[#a0a0a0]">
+          <div className="rounded-xl border border-dashed border-white/15 px-4 py-8 text-center text-base text-[#bcc8bc]">
             No shared agent calls yet.
           </div>
         ) : (
@@ -148,36 +158,36 @@ export default function AgentFeed({
                 style={{ animationDelay: `${Math.min(index * 30, 180)}ms` }}
               >
                 <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 sm:mb-2">
-                  <div className="text-xs font-semibold text-[#00ff41] sm:text-sm">
+                  <div className="text-sm font-semibold text-[#39e66a] sm:text-base">
                     {eventHeadline(event)}
                   </div>
-                  <span className="text-[11px] text-[#a0a0a0] sm:text-xs">
+                  <span className="text-xs text-[#bcc8bc] sm:text-sm">
                     {relativeTime(event.timestamp)}
                   </span>
                 </div>
 
-                <div className="flex flex-wrap gap-1.5 text-[11px] sm:gap-2 sm:text-xs">
+                <div className="flex flex-wrap gap-1.5 text-xs sm:gap-2 sm:text-sm">
                   {event.side && (
-                    <span className="rounded-full border border-[#00ff41]/35 bg-[#00ff41]/12 px-2 py-0.5 text-[#00ff41]">
+                    <span className={`rounded-full border px-2 py-0.5 ${sideTagTone(event.side)}`}>
                       {event.side.toUpperCase()}
                     </span>
                   )}
                   {event.stakeEth && (
-                    <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#a0a0a0]">
+                    <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#bcc8bc]">
                       {event.stakeEth} ETH
                     </span>
                   )}
-                  <span className="rounded-full border border-[#00ff41]/35 bg-[#00ff41]/12 px-2 py-0.5 text-[#00ff41]">
+                  <span className="rounded-full border border-[#39e66a]/35 bg-[#39e66a]/12 px-2 py-0.5 text-[#8ef3ab]">
                     confidence {Math.round(event.confidence)}%
                   </span>
                 </div>
 
-                <p className="reasoning-compact mt-2 text-xs leading-relaxed text-[#a0a0a0] sm:mt-3 sm:text-sm">
+                <p className="reasoning-compact mt-2 text-sm leading-relaxed text-[#bcc8bc] sm:mt-3 sm:text-[15px]">
                   {event.reasoning}
                 </p>
 
                 {showAdvanced && (
-                  <div className="mt-2.5 flex flex-wrap gap-1.5 text-[11px] text-[#a0a0a0] sm:mt-3 sm:gap-2 sm:text-xs">
+                  <div className="mt-2.5 flex flex-wrap gap-1.5 text-xs text-[#bcc8bc] sm:mt-3 sm:gap-2 sm:text-sm">
                     {event.marketId && (
                       <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
                         market {formatMarketId(event.marketId)}

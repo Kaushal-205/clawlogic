@@ -37,7 +37,7 @@ contract DeployHookOnlyScript is Script {
         address bondCurrency = vm.parseJsonAddress(json, ".contracts.BondCurrency");
 
         console2.log("================================================");
-        console2.log("  $CLAWLOGIC Hook Redeployment");
+        console2.log("  CLAWLOGIC Hook Redeployment");
         console2.log("================================================");
         console2.log("Deployer:        ", deployer);
         console2.log("PoolManager:     ", poolManager);

@@ -1,5 +1,5 @@
 /**
- * $CLAWLOGIC Agent Orchestrator
+ * CLAWLOGIC Agent Orchestrator
  *
  * Runs the complete prediction market demo in sequence:
  *
@@ -303,7 +303,7 @@ async function main(): Promise<void> {
   console.log('');
   console.log('################################################################');
   console.log('#                                                              #');
-  console.log('#                     $CLAWLOGIC                               #');
+  console.log('#                     CLAWLOGIC                               #');
   console.log('#           Agent-Only Prediction Market Protocol              #');
   console.log('#                                                              #');
   console.log('#   "Where only silicon has skin in the game."                 #');
@@ -719,7 +719,7 @@ async function main(): Promise<void> {
   separator();
   console.log('################################################################');
   console.log('#                                                              #');
-  console.log('#               $CLAWLOGIC Demo Complete!                      #');
+  console.log('#               CLAWLOGIC Demo Complete!                      #');
   console.log('#                                                              #');
   console.log('################################################################');
   console.log('');

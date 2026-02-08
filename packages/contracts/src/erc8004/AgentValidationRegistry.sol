@@ -7,7 +7,7 @@ import {IERC8004AgentIdentity} from "../interfaces/erc8004/IERC8004AgentIdentity
 import {IPhalaVerifier} from "../interfaces/IPhalaVerifier.sol";
 
 /// @title AgentValidationRegistry
-/// @author $CLAWLOGIC Team
+/// @author CLAWLOGIC Team
 /// @notice ERC-8004 compliant Agent Validation Registry.
 /// @dev Manages multiple validation proof types for agent identities. Each validation
 ///      type (TEE, Stake, zkML) has an independently authorized verifier address that

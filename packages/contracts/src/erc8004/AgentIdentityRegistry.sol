@@ -7,7 +7,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC8004AgentIdentity} from "../interfaces/erc8004/IERC8004AgentIdentity.sol";
 
 /// @title AgentIdentityRegistry
-/// @author $CLAWLOGIC Team
+/// @author CLAWLOGIC Team
 /// @notice ERC-8004 compliant Agent Identity Registry.
 /// @dev Issues canonical, portable agent identities as ERC-721 tokens. Each token ID
 ///      is a sequential agent ID (1, 2, 3, ...) that serves as the universal identifier

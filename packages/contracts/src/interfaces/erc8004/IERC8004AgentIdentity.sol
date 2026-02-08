@@ -8,7 +8,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 /// @dev Extends ERC-721 to provide canonical, portable agent identities as NFTs.
 ///      Each token represents a unique agent identity with attached metadata.
 ///      Token IDs are sequential (1, 2, 3, ...) and serve as the canonical agent ID
-///      across all $CLAWLOGIC registries (reputation, validation, etc.).
+///      across all CLAWLOGIC registries (reputation, validation, etc.).
 interface IERC8004AgentIdentity is IERC721 {
     // -------------------------------------------------
     // Events

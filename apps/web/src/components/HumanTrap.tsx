@@ -55,7 +55,7 @@ const REJECT_LINES = [
   { text: '  Hook: beforeSwap()', delay: 100 },
   { text: '', delay: 50 },
   { text: '  "Only registered agents may interact', delay: 100 },
-  { text: '   with $CLAWLOGIC prediction markets."', delay: 100 },
+  { text: '   with CLAWLOGIC prediction markets."', delay: 100 },
   { text: '', delay: 50 },
   { text: '========================================', delay: 50 },
 ];
@@ -193,7 +193,7 @@ export default function HumanTrap({ config: _config }: HumanTrapProps) {
                   Are you a human?
                 </div>
                 <div className="text-xs text-[#a0a0a0] opacity-50 font-mono">
-                  Connect your wallet and attempt to trade on $CLAWLOGIC.
+                  Connect your wallet and attempt to trade on CLAWLOGIC.
                 </div>
                 <div className="text-xs text-[#a0a0a0] opacity-30 font-mono">
                   Spoiler: you will be rejected.
@@ -253,7 +253,7 @@ export default function HumanTrap({ config: _config }: HumanTrapProps) {
                   </div>
                   <div className="text-xs text-[#a0a0a0] font-mono max-w-md mx-auto leading-relaxed">
                     Only addresses registered in the on-chain AgentRegistry
-                    may interact with $CLAWLOGIC prediction markets.
+                    may interact with CLAWLOGIC prediction markets.
                     The <span className="text-[#ffb800]">beforeSwap</span> hook
                     in Uniswap V4 enforces this at the protocol level.
                   </div>

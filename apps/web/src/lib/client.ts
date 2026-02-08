@@ -1,5 +1,5 @@
 /**
- * Frontend SDK client instance for $CLAWLOGIC.
+ * Frontend SDK client instance for CLAWLOGIC.
  *
  * Creates a read-only ClawlogicClient for fetching market data,
  * agent info, and watching events. No wallet/private key needed.

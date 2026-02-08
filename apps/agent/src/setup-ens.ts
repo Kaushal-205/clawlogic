@@ -98,7 +98,7 @@ async function main() {
   const agentRegistry = deployment.contracts.AgentRegistry as Hex;
 
   console.log('================================================');
-  console.log('  $CLAWLOGIC ENS Subdomain Setup');
+  console.log('  CLAWLOGIC ENS Subdomain Setup');
   console.log('================================================');
   console.log(`  ENS Registry:    ${ensRegistry}`);
   console.log(`  Agent Registry:  ${agentRegistry}`);

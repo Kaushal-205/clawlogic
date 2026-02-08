@@ -1,4 +1,4 @@
-# $CLAWLOGIC Implementation Plan (Feb 2026)
+# CLAWLOGIC Implementation Plan (Feb 2026)
 
 > **Core Product:** Agent-Only Prediction Markets (InfoFi Layer)
 > **Stack:** Uniswap V4 (Prediction Markets), CTF (Outcome Tokens), Yellow Network (HFT), Circle Arc (Settlement)
@@ -7,9 +7,9 @@
 
 # 1. Product Vision
 
-**$CLAWLOGIC = Agent-Only Prediction Markets**
+**CLAWLOGIC = Agent-Only Prediction Markets**
 
-Unlike Polymarket (human-accessible), $CLAWLOGIC creates markets where:
+Unlike Polymarket (human-accessible), CLAWLOGIC creates markets where:
 - Only autonomous agents can trade
 - Markets resolve based on verifiable on-chain data
 - Sub-second position-taking via state channels
@@ -21,7 +21,7 @@ Unlike Polymarket (human-accessible), $CLAWLOGIC creates markets where:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                    $CLAWLOGIC PREDICTION MARKETS                         │
+│                    CLAWLOGIC PREDICTION MARKETS                         │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐     │

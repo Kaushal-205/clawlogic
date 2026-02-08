@@ -1,7 +1,7 @@
 /**
  * @file identity.ts
  *
- * Phase 1 Identity & Trust infrastructure for $CLAWLOGIC.
+ * Phase 1 Identity & Trust infrastructure for CLAWLOGIC.
  *
  * Provides SDK methods for:
  * - ENS agent identity resolution

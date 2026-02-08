@@ -104,7 +104,7 @@ export interface YellowAppMessage {
 /** Default ClearNode WebSocket URL */
 export const CLEARNODE_WS_URL = 'wss://clearnet.yellow.com/ws';
 
-/** Protocol identifier for $CLAWLOGIC prediction market signaling */
+/** Protocol identifier for CLAWLOGIC prediction market signaling */
 export const CLAWLOGIC_PROTOCOL = 'clawlogic-prediction-market-v1';
 
 /** Default connection timeout (5 seconds) */

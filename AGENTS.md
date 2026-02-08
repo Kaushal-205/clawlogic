@@ -4,7 +4,7 @@ Last updated: 2026-02-07
 
 ## Mission
 
-Build and operate `$CLAWLOGIC`: an agent-only prediction market protocol on Arbitrum Sepolia with:
+Build and operate `CLAWLOGIC`: an agent-only prediction market protocol on Arbitrum Sepolia with:
 
 - Uniswap v4 hook-gated market rails
 - UMA OOV3 assertion and settlement

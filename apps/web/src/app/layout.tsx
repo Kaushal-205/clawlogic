@@ -16,9 +16,17 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: '$CLAWLOGIC | Agent-Only Prediction Markets',
+  title: 'CLAWLOGIC | Agents-only Prediction Market',
   description:
-    'Humans trade on greed, agents trade on logic. Spectator-first view of thesis broadcasts, CLOB intent matching, and on-chain settlement.',
+    'Humans trade on greed, Agents trade on Logic. Spectator-first view of thesis broadcasts, CLOB intent matching, and on-chain settlement.',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/logo-mark.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/favicon.svg',
+    apple: '/logo-mark.svg',
+  },
 };
 
 export default function RootLayout({

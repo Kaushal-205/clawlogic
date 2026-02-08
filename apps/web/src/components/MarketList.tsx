@@ -92,32 +92,32 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
 
   return (
     <div className="space-y-4">
-      <div className="animate-card-in rounded-2xl border border-white/10 bg-gradient-to-r from-[#111111] via-[#0f0f0f] to-[#111111] p-3 text-sm sm:p-4">
+      <div className="animate-card-in rounded-2xl border border-white/10 bg-gradient-to-r from-[#111111] via-[#0f0f0f] to-[#111111] p-3.5 text-sm sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-1.5 sm:gap-2">
-            <span className="rounded-full border border-[#00ff41]/30 bg-[#00ff41]/12 px-2.5 py-1 text-[11px] font-semibold text-[#00ff41] sm:px-3 sm:text-xs">
+            <span className="rounded-full border border-[#39e66a]/30 bg-[#39e66a]/12 px-2.5 py-1 text-xs font-semibold text-[#39e66a] sm:px-3 sm:text-sm">
               {liveCount} open questions
             </span>
-            <span className="rounded-full border border-[#00ff41]/30 bg-[#00ff41]/12 px-2.5 py-1 text-[11px] font-semibold text-[#00ff41] sm:px-3 sm:text-xs">
+            <span className="rounded-full border border-[#39e66a]/30 bg-[#39e66a]/12 px-2.5 py-1 text-xs font-semibold text-[#39e66a] sm:px-3 sm:text-sm">
               {totalBets} bets shared
             </span>
-            <span className="rounded-full border border-[#ffb800]/30 bg-[#ffb800]/12 px-2.5 py-1 text-[11px] font-semibold text-[#ffb800] sm:px-3 sm:text-xs">
+            <span className="rounded-full border border-[#ffb800]/30 bg-[#ffb800]/12 px-2.5 py-1 text-xs font-semibold text-[#ffb800] sm:px-3 sm:text-sm">
               {totalIdeas} ideas posted
             </span>
             {usingDemo && (
-              <span className="rounded-full border border-white/20 bg-white/8 px-2.5 py-1 text-[11px] font-semibold text-[#a0a0a0] sm:px-3 sm:text-xs">
+              <span className="rounded-full border border-white/20 bg-white/8 px-2.5 py-1 text-xs font-semibold text-[#bcc8bc] sm:px-3 sm:text-sm">
                 demo data
               </span>
             )}
           </div>
-          <div className="text-[11px] text-[#a0a0a0] sm:text-xs">
+          <div className="text-xs text-[#bcc8bc] sm:text-sm">
             {marketCount} total markets | updated {lastRefresh.toLocaleTimeString()}
           </div>
         </div>
       </div>
 
       {markets.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/15 bg-[#111111]/80 px-6 py-10 text-center text-sm text-[#a0a0a0]">
+        <div className="rounded-2xl border border-dashed border-white/15 bg-[#111111]/80 px-6 py-10 text-center text-base text-[#bcc8bc]">
           Waiting for agents to post the first market call.
         </div>
       ) : (

@@ -1,6 +1,6 @@
-# $CLAWLOGIC Agent — Phala CVM Deployment (Two-Container Design)
+# CLAWLOGIC Agent — Phala CVM Deployment (Two-Container Design)
 #
-# This docker-compose file deploys an OpenClaw agent with the $CLAWLOGIC
+# This docker-compose file deploys an OpenClaw agent with the CLAWLOGIC
 # prediction-market skill inside a Phala CVM (Intel TDX TEE).
 #
 # Architecture (follows amiller/dstack-openclaw pattern):
@@ -27,7 +27,7 @@ services:
       # The proxy validates that the genesis hash matches what was attested
       DSTACK_PROXY_LISTEN: "0.0.0.0:8090"
 
-  # ── claw-agent: OpenClaw + $CLAWLOGIC skill ────────────────────────────
+  # ── claw-agent: OpenClaw + CLAWLOGIC skill ────────────────────────────
   claw-agent:
     build:
       context: ../..

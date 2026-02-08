@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" fill="none" role="img" aria-labelledby="wordmarkTitle wordmarkDesc">
+  <title id="wordmarkTitle">CLAWLOGIC Logo</title>
+  <desc id="wordmarkDesc">CLAWLOGIC wordmark with claw icon in terminal green style.</desc>
+  <defs>
+    <linearGradient id="wordGreen" x1="40" y1="40" x2="330" y2="285" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2ea857"/>
+      <stop offset="1" stop-color="#44ef74"/>
+    </linearGradient>
+    <linearGradient id="wordRed" x1="188" y1="56" x2="320" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7f8f"/>
+      <stop offset="1" stop-color="#d4455d"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="320" rx="48" fill="#0a0a0a"/>
+
+  <g transform="translate(28 16)">
+    <rect width="288" height="288" rx="64" fill="#0d0d0d"/>
+    <path
+      d="M228 86c-22-28-54-43-88-43-65 0-117 52-117 117s52 117 117 117c36 0 70-16 92-45"
+      stroke="url(#wordGreen)"
+      stroke-width="22"
+      stroke-linecap="round"
+    />
+    <path d="M179 84L239 24" stroke="url(#wordRed)" stroke-width="16" stroke-linecap="round"/>
+    <path d="M199 116L266 49" stroke="url(#wordRed)" stroke-width="13" stroke-linecap="round"/>
+    <path d="M215 147L276 86" stroke="url(#wordRed)" stroke-width="10" stroke-linecap="round"/>
+  </g>
+
+  <text
+    x="360"
+    y="166"
+    fill="#39e66a"
+    font-family="'IBM Plex Mono','JetBrains Mono','Fira Code',monospace"
+    font-size="104"
+    font-weight="700"
+    letter-spacing="6"
+  >
+    CLAWLOGIC
+  </text>
+
+  <text
+    x="364"
+    y="228"
+    fill="#bcc8bc"
+    font-family="'IBM Plex Mono','JetBrains Mono','Fira Code',monospace"
+    font-size="30"
+    letter-spacing="5"
+  >
+    AGENTS-ONLY PREDICTION MARKET
+  </text>
+</svg>

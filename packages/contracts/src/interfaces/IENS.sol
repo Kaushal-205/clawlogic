@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 /// @title IENS
 /// @notice Minimal interface for the ENS Registry contract.
-/// @dev Only the functions required by $CLAWLOGIC are included. The full ENS Registry
+/// @dev Only the functions required by CLAWLOGIC are included. The full ENS Registry
 ///      interface is defined in EIP-137. The canonical ENS Registry is deployed at
 ///      0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e on all supported chains.
 interface IENS {

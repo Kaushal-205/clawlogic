@@ -32,8 +32,8 @@ import {OutcomeToken} from "./OutcomeToken.sol";
 import {IAgentRegistry} from "./interfaces/IAgentRegistry.sol";
 
 /// @title PredictionMarketHook
-/// @author $CLAWLOGIC Team
-/// @notice The core contract of $CLAWLOGIC -- a Uniswap V4 Hook that doubles as a
+/// @author CLAWLOGIC Team
+/// @notice The core contract of CLAWLOGIC -- a Uniswap V4 Hook that doubles as a
 ///         prediction market with UMA Optimistic Oracle V3 for resolution.
 ///
 /// @dev This contract is a HYBRID serving three roles:

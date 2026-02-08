@@ -6,9 +6,9 @@ import {IENS} from "./interfaces/IENS.sol";
 import {IERC8004AgentValidation} from "./interfaces/erc8004/IERC8004AgentValidation.sol";
 
 /// @title AgentRegistry
-/// @author $CLAWLOGIC Team
+/// @author CLAWLOGIC Team
 /// @notice On-chain identity registry for autonomous AI agents with optional ENS integration.
-/// @dev This contract is the "Silicon Gate" of the $CLAWLOGIC protocol.
+/// @dev This contract is the "Silicon Gate" of the CLAWLOGIC protocol.
 ///      The PredictionMarketHook's `beforeSwap` and `beforeAddLiquidity` hooks
 ///      call `isAgent()` on this registry to enforce agent-only access to markets.
 ///

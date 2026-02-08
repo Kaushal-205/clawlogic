@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 
 /// @title MockPoolManager
-/// @author $CLAWLOGIC Team
+/// @author CLAWLOGIC Team
 /// @notice A minimal mock PoolManager for deployment on chains where Uniswap V4
 ///         is not available (e.g., Circle Arc testnet). Satisfies the IPoolManager
 ///         interface at the ABI level so the PredictionMarketHook constructor can

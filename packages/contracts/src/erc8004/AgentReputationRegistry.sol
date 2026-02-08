@@ -6,7 +6,7 @@ import {IERC8004AgentReputation} from "../interfaces/erc8004/IERC8004AgentReputa
 import {IERC8004AgentIdentity} from "../interfaces/erc8004/IERC8004AgentIdentity.sol";
 
 /// @title AgentReputationRegistry
-/// @author $CLAWLOGIC Team
+/// @author CLAWLOGIC Team
 /// @notice ERC-8004 compliant Agent Reputation Registry.
 /// @dev Tracks on-chain reputation metrics for agent identities. Reputation is derived
 ///      from market assertion outcomes (assertions that were resolved successfully vs.

@@ -31,8 +31,8 @@ import {AgentValidationRegistry} from "../src/erc8004/AgentValidationRegistry.so
 import {AgentReputationRegistry} from "../src/erc8004/AgentReputationRegistry.sol";
 
 /// @title Deploy
-/// @author $CLAWLOGIC Team
-/// @notice Full-stack Foundry deployment script for the $CLAWLOGIC protocol.
+/// @author CLAWLOGIC Team
+/// @notice Full-stack Foundry deployment script for the CLAWLOGIC protocol.
 ///
 /// @dev Deploys the complete protocol stack in dependency order:
 ///
@@ -92,7 +92,7 @@ contract DeployScript is Script {
         address deployer = vm.addr(deployerPk);
 
         console2.log("================================================");
-        console2.log("  $CLAWLOGIC Full-Stack Deployment");
+        console2.log("  CLAWLOGIC Full-Stack Deployment");
         console2.log("================================================");
         console2.log("Deployer:        ", deployer);
         console2.log("PoolManager:     ", poolManager);

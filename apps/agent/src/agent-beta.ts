@@ -168,7 +168,7 @@ export async function runBeta(
 
   console.log('');
   console.log('================================================================');
-  console.log('  Agent Beta - $CLAWLOGIC Counter-Party Agent');
+  console.log('  Agent Beta - CLAWLOGIC Counter-Party Agent');
   console.log('================================================================');
   console.log(`  Address: ${address}`);
   console.log(`  Chain:   ${client.config.chainId} (Arbitrum Sepolia)`);

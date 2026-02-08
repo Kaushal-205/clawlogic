@@ -1,0 +1,147 @@
+[
+  {
+    "sessionId": "0xd29ea790bd0992f1925964ea0b12bcb45e62e9578bcf1f1a1761776c556ebf8b",
+    "simulated": false,
+    "marketId": "0xdd04d113a2ddfa9e2827185bf7a71b2aba1bb7db47b3f27efc3caeb51d6de2cf",
+    "agreed": true,
+    "alphaIntent": {
+      "marketId": "0xdd04d113a2ddfa9e2827185bf7a71b2aba1bb7db47b3f27efc3caeb51d6de2cf",
+      "outcome": "yes",
+      "amount": "0.01",
+      "agent": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
+      "reasoning": "Momentum + macro trend signals imply higher probability of upside realization.",
+      "confidenceBps": 7200,
+      "timestamp": 1770505299260,
+      "intentHash": "0x7904930074a7c00965caf9f9687b095093bbad32de0c1203cdbc229ac24ef03f",
+      "signature": "0x952226f7fe32e5585ff7de88c73487899b103b772015a2b1dae3d50b2388a96d248ebb1c848c781fde9383e23465061f7fb1c672c044f5e28d99b4030d41dce81c"
+    },
+    "betaIntent": {
+      "marketId": "0xdd04d113a2ddfa9e2827185bf7a71b2aba1bb7db47b3f27efc3caeb51d6de2cf",
+      "outcome": "no",
+      "amount": "0.01",
+      "agent": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
+      "reasoning": "Contrarian mean-reversion model indicates downside risk is currently underpriced.",
+      "confidenceBps": 6700,
+      "timestamp": 1770505299572,
+      "intentHash": "0xb7c7794d46487d6d549deccfe12ff901e6e336faef0ffeceb0b2921d79c82372",
+      "signature": "0xc019375de433419a53b60df9fccfc5b4c381252cedb4f03dc13f6026c17ab50b035e655473cb31ad2f555bade2ca14944e887d8bab509fb16a3dc3f0878433c91c"
+    },
+    "recordedAt": "2026-02-07T23:01:40.576Z"
+  },
+  {
+    "sessionId": "0xc630d586f9e0164bf42c2c37d3d46b4cc78711a19398c4c6230f3769de9d7349",
+    "simulated": false,
+    "marketId": "0x349751e35a61695508c8dd442d7d9bde2e6ded10cc0f2de1d1aa891ae0ac7fde",
+    "agreed": true,
+    "alphaIntent": {
+      "marketId": "0x349751e35a61695508c8dd442d7d9bde2e6ded10cc0f2de1d1aa891ae0ac7fde",
+      "outcome": "yes",
+      "amount": "0.01",
+      "agent": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
+      "reasoning": "Momentum + macro trend signals imply higher probability of upside realization.",
+      "confidenceBps": 7200,
+      "timestamp": 1770505177565,
+      "intentHash": "0xb757c2ad9c16939edaec41d9dfb73665ee4b4cf846212982bbb55faa16e14b2d",
+      "signature": "0xab31c6ff6c43a601c9b40d175cfc0100550609db619999f15073e4074817189a0cbd79f508459566db289aa0638f9f322f8f6617e5c30a20bbbb432e273f6d801c"
+    },
+    "betaIntent": {
+      "marketId": "0x349751e35a61695508c8dd442d7d9bde2e6ded10cc0f2de1d1aa891ae0ac7fde",
+      "outcome": "no",
+      "amount": "0.01",
+      "agent": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
+      "reasoning": "Contrarian mean-reversion model indicates downside risk is currently underpriced.",
+      "confidenceBps": 6700,
+      "timestamp": 1770505177877,
+      "intentHash": "0x3c516fa4d60aa697f77175b0d8c9aa64ad1cdd9d4a523946b99aa29e657d171b",
+      "signature": "0x4dbadae35d31071ebff0d6a531abcae1ba8c94dccd035d1780507c57ee4261b22fa4c218e2a70ff7c9d0231e557651fea0b9ba84a0052ddac953476b6e1949911c"
+    },
+    "recordedAt": "2026-02-07T22:59:39.000Z"
+  },
+  {
+    "sessionId": "0x0c888ac118ee1cdeecee5c7f8f1714b26f31e5cf5d15072aa9fe63733d388137",
+    "simulated": false,
+    "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
+    "agreed": true,
+    "alphaIntent": {
+      "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
+      "outcome": "yes",
+      "amount": "0.01",
+      "agent": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
+      "reasoning": "Momentum + macro trend signals imply higher probability of upside realization.",
+      "confidenceBps": 7200,
+      "timestamp": 1770505097078,
+      "intentHash": "0x76ccafa8de9317aa293ee2c00b054fda26645a0e7c9e4d6bb3b3dea3b45941a7",
+      "signature": "0xcf8967669849e007b221a36dd46ca5f68217412e07d89b3b879a220d82cd6e166ab0d7f46813f8ee6e6bd31c140e2d90b4b99ea0a9db4097153dda19ce0276b11b"
+    },
+    "betaIntent": {
+      "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
+      "outcome": "no",
+      "amount": "0.01",
+      "agent": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
+      "reasoning": "Contrarian mean-reversion model indicates downside risk is currently underpriced.",
+      "confidenceBps": 6700,
+      "timestamp": 1770505097391,
+      "intentHash": "0x0bb4bc885d33b05e3f4aae4266d2e4f8a1453ff1dd8e04d4d720df2e25429f54",
+      "signature": "0xc01750a8f54cb11bdbed342bd08271b7e98079b73d510b1e67c399d8db3a51c94284fcf1fe2d18b9bf10f5258b90aa348a8d132d3a8e63ae46f40540edc96ce01c"
+    },
+    "recordedAt": "2026-02-07T22:58:18.513Z"
+  },
+  {
+    "sessionId": "0xf62114622ee99a61271abf0c526b7b75626185ef84ea31d1737b2eb7b78c5939",
+    "simulated": true,
+    "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
+    "agreed": true,
+    "alphaIntent": {
+      "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
+      "outcome": "yes",
+      "amount": "0.01",
+      "agent": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
+      "reasoning": "Momentum + macro trend signals imply higher probability of upside realization.",
+      "confidenceBps": 7200,
+      "timestamp": 1770504271706,
+      "intentHash": "0x31b97b4a69c78b26eafbc842f7c665bae7286856602d9b44a558c82970927dca",
+      "signature": "0xb38672317d2472ee98d868cb794ea0c2115c1d57a9b9660e62a3fda1878076437ac5a3e983de74a564afc362c25c9889ad84f34b4407ac11b17ec111e44454c91b"
+    },
+    "betaIntent": {
+      "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
+      "outcome": "no",
+      "amount": "0.01",
+      "agent": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
+      "reasoning": "Contrarian mean-reversion model indicates downside risk is currently underpriced.",
+      "confidenceBps": 6700,
+      "timestamp": 1770504272215,
+      "intentHash": "0x34c46481e0489d24bdd29da73b5c4adfe215116ebd1f4e3417f7a3db5a14cedb",
+      "signature": "0x91e8952b51f482734692fa7df5b8b61b951a87517a875441a8ed95a2688d2a7415ddc9496613e396b80aa81f068db2668f09946bae4ceb7ba4ecba5cf33035961b"
+    },
+    "recordedAt": "2026-02-07T22:44:33.024Z"
+  },
+  {
+    "sessionId": "0x190731abd20ab31bcddb73a85fcdcf4d2ff583f1c270147546dbd3f967901cdd",
+    "simulated": true,
+    "marketId": "0xfbce66bbb038715936cc2422f881b01357d97461ddea09d1c19a6dacbeea29f0",
+    "agreed": true,
+    "alphaIntent": {
+      "marketId": "0xfbce66bbb038715936cc2422f881b01357d97461ddea09d1c19a6dacbeea29f0",
+      "outcome": "yes",
+      "amount": "0.01",
+      "agent": "0x502b9386dfac9d82C5644FAA8fd35c5754DB4431",
+      "reasoning": "Momentum + macro trend signals imply higher probability of upside realization.",
+      "confidenceBps": 7200,
+      "timestamp": 1770504198022,
+      "intentHash": "0xf49090c1b41cbfbb30b324c18cdcbd6e0ab1fe9111627b5a801278e526369b3a",
+      "signature": "0xf50feba9cd9621ed1f5eecbaf67b9d323fd7ae5e1b01549d1921f1f390a6ace206fce56686cb6ef23b0bcd66f734e4da2fcd2c27952317035ce3c8c31111b6fc1c"
+    },
+    "betaIntent": {
+      "marketId": "0xfbce66bbb038715936cc2422f881b01357d97461ddea09d1c19a6dacbeea29f0",
+      "outcome": "no",
+      "amount": "0.01",
+      "agent": "0x1F3651Ed783E9C66562edbE97Cc396575758f63b",
+      "reasoning": "Contrarian mean-reversion model indicates downside risk is currently underpriced.",
+      "confidenceBps": 6700,
+      "timestamp": 1770504198537,
+      "intentHash": "0x5756dee8584c8afb8ca6b26a0a20793888b880ba07420a8822d5c00c78e7a6a4",
+      "signature": "0xf538dc9a0e8321ed7eefb4493444d507e94271c8bbf6b2b08b55f57a28dec9133e42b9dd267f752ddf0675732c020a1a56ab306d562e3d89d4370cdc4009f6a51b"
+    },
+    "recordedAt": "2026-02-07T22:43:19.344Z"
+  }
+]

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 /// @title IAgentRegistry
-/// @notice Interface for the agent registration system used by $CLAWLOGIC.
+/// @notice Interface for the agent registration system used by CLAWLOGIC.
 /// @dev Agents must register through this registry to participate in prediction markets.
 ///      This is the "Silicon Gate" -- only registered agents can interact with the
 ///      PredictionMarketHook's beforeSwap and beforeAddLiquidity hooks.

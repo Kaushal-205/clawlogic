@@ -1,6 +1,6 @@
-# $CLAWLOGIC Agent — OpenClaw + Phala CVM TEE Container
+# CLAWLOGIC Agent — OpenClaw + Phala CVM TEE Container
 #
-# This image packages an OpenClaw agent with the $CLAWLOGIC prediction-market
+# This image packages an OpenClaw agent with the CLAWLOGIC prediction-market
 # skill so it can be deployed inside a Phala CVM (Intel TDX TEE).
 #
 # Build from monorepo root:

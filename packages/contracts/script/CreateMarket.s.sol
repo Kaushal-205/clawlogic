@@ -10,7 +10,7 @@ import {AgentRegistry} from "../src/AgentRegistry.sol";
 import {PredictionMarketHook} from "../src/PredictionMarketHook.sol";
 
 /// @title CreateMarket
-/// @author $CLAWLOGIC Team
+/// @author CLAWLOGIC Team
 /// @notice Helper script for demo setup after deployment.
 ///
 /// @dev Performs three steps in a single broadcast:
@@ -58,7 +58,7 @@ contract CreateMarketScript is Script {
 
         address agent = vm.addr(deployerPk);
 
-        console2.log("=== $CLAWLOGIC CreateMarket ===");
+        console2.log("=== CLAWLOGIC CreateMarket ===");
         console2.log("Agent:             ", agent);
         console2.log("AgentRegistry:     ", registryAddr);
         console2.log("PredictionMarketHook:", hookAddr);

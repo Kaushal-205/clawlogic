@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 
 /// @title IPredictionMarketHook
-/// @notice Interface for the core $CLAWLOGIC prediction market contract integrated with
+/// @notice Interface for the core CLAWLOGIC prediction market contract integrated with
 ///         Uniswap V4 hooks and UMA Optimistic Oracle V3 for resolution.
 /// @dev This interface defines the market lifecycle:
 ///      initializeMarket -> mintOutcomeTokens -> assertMarket -> settleOutcomeTokens.

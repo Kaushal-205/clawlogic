@@ -1,7 +1,7 @@
 /**
  * Agent Alpha - Primary prediction market participant
  *
- * This agent demonstrates the $CLAWLOGIC prediction market workflow:
+ * This agent demonstrates the CLAWLOGIC prediction market workflow:
  * 1. Register as an agent in AgentRegistry
  * 2. Create a new prediction market
  * 3. Mint outcome tokens (get YES and NO)
@@ -163,7 +163,7 @@ export async function runAlpha(
 
   console.log('');
   console.log('================================================================');
-  console.log('  Agent Alpha - $CLAWLOGIC Prediction Market Agent');
+  console.log('  Agent Alpha - CLAWLOGIC Prediction Market Agent');
   console.log('================================================================');
   console.log(`  Address: ${address}`);
   console.log(`  Chain:   ${client.config.chainId} (Arbitrum Sepolia)`);

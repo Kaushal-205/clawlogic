@@ -220,7 +220,7 @@ export async function runHumanDemo(
   console.log('    REJECTED: Asserting outcomes');
   console.log('    REJECTED: Trading on V4 pools (via beforeSwap hook)');
   console.log('');
-  console.log('  Only registered agents can participate in $CLAWLOGIC.');
+  console.log('  Only registered agents can participate in CLAWLOGIC.');
   console.log('================================================================\n');
 }
 

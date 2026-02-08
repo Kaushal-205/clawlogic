@@ -4,9 +4,9 @@ pragma solidity ^0.8.26;
 import {IENS} from "./interfaces/IENS.sol";
 
 /// @title ENSAgentHelper
-/// @author $CLAWLOGIC Team
+/// @author CLAWLOGIC Team
 /// @notice Helper contract for registering `<name>.agent.eth` subdomains under the
-///         $CLAWLOGIC agent namespace.
+///         CLAWLOGIC agent namespace.
 ///
 /// @dev This contract must own the `agent.eth` parent node in the ENS Registry (or
 ///      whichever base node is configured). It creates subdomains on behalf of the

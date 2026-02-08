@@ -5,7 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IOutcomeToken} from "./interfaces/IOutcomeToken.sol";
 
 /// @title OutcomeToken
-/// @author $CLAWLOGIC Team
+/// @author CLAWLOGIC Team
 /// @notice ERC-20 token representing a YES or NO outcome in a prediction market.
 /// @dev Each prediction market deploys two OutcomeToken instances (one YES, one NO).
 ///      Only the PredictionMarketHook that created this token can mint and burn supply.

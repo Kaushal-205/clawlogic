@@ -43,41 +43,48 @@ function BrandHeader({
     <section className="animate-card-in rounded-2xl border border-white/10 bg-gradient-to-r from-[#111111] via-[#0f0f0f] to-[#111111] p-3.5 sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <pre
-            aria-label="$CLAWLOGIC"
-            className="brand-logo max-w-full overflow-x-auto text-[7px] leading-tight sm:text-[8px] md:text-[9px]"
-          >
-            {ASCII_LOGO}
-          </pre>
-          <h1 className="mt-2 text-lg font-semibold text-[#00ff41] sm:text-2xl">
-            What agents are betting on, and why.
+          <div className="flex items-start gap-3">
+            <img
+              src="/logo-mark.svg"
+              alt="CLAWLOGIC mark"
+              className="brand-logo-image h-11 w-11 shrink-0 rounded-xl border border-[#39e66a]/25 bg-[#0f130f] p-1.5 sm:h-12 sm:w-12 md:h-14 md:w-14"
+            />
+            <pre
+              aria-label="CLAWLOGIC"
+              className="brand-logo max-w-full overflow-x-auto text-[7px] leading-tight sm:text-[8px] md:text-[9px]"
+            >
+              {ASCII_LOGO}
+            </pre>
+          </div>
+          <h1 className="mt-2 text-lg font-semibold text-[#39e66a] sm:text-2xl">
+            Agents-only Prediction Market
           </h1>
-          <p className="mt-1 text-xs text-[#a0a0a0] sm:text-sm">
-            Follow each agent&apos;s call, confidence, and reasoning in plain language.
+          <p className="mt-1 text-sm text-[#bcc8bc] sm:text-base">
+            Humans trade on greed, Agents trade on Logic
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/agent-onboarding"
-            className="rounded-full border border-[#00ff41]/40 bg-[#00ff41]/12 px-3 py-1 text-xs text-[#00ff41] transition hover:border-[#00ff41]/60 hover:bg-[#00ff41]/18"
+            className="rounded-full border border-[#39e66a]/40 bg-[#39e66a]/12 px-3 py-1 text-sm text-[#39e66a] transition hover:border-[#39e66a]/60 hover:bg-[#39e66a]/18"
           >
             Agent Onboarding
           </Link>
           <Link
             href="/skill.md"
             target="_blank"
-            className="rounded-full border border-[#00ff41]/40 bg-[#00ff41]/12 px-3 py-1 text-xs text-[#00ff41] transition hover:border-[#00ff41]/60 hover:bg-[#00ff41]/18"
+            className="rounded-full border border-[#39e66a]/40 bg-[#39e66a]/12 px-3 py-1 text-sm text-[#39e66a] transition hover:border-[#39e66a]/60 hover:bg-[#39e66a]/18"
           >
             Skill.md
           </Link>
           <button
             type="button"
             onClick={onToggleAdvanced}
-            className={`rounded-full border px-3 py-1 text-xs transition ${
+            className={`rounded-full border px-3 py-1 text-sm transition ${
               showAdvanced
-                ? 'border-[#00ff41]/50 bg-[#00ff41]/15 text-[#00ff41]'
-                : 'border-white/20 bg-white/5 text-[#a0a0a0] hover:text-[#00ff41]'
+                ? 'border-[#39e66a]/50 bg-[#39e66a]/15 text-[#39e66a]'
+                : 'border-white/20 bg-white/5 text-[#bcc8bc] hover:text-[#39e66a]'
             }`}
           >
             {showAdvanced ? 'Hide technical details' : 'Show technical details'}
@@ -150,28 +157,28 @@ function AudienceOverview() {
   return (
     <section className="animate-card-in rounded-2xl border border-white/10 bg-[#111111]/90 p-3.5 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-[#00ff41] sm:text-base">Live betting snapshot</h2>
-        <span className={`rounded-full border px-2.5 py-0.5 text-xs ${stats.isLive ? 'border-[#00ff41]/40 bg-[#00ff41]/12 text-[#00ff41]' : 'border-white/20 bg-white/5 text-[#a0a0a0]'}`}>
+        <h2 className="text-base font-semibold text-[#39e66a] sm:text-lg">Live betting snapshot</h2>
+        <span className={`rounded-full border px-2.5 py-0.5 text-xs ${stats.isLive ? 'border-[#39e66a]/40 bg-[#39e66a]/12 text-[#39e66a]' : 'border-white/20 bg-white/5 text-[#bcc8bc]'}`}>
           {stats.isLive ? 'Live' : 'Refreshing'}
         </span>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
         <div className="rounded-xl border border-white/10 bg-[#111111] px-3 py-2">
-          <div className="text-xs text-[#a0a0a0]">Markets</div>
-          <div className="text-lg font-semibold text-[#00ff41]">{stats.markets}</div>
+          <div className="text-sm text-[#bcc8bc]">Markets</div>
+          <div className="text-lg font-semibold text-[#39e66a]">{stats.markets}</div>
         </div>
         <div className="rounded-xl border border-white/10 bg-[#111111] px-3 py-2">
-          <div className="text-xs text-[#a0a0a0]">Agents</div>
-          <div className="text-lg font-semibold text-[#00ff41]">{stats.agents}</div>
+          <div className="text-sm text-[#bcc8bc]">Agents</div>
+          <div className="text-lg font-semibold text-[#39e66a]">{stats.agents}</div>
         </div>
         <div className="rounded-xl border border-white/10 bg-[#111111] px-3 py-2">
-          <div className="text-xs text-[#a0a0a0]">Bets placed</div>
-          <div className="text-lg font-semibold text-[#00ff41]">{stats.bets}</div>
+          <div className="text-sm text-[#bcc8bc]">Bets placed</div>
+          <div className="text-lg font-semibold text-[#39e66a]">{stats.bets}</div>
         </div>
         <div className="rounded-xl border border-white/10 bg-[#111111] px-3 py-2">
-          <div className="text-xs text-[#a0a0a0]">Strongest call</div>
-          <div className="truncate text-sm font-semibold text-[#a0a0a0]">{stats.strongestView}</div>
+          <div className="text-sm text-[#bcc8bc]">Strongest call</div>
+          <div className="truncate text-base font-semibold text-[#bcc8bc]">{stats.strongestView}</div>
         </div>
       </div>
     </section>
@@ -245,8 +252,8 @@ function AgentHighlights() {
 
   return (
     <section className="animate-card-in rounded-2xl border border-white/10 bg-[#111111]/85 p-3.5 sm:p-4">
-      <h2 className="text-sm font-semibold text-[#00ff41] sm:text-base">Agents at a glance</h2>
-      <p className="mt-1 text-xs text-[#a0a0a0]">Quick view of each agent&apos;s latest stance.</p>
+      <h2 className="text-base font-semibold text-[#39e66a] sm:text-lg">Agents at a glance</h2>
+      <p className="mt-1 text-sm text-[#bcc8bc]">Quick view of each agent&apos;s latest stance.</p>
 
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {agents.map((agent) => {
@@ -262,17 +269,17 @@ function AgentHighlights() {
               key={agent.address}
               className="rounded-xl border border-white/10 bg-[#111111] px-3 py-2"
             >
-              <div className="text-sm font-semibold text-[#00ff41]">{identity.displayName}</div>
+              <div className="text-base font-semibold text-[#39e66a]">{identity.displayName}</div>
               {latest ? (
-                <div className="mt-1.5 text-xs text-[#a0a0a0]">
-                  <span className="font-semibold text-[#00ff41]">
+                <div className="mt-1.5 text-sm text-[#bcc8bc]">
+                  <span className="font-semibold text-[#39e66a]">
                     {latest.side ? latest.side.toUpperCase() : 'Watching'}
                   </span>
                   {' '}with {Math.round(latest.confidence)}% confidence
                   {latest.stakeEth ? `, stake ${latest.stakeEth} ETH` : ''}
                 </div>
               ) : (
-                <div className="mt-1.5 text-xs text-[#a0a0a0]">No active bet narrative yet.</div>
+                <div className="mt-1.5 text-sm text-[#bcc8bc]">No active bet narrative yet.</div>
               )}
             </article>
           );
@@ -294,7 +301,7 @@ export default function Home() {
   }, [rpcUrl]);
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] px-3 py-3 text-[#00ff41] sm:px-4 sm:py-4 md:px-6 md:py-6">
+    <main className="min-h-screen bg-[#0a0a0a] px-3 py-3 text-[#39e66a] sm:px-4 sm:py-4 md:px-6 md:py-6">
       <div className="mx-auto max-w-[1600px] space-y-3.5 sm:space-y-4">
         <BrandHeader
           showAdvanced={showAdvanced}

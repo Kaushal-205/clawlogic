@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-labelledby="logoTitle logoDesc">
+  <title id="logoTitle">CLAWLOGIC Mark</title>
+  <desc id="logoDesc">Circular C mark with claw slashes in terminal green and red.</desc>
+  <defs>
+    <linearGradient id="clawGreen" x1="96" y1="96" x2="420" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2ea857"/>
+      <stop offset="1" stop-color="#44ef74"/>
+    </linearGradient>
+    <linearGradient id="clawRed" x1="296" y1="148" x2="428" y2="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7f8f"/>
+      <stop offset="1" stop-color="#d4455d"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="#0a0a0a"/>
+
+  <path
+    d="M378 156c-30-38-75-60-122-60-89 0-160 71-160 160s71 160 160 160c50 0 96-22 126-62"
+    stroke="url(#clawGreen)"
+    stroke-width="30"
+    stroke-linecap="round"
+  />
+
+  <path d="M308 154L388 74" stroke="url(#clawRed)" stroke-width="22" stroke-linecap="round"/>
+  <path d="M334 196L426 104" stroke="url(#clawRed)" stroke-width="18" stroke-linecap="round"/>
+  <path d="M355 238L438 155" stroke="url(#clawRed)" stroke-width="14" stroke-linecap="round"/>
+</svg>

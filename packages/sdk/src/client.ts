@@ -88,7 +88,7 @@ function buildChain(config: ClawlogicConfig): Chain {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Main client for interacting with the $CLAWLOGIC protocol.
+ * Main client for interacting with the CLAWLOGIC protocol.
  *
  * Provides methods for:
  * - Agent registration & lookup (AgentRegistry)

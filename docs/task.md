@@ -1,4 +1,4 @@
-# $CLAWLOGIC Task Checklist
+# CLAWLOGIC Task Checklist
 
 ## Phase 1: Smart Contracts (`agent-contracts`)
 

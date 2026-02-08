@@ -15,7 +15,7 @@ import {MockOptimisticOracleV3} from "../mocks/MockOptimisticOracleV3.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 
 /// @title TestSetup
-/// @notice Shared test setup for all $CLAWLOGIC contract tests
+/// @notice Shared test setup for all CLAWLOGIC contract tests
 abstract contract TestSetup is Test {
     // Contracts
     PoolManager public poolManager;

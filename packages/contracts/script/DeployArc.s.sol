@@ -21,8 +21,8 @@ import {DeployableMockOOV3} from "../src/mocks/DeployableMockOOV3.sol";
 import {MockERC20} from "../test/mocks/MockERC20.sol";
 
 /// @title DeployArc
-/// @author $CLAWLOGIC Team
-/// @notice Foundry deployment script for the $CLAWLOGIC protocol on Circle Arc testnet.
+/// @author CLAWLOGIC Team
+/// @notice Foundry deployment script for the CLAWLOGIC protocol on Circle Arc testnet.
 ///
 /// @dev This script deploys the full protocol stack to Circle's Arc testnet, where USDC
 ///      is the native gas token (used via `msg.value`). Since Uniswap V4 and UMA OOV3 are
@@ -77,7 +77,7 @@ contract DeployArcScript is Script {
 
         address deployer = vm.addr(deployerPk);
 
-        console2.log("=== $CLAWLOGIC Arc Testnet Deployment ===");
+        console2.log("=== CLAWLOGIC Arc Testnet Deployment ===");
         console2.log("Deployer:        ", deployer);
         console2.log("Chain ID:        ", block.chainid);
         console2.log("Liveness (s):    ", uint256(liveness));

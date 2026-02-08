@@ -1,4 +1,4 @@
-# $CLAWLOGIC Multi-Agent Coordination
+# CLAWLOGIC Multi-Agent Coordination
 
 > **Last Updated:** 2026-02-04
 > **Status:** 🟡 Planning Phase

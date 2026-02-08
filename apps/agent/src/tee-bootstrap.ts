@@ -198,7 +198,7 @@ function launchOpenClaw(): void {
 
 async function main(): Promise<void> {
   console.log('═══════════════════════════════════════════════════════');
-  console.log('  $CLAWLOGIC TEE Bootstrap — Phala CVM Agent Startup');
+  console.log('  CLAWLOGIC TEE Bootstrap — Phala CVM Agent Startup');
   console.log('═══════════════════════════════════════════════════════');
 
   const result: TeeBootstrapResult = {

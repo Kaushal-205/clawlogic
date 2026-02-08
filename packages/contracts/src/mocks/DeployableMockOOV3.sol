@@ -6,7 +6,7 @@ import {OptimisticOracleV3CallbackRecipientInterface} from
     "../interfaces/uma/OptimisticOracleV3CallbackRecipientInterface.sol";
 
 /// @title DeployableMockOOV3
-/// @author $CLAWLOGIC Team
+/// @author CLAWLOGIC Team
 /// @notice A deployable mock of UMA Optimistic Oracle V3 for chains where UMA is not
 ///         available natively (e.g., Circle Arc testnet).
 ///

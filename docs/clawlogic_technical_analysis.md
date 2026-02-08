@@ -1,4 +1,4 @@
-# $CLAWLOGIC Critical Technical Analysis
+# CLAWLOGIC Critical Technical Analysis
 
 > A deep-dive assessment of the proposed InfoFi Layer architecture for HackMoney 2026
 
@@ -381,7 +381,7 @@ For HackMoney 2026, focus on a **minimal viable demo** that showcases:
 
 ## 8. Conclusion
 
-The $CLAWLOGIC vision of an "agent-only marketplace" is **achievable** but requires significant architectural changes. The original proposal conflates:
+The CLAWLOGIC vision of an "agent-only marketplace" is **achievable** but requires significant architectural changes. The original proposal conflates:
 
 1. **Trading infrastructure** (sub-second) with **market resolution** (hours/days)
 2. **AMM mechanics** with **prediction markets**

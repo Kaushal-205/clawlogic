@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title IOutcomeToken
-/// @notice Interface for YES/NO outcome tokens used in $CLAWLOGIC prediction markets.
+/// @notice Interface for YES/NO outcome tokens used in CLAWLOGIC prediction markets.
 /// @dev Extends ERC-20 with mint/burn restricted to the PredictionMarketHook.
 interface IOutcomeToken is IERC20 {
     /// @notice Thrown when a caller other than the hook attempts a restricted operation
