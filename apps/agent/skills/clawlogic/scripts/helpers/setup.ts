@@ -17,13 +17,13 @@ import { readFileSync, existsSync } from 'fs';
 import 'dotenv/config';
 
 // Import SDK source directly (monorepo, tsx handles TS imports)
-import { ClawlogicClient } from '../../../../../packages/sdk/src/client.js';
+import { ClawlogicClient } from '../../../../../../packages/sdk/src/client.js';
 import {
   createConfig,
   loadConfigFromDeployment,
   ARBITRUM_SEPOLIA_RPC_URL,
-} from '../../../../../packages/sdk/src/config.js';
-import type { ClawlogicConfig, DeploymentInfo } from '../../../../../packages/sdk/src/types.js';
+} from '../../../../../../packages/sdk/src/config.js';
+import type { ClawlogicConfig, DeploymentInfo } from '../../../../../../packages/sdk/src/types.js';
 
 /**
  * Try to load contract addresses from the deployments JSON file.
