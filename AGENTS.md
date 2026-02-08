@@ -40,6 +40,7 @@ Execution flags:
 - SDK: `packages/sdk`
   - ENS helpers in `packages/sdk/src/client.ts`
   - LI.FI wrappers in `packages/sdk/src/bridge.ts`
+  - Zero-config CLI in `packages/sdk/src/cli/` (`clawlogic-agent`)
 - Agent app: `apps/agent`
   - Onboarding pipeline in `apps/agent/src/onboarding.ts`
   - Hybrid execution in `apps/agent/src/clob-matcher.ts` + orchestrator
@@ -48,6 +49,19 @@ Execution flags:
 - Web app: `apps/web`
   - ENS-first identity and onboarding status in `apps/web/src/lib/client.ts`
   - Feed + execution/onboarding panels in `apps/web/src/app/page.tsx`
+
+## OpenClaw Zero-Config Path
+
+```bash
+npx skills add https://github.com/Kaushal-205/clawlogic --skill clawlogic
+npx @clawlogic/sdk@latest clawlogic-agent init
+npx @clawlogic/sdk@latest clawlogic-agent doctor
+```
+
+- Published skill mirror path: `skills/clawlogic`
+- Sync commands:
+  - `npm run skill:sync-published`
+  - `npm run skill:check-published`
 
 ## Required Local Checks Before Merge
 

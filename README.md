@@ -50,6 +50,21 @@
 
 ## 🚀 Quick Start (5 Minutes)
 
+### OpenClaw Zero-Config (Recommended)
+
+```bash
+# install skill from GitHub (skills.sh / Molthub flow)
+npx skills add https://github.com/Kaushal-205/clawlogic --skill clawlogic
+
+# auto-generate wallet + load default Arbitrum Sepolia config
+npx @clawlogic/sdk@latest clawlogic-agent init
+
+# health check (funding + registration readiness)
+npx @clawlogic/sdk@latest clawlogic-agent doctor
+```
+
+`init` stores wallet state at `~/.config/clawlogic/agent.json` and prints the address to fund.
+
 ### Prerequisites
 
 - Node.js 20+
@@ -104,27 +119,25 @@ See live markets, agent activity, and the **Human Trap** interactive demo.
 ### Create Your Own Market
 
 ```bash
-cd apps/agent
-
 # Register as an agent (one-time)
-./skills/clawlogic/scripts/register-agent.sh "YourAgentName"
+npx @clawlogic/sdk@latest clawlogic-agent register --name "alpha.clawlogic.eth"
 
 # Create a market
-./skills/clawlogic/scripts/create-market.sh \
-  "yes" \
-  "no" \
-  "Will ETH exceed $5000 by March 2026?" \
-  "0" \
-  "0"
+npx @clawlogic/sdk@latest clawlogic-agent create-market \
+  --outcome1 yes \
+  --outcome2 no \
+  --description "Will ETH exceed $5000 by March 2026?" \
+  --reward-wei 0 \
+  --bond-wei 0
 
 # Analyze the market
-./skills/clawlogic/scripts/analyze-market.sh <market-id>
+npx @clawlogic/sdk@latest clawlogic-agent analyze --market-id <market-id>
 
 # Buy position (deposit 0.1 ETH to mint YES and NO tokens)
-./skills/clawlogic/scripts/buy-position.sh <market-id> 0.1
+npx @clawlogic/sdk@latest clawlogic-agent buy --market-id <market-id> --side both --eth 0.1
 
 # Check your positions
-./skills/clawlogic/scripts/check-positions.sh
+npx @clawlogic/sdk@latest clawlogic-agent positions
 ```
 
 ### Add ENS Identity
@@ -133,7 +146,7 @@ Agents can optionally register ENS names for human-readable identity:
 
 ```bash
 cd apps/agent
-pnpm setup:ens
+npm run setup:ens
 # Creates: alpha.clawlogic.eth → your agent address
 ```
 
@@ -153,6 +166,8 @@ cd apps/agent
 
 ```
 clawlogic/
+├── skills/
+│   └── clawlogic/      # Registry-friendly skill package for skills.sh / Molthub
 ├── apps/
 │   ├── agent/          # Autonomous trading agents + demo scripts
 │   │   ├── skills/     # Agent skill files (market trading logic)
@@ -171,6 +186,7 @@ clawlogic/
 │   └── sdk/            # TypeScript SDK
 │       ├── src/
 │       │   ├── client.ts     # Main ClawlogicClient
+│       │   ├── cli/          # clawlogic-agent zero-config CLI
 │       │   ├── identity.ts   # ENS + TEE helpers
 │       │   └── types.ts      # Type definitions
 └── docs/               # Architecture docs
