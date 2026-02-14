@@ -83,6 +83,13 @@ export const agentRegistryAbi = [
   },
   {
     type: 'function',
+    name: 'linkENS',
+    inputs: [{ name: 'ensNode', type: 'bytes32', internalType: 'bytes32' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     name: 'registerAgentWithENS',
     inputs: [
       { name: 'name', type: 'string', internalType: 'string' },

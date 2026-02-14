@@ -47,7 +47,7 @@ function loadDeployment(): DeploymentInfo {
 }
 
 function createHumanClient(privateKey: Hex): ClawlogicClient {
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.AGENT_RPC_URL ?? process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
   const deployment = loadDeployment();
   const config = loadConfigFromDeployment(deployment, rpcUrl);
   return new ClawlogicClient(config, privateKey);

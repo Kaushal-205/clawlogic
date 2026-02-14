@@ -80,7 +80,7 @@ function loadDeployment() {
 
 async function main() {
   const deployment = loadDeployment();
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia-rollup.arbitrum.io/rpc';
+  const rpcUrl = process.env.AGENT_RPC_URL || process.env.ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia-rollup.arbitrum.io/rpc';
 
   const deployerPk = process.env.PRIVATE_KEY as Hex;
   const alphaPk = process.env.AGENT_ALPHA_PRIVATE_KEY as Hex;

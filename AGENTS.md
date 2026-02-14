@@ -1,6 +1,6 @@
 # AGENTS.md - Working Guide For Human + AI Contributors
 
-Last updated: 2026-02-07
+Last updated: 2026-02-11
 
 ## Mission
 
@@ -126,3 +126,32 @@ Artifacts:
 ## Current Known Risk
 
 - Yellow live auth can still fail depending on ClearNode challenge/signature behavior. Validate strict-live flow before demos/submission.
+
+## Tracker Discipline
+
+Canonical task and correction log: `docs/launch-tracker.md`
+
+Rules:
+
+- Update `docs/launch-tracker.md` after every implementation session.
+- When the founder corrects strategy, architecture, scope, GTM, branch policy, or risk posture, append a new entry in the `Correction Log` immediately.
+- Correction entries are append-only and must include:
+  - UTC timestamp
+  - previous assumption
+  - founder correction
+  - updated invariant/rule
+  - affected files/modules
+  - follow-up tasks
+- Do not remove historical corrections. If superseded, add a new correction entry that references the prior one.
+
+## Licensing Boundaries
+
+Canonical licensing policy: `docs/licensing-policy.md`
+Third-party attribution inventory: `THIRD_PARTY_LICENSES.md`
+
+Rules:
+
+- Keep `packages/contracts/src/**` and `packages/sdk/**` under MIT-compatible open-source terms.
+- Treat off-chain strategy and sensitive operational workflows as private unless explicitly approved for open publication.
+- Do not alter upstream SPDX headers for vendored dependencies.
+- When adding third-party code, append path/source/license notes to `THIRD_PARTY_LICENSES.md`.

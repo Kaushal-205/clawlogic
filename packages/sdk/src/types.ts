@@ -78,6 +78,84 @@ export interface MarketReserves {
 }
 
 /**
+ * Market-level fee configuration and accrual state.
+ */
+export interface MarketFeeInfo {
+  /** Market creator and creator-fee beneficiary */
+  creator: `0x${string}`;
+  /** Unclaimed creator fees accrued for this market (wei) */
+  creatorFeesAccrued: bigint;
+  /** Total protocol fees accrued by this market (wei) */
+  protocolFeesAccrued: bigint;
+  /** Current protocol fee rate in basis points */
+  protocolFeeBps: number;
+  /** Current creator fee rate in basis points */
+  creatorFeeBps: number;
+}
+
+/**
+ * Claimable fee balances for an account.
+ */
+export interface ClaimableFees {
+  /** Aggregate claimable creator fees for this account (wei) */
+  creatorClaimable: bigint;
+  /** Aggregate claimable protocol fees for this account (wei) */
+  protocolClaimable: bigint;
+}
+
+/**
+ * ENS premium name purchase information for a label.
+ */
+export interface EnsNameInfo {
+  /** Label owner address (zero if never purchased) */
+  owner: `0x${string}`;
+  /** Purchase timestamp (0 if never purchased) */
+  purchasedAt: bigint;
+  /** Paid USDC amount in token base units */
+  paidPrice: bigint;
+  /** Full ENS subnode hash (namehash) */
+  subnode: `0x${string}`;
+  /** True when currently purchasable */
+  available: boolean;
+}
+
+/**
+ * ENS premium registrar pricing tiers (token base units).
+ */
+export interface EnsRegistrarPricing {
+  /** Price for labels with length <= 3 */
+  shortPrice: bigint;
+  /** Price for labels with length 4-6 */
+  mediumPrice: bigint;
+  /** Price for labels with length >= 7 */
+  longPrice: bigint;
+}
+
+/**
+ * ENS premium registrar commit-reveal window configuration.
+ */
+export interface EnsRegistrarCommitWindow {
+  /** Minimum delay between commit and buy (seconds) */
+  minDelay: bigint;
+  /** Maximum age of a commitment before expiry (seconds) */
+  maxAge: bigint;
+}
+
+/**
+ * Consolidated ENS premium registrar admin/read configuration.
+ */
+export interface EnsRegistrarAdminState {
+  /** Treasury receiving ENS purchase payments */
+  treasury: `0x${string}`;
+  /** Tiered label pricing configuration */
+  pricing: EnsRegistrarPricing;
+  /** Commit-reveal window configuration */
+  commitWindow: EnsRegistrarCommitWindow;
+  /** Whether only registered agents may buy names */
+  agentOnlyMode: boolean;
+}
+
+/**
  * Agent reputation score from ERC-8004 AgentReputationRegistry.
  */
 export interface ReputationScore {
@@ -170,6 +248,8 @@ export interface ClawlogicConfig {
     bondCurrency?: `0x${string}`;
     /** ENS Registry address (MockENS on testnet) */
     ensRegistry?: `0x${string}`;
+    /** ENS premium registrar contract address (optional) */
+    ensPremiumRegistrar?: `0x${string}`;
     /** ERC-8004 AgentIdentityRegistry address */
     agentIdentityRegistry?: `0x${string}`;
     /** ERC-8004 AgentValidationRegistry address */
@@ -196,6 +276,7 @@ export interface DeploymentInfo {
     OptimisticOracleV3?: string;
     BondCurrency?: string;
     ENSRegistry?: string;
+    ENSPremiumRegistrar?: string;
     AgentIdentityRegistry?: string;
     AgentValidationRegistry?: string;
     AgentReputationRegistry?: string;
@@ -215,7 +296,14 @@ export interface MarketEvent {
     | 'AssertionFailed'
     | 'AssertionDisputed'
     | 'TokensSettled'
-    | 'OutcomeTokenBought';
+    | 'OutcomeTokenBought'
+    | 'FeesAccrued'
+    | 'FeeConfigUpdated'
+    | 'ProtocolFeeRecipientUpdated'
+    | 'CreatorFeesClaimed'
+    | 'ProtocolFeesClaimed'
+    | 'Paused'
+    | 'Unpaused';
   marketId: `0x${string}`;
   blockNumber: bigint;
   transactionHash: `0x${string}`;

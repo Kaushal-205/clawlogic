@@ -62,6 +62,9 @@ interface IAgentRegistry {
     /// @notice Thrown when an ENS lookup returns no linked agent
     error ENSNodeNotLinked();
 
+    /// @notice Thrown when an ENS operation requires a non-zero ENS node but bytes32(0) was provided
+    error ZeroENSNode();
+
     // -------------------------------------------------
     // Functions
     // -------------------------------------------------
@@ -77,6 +80,12 @@ interface IAgentRegistry {
     /// @param ensNode The ENS namehash to link. Pass bytes32(0) for no ENS linkage.
     ///                If non-zero, the caller must own this node in the ENS registry.
     function registerAgentWithENS(string calldata name, bytes calldata attestation, bytes32 ensNode) external;
+
+    /// @notice Link or replace ENS identity for the already-registered caller.
+    /// @dev Caller must be registered, ENS must be configured, and caller must own `ensNode`.
+    ///      If caller already has a different linked ENS node, the old reverse mapping is cleared.
+    /// @param ensNode The ENS namehash to link. Must be non-zero.
+    function linkENS(bytes32 ensNode) external;
 
     /// @notice Check if an address is a registered agent
     /// @param addr The address to check

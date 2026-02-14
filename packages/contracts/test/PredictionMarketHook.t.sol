@@ -766,6 +766,170 @@ contract PredictionMarketHookTest is TestSetup {
         hook.buyOutcomeToken{value: 1 ether}(marketId, true, 100 ether);
     }
 
+    function test_Pause_OnlyOwner_RevertsForNonOwner() public {
+        vm.prank(agentAlpha);
+        vm.expectRevert(IPredictionMarketHook.OnlyOwner.selector);
+        hook.pause();
+    }
+
+    function test_Pause_BlocksInitializeMarket() public {
+        vm.prank(deployer);
+        hook.pause();
+
+        vm.prank(agentAlpha);
+        vm.expectRevert(IPredictionMarketHook.ContractPaused.selector);
+        hook.initializeMarket("yes", "no", "Paused market create", 0, 0);
+    }
+
+    function test_Unpause_RestoresInitializeMarket() public {
+        vm.prank(deployer);
+        hook.pause();
+
+        vm.prank(deployer);
+        hook.unpause();
+
+        bytes32 marketId = _createMarket(agentAlpha, "Post-unpause market", 0, 0);
+        assertTrue(marketId != bytes32(0), "Market should be creatable after unpause");
+    }
+
+    function test_E2E_OnboardingAndFirstTrade() public {
+        // 1) Unregistered wallet is blocked from market creation.
+        vm.prank(humanUser);
+        vm.expectRevert(IPredictionMarketHook.NotRegisteredAgent.selector);
+        hook.initializeMarket("yes", "no", "Human should fail before onboarding", 0, 0);
+
+        // 2) Onboard: register wallet as agent (non-ENS path).
+        vm.prank(humanUser);
+        registry.registerAgent("Gamma", "");
+        assertTrue(registry.isAgent(humanUser), "Human wallet should be registered after onboarding");
+
+        // 3) Registered agent creates a market with initial CPMM liquidity.
+        vm.prank(humanUser);
+        bytes32 marketId = hook.initializeMarket{value: 5 ether}(
+            "yes",
+            "no",
+            "Will onboarding e2e pass?",
+            0,
+            0
+        );
+        assertTrue(marketId != bytes32(0), "Market should be created by onboarded agent");
+
+        // 4) Another registered agent executes the first directional trade.
+        vm.prank(agentBeta);
+        hook.buyOutcomeToken{value: 1 ether}(marketId, true, 0);
+
+        // 5) Verify trade effect and inventory.
+        (
+            ,
+            ,
+            ,
+            address outcome1Token,
+            ,
+            ,
+            ,
+            bool resolved,
+            ,
+            ,
+            uint256 totalCollateral
+        ) = hook.getMarket(marketId);
+        assertFalse(resolved, "Market should remain unresolved after first trade");
+        uint256 protocolFee = (1 ether * uint256(hook.s_protocolFeeBps())) / 10_000;
+        uint256 creatorFee = (1 ether * uint256(hook.s_creatorFeeBps())) / 10_000;
+        uint256 netTradeValue = 1 ether - protocolFee - creatorFee;
+        assertEq(totalCollateral, 5 ether + netTradeValue, "Collateral should increase by net trade size");
+
+        OutcomeToken token1 = OutcomeToken(outcome1Token);
+        assertTrue(token1.balanceOf(agentBeta) > 0, "First trader should receive directional tokens");
+    }
+
+    function test_BuyOutcomeToken_AccruesAndClaimsCreatorAndProtocolFees() public {
+        bytes32 marketId = _createMarketWithLiquidity(
+            agentAlpha,
+            "Fee sharing market",
+            0,
+            0,
+            10 ether
+        );
+
+        // Route protocol fees to an EOA so native ETH payout is receivable in this test.
+        vm.prank(deployer);
+        hook.setProtocolFeeRecipient(agentBeta);
+
+        uint256 tradeSize = 2 ether;
+        uint256 protocolFeeBps = hook.s_protocolFeeBps();
+        uint256 creatorFeeBps = hook.s_creatorFeeBps();
+        uint256 expectedProtocolFee = (tradeSize * protocolFeeBps) / 10_000;
+        uint256 expectedCreatorFee = (tradeSize * creatorFeeBps) / 10_000;
+
+        vm.prank(agentBeta);
+        hook.buyOutcomeToken{value: tradeSize}(marketId, true, 0);
+
+        address creator;
+        uint256 creatorFeesAccrued;
+        uint256 protocolFeesAccrued;
+        uint16 observedProtocolFeeBps;
+        uint16 observedCreatorFeeBps;
+        (
+            creator,
+            creatorFeesAccrued,
+            protocolFeesAccrued,
+            observedProtocolFeeBps,
+            observedCreatorFeeBps
+        ) = hook.getMarketFeeInfo(marketId);
+
+        assertEq(creator, agentAlpha, "Creator should match market creator");
+        assertEq(creatorFeesAccrued, expectedCreatorFee, "Creator fee accrual mismatch");
+        assertEq(protocolFeesAccrued, expectedProtocolFee, "Protocol fee accrual mismatch");
+        assertEq(observedProtocolFeeBps, protocolFeeBps, "Observed protocol bps mismatch");
+        assertEq(observedCreatorFeeBps, creatorFeeBps, "Observed creator bps mismatch");
+
+        (uint256 creatorClaimable, uint256 protocolClaimableDeployer) = hook.getClaimableFees(deployer);
+        assertEq(creatorClaimable, 0, "Deployer should have no creator claim");
+        assertEq(protocolClaimableDeployer, 0, "Deployer protocol claim should be zero after recipient reroute");
+
+        (, uint256 protocolClaimableAgentBeta) = hook.getClaimableFees(agentBeta);
+        assertEq(protocolClaimableAgentBeta, expectedProtocolFee, "Agent Beta protocol claim mismatch");
+
+        (creatorClaimable, ) = hook.getClaimableFees(agentAlpha);
+        assertEq(creatorClaimable, expectedCreatorFee, "Creator claimable fee mismatch");
+
+        uint256 creatorEthBefore = agentAlpha.balance;
+        vm.prank(agentAlpha);
+        hook.claimCreatorFees(marketId);
+        assertEq(agentAlpha.balance - creatorEthBefore, expectedCreatorFee, "Creator fee payout mismatch");
+
+        (creatorClaimable, ) = hook.getClaimableFees(agentAlpha);
+        assertEq(creatorClaimable, 0, "Creator claimable should be zero after claim");
+
+        (, creatorFeesAccrued, , , ) = hook.getMarketFeeInfo(marketId);
+        assertEq(creatorFeesAccrued, 0, "Market creator fees should reset after claim");
+
+        uint256 protocolEthBefore = agentBeta.balance;
+        vm.prank(agentBeta);
+        hook.claimProtocolFees();
+        assertEq(agentBeta.balance - protocolEthBefore, expectedProtocolFee, "Protocol fee payout mismatch");
+
+        (, uint256 protocolClaimableAfter) = hook.getClaimableFees(agentBeta);
+        assertEq(protocolClaimableAfter, 0, "Protocol claimable should be zero after claim");
+    }
+
+    function test_ClaimCreatorFees_NotCreator_Reverts() public {
+        bytes32 marketId = _createMarketWithLiquidity(
+            agentAlpha,
+            "Fee claim auth",
+            0,
+            0,
+            5 ether
+        );
+
+        vm.prank(agentBeta);
+        hook.buyOutcomeToken{value: 1 ether}(marketId, true, 0);
+
+        vm.prank(agentBeta);
+        vm.expectRevert(IPredictionMarketHook.NotMarketCreator.selector);
+        hook.claimCreatorFees(marketId);
+    }
+
     // -------------------------------------------------
     // Integration Tests (continued)
     // -------------------------------------------------

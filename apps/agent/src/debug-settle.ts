@@ -77,7 +77,7 @@ async function main() {
   }
 
   const deployment = loadDeployment();
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.AGENT_RPC_URL ?? process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
   const config = loadConfigFromDeployment(deployment, rpcUrl);
   const client = new ClawlogicClient(config, privateKey);
 

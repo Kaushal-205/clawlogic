@@ -24,22 +24,48 @@ The SDK now ships a CLI binary: `clawlogic-agent`.
 ```bash
 npx @clawlogic/sdk@latest clawlogic-agent init
 npx @clawlogic/sdk@latest clawlogic-agent doctor
-npx @clawlogic/sdk@latest clawlogic-agent register --name alpha.clawlogic.eth
+npx @clawlogic/sdk@latest clawlogic-agent register --name alpha-trader
+# optional ENS linkage
+npx @clawlogic/sdk@latest clawlogic-agent register --name alpha-trader --ens-name alpha.clawlogic.eth
+# optional: link ENS later for an already-registered agent
+npx @clawlogic/sdk@latest clawlogic-agent link-name --ens-name alpha.clawlogic.eth
+# ENS premium commit/reveal (buy-name is alias of name-buy)
+npx @clawlogic/sdk@latest clawlogic-agent name-quote --label alpha
+npx @clawlogic/sdk@latest clawlogic-agent name-commit --label alpha
+npx @clawlogic/sdk@latest clawlogic-agent buy-name --label alpha --secret 0x<32-byte-secret>
 ```
 
 Supported commands:
 - `init`
 - `doctor`
 - `register`
+- `link-name`
 - `create-market`
 - `analyze`
 - `buy`
 - `assert`
 - `settle`
 - `positions`
+- `fees`
+- `claim-creator-fees`
+- `claim-protocol-fees`
+- `name-quote`
+- `name-commit`
+- `name-buy`
+- `buy-name` (alias of `name-buy`)
 - `post-broadcast`
 - `run`
 - `upgrade-sdk`
+
+ENS premium commands require the registrar address in SDK config/runtime.
+Set `ENS_PREMIUM_REGISTRAR` (or `ENS_PREMIUM_REGISTRAR_ADDRESS`) for CLI use.
+
+CLI RPC selection order:
+1. `AGENT_RPC_URL` (per-agent override)
+2. `ARBITRUM_SEPOLIA_RPC_URL` (shared override)
+3. `CLAWLOGIC_RPC_URL`
+4. persisted state RPC (if set)
+5. public Arbitrum Sepolia RPC default
 
 ## 📚 Quick Start
 
@@ -95,6 +121,9 @@ const agent = await client.getAgent('0x...');
 
 // Get total agent count
 const count = await client.getAgentCount();
+
+// Link ENS after registration (name or bytes32 node)
+await client.linkAgentENS('alpha.clawlogic.eth');
 ```
 
 #### Market Operations
@@ -111,6 +140,30 @@ const marketCount = await client.getMarketCount();
 
 // Get agent's positions in a market
 const positions = await client.getAgentPositions('0xMarketId', '0xAgentAddress');
+
+// Get fee sharing state for a market
+const feeInfo = await client.getMarketFeeInfo('0xMarketId');
+
+// Claim creator fees (market creator only)
+const creatorClaimTx = await client.claimCreatorFees('0xMarketId');
+
+// Claim protocol fees (fee recipient address)
+const protocolClaimTx = await client.claimProtocolFees();
+
+// ENS premium flow (commit/reveal)
+const quote = await client.quoteEnsName('alpha');
+const registrarState = await client.getEnsRegistrarAdminState();
+const commitment = await client.computeEnsPurchaseCommitment(
+  'alpha',
+  '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+);
+await client.commitEnsNamePurchase(commitment);
+await client.buyEnsName(
+  'alpha',
+  '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  quote,
+);
+console.log(registrarState.treasury, registrarState.pricing.shortPrice);
 ```
 
 ### `createConfig`

@@ -227,6 +227,93 @@ contract AgentRegistryENSTest is Test {
     }
 
     // -------------------------------------------------
+    // Link ENS After Registration
+    // -------------------------------------------------
+
+    function test_LinkENS_AfterRegister_Success() public {
+        vm.prank(agentAlpha);
+        registry.registerAgent("Alpha", "");
+
+        vm.expectEmit(true, true, false, true);
+        emit IAgentRegistry.ENSLinked(agentAlpha, ALPHA_ENS_NODE, "Alpha");
+
+        vm.prank(agentAlpha);
+        registry.linkENS(ALPHA_ENS_NODE);
+
+        IAgentRegistry.Agent memory agent = registry.getAgent(agentAlpha);
+        assertEq(agent.ensNode, ALPHA_ENS_NODE, "ENS node should be linked after registration");
+        assertEq(registry.getAgentByENS(ALPHA_ENS_NODE), agentAlpha, "ENS lookup should resolve to agentAlpha");
+    }
+
+    function test_LinkENS_ReplaceNode_ClearsOldReverseLookup() public {
+        vm.prank(agentAlpha);
+        registry.registerAgentWithENS("Alpha", "", ALPHA_ENS_NODE);
+
+        // Transfer ownership of GAMMA_ENS_NODE to agentAlpha so it can be relinked.
+        ensRegistry.setOwner(GAMMA_ENS_NODE, agentAlpha);
+
+        vm.prank(agentAlpha);
+        registry.linkENS(GAMMA_ENS_NODE);
+
+        IAgentRegistry.Agent memory agent = registry.getAgent(agentAlpha);
+        assertEq(agent.ensNode, GAMMA_ENS_NODE, "ENS node should be replaced");
+        assertEq(registry.getAgentByENS(GAMMA_ENS_NODE), agentAlpha, "New ENS node should resolve to agentAlpha");
+
+        vm.expectRevert(IAgentRegistry.ENSNodeNotLinked.selector);
+        registry.getAgentByENS(ALPHA_ENS_NODE);
+    }
+
+    function test_LinkENS_NotRegistered_Reverts() public {
+        vm.prank(nonOwner);
+        vm.expectRevert(IAgentRegistry.AgentNotFound.selector);
+        registry.linkENS(ALPHA_ENS_NODE);
+    }
+
+    function test_LinkENS_NotOwner_Reverts() public {
+        vm.prank(agentAlpha);
+        registry.registerAgent("Alpha", "");
+
+        vm.prank(agentAlpha);
+        vm.expectRevert(IAgentRegistry.NotENSOwner.selector);
+        registry.linkENS(BETA_ENS_NODE);
+    }
+
+    function test_LinkENS_AlreadyLinkedToAnotherAgent_Reverts() public {
+        vm.prank(agentBeta);
+        registry.registerAgentWithENS("Beta", "", BETA_ENS_NODE);
+
+        vm.prank(agentAlpha);
+        registry.registerAgent("Alpha", "");
+
+        // Transfer ownership so owner check passes and uniqueness check is exercised.
+        ensRegistry.setOwner(BETA_ENS_NODE, agentAlpha);
+
+        vm.prank(agentAlpha);
+        vm.expectRevert(IAgentRegistry.ENSNodeAlreadyLinked.selector);
+        registry.linkENS(BETA_ENS_NODE);
+    }
+
+    function test_LinkENS_NoENSRegistry_Reverts() public {
+        AgentRegistry noEnsRegistry = new AgentRegistry(IENS(address(0)), IERC8004AgentValidation(address(0)));
+
+        vm.prank(agentAlpha);
+        noEnsRegistry.registerAgent("Alpha", "");
+
+        vm.prank(agentAlpha);
+        vm.expectRevert(AgentRegistry.ENSNotConfigured.selector);
+        noEnsRegistry.linkENS(ALPHA_ENS_NODE);
+    }
+
+    function test_LinkENS_ZeroNode_Reverts() public {
+        vm.prank(agentAlpha);
+        registry.registerAgent("Alpha", "");
+
+        vm.prank(agentAlpha);
+        vm.expectRevert(IAgentRegistry.ZeroENSNode.selector);
+        registry.linkENS(bytes32(0));
+    }
+
+    // -------------------------------------------------
     // ENS Resolution: Forward (ENS -> Address)
     // -------------------------------------------------
 

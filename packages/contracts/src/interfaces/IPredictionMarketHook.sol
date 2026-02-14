@@ -41,12 +41,45 @@ interface IPredictionMarketHook {
         bytes32 indexed marketId, address indexed buyer, bool isOutcome1, uint256 ethIn, uint256 tokensOut
     );
 
+    /// @notice Emitted when creator/protocol fees are accrued from a trade.
+    event FeesAccrued(
+        bytes32 indexed marketId,
+        address indexed creator,
+        address indexed protocolRecipient,
+        uint256 creatorFee,
+        uint256 protocolFee
+    );
+
+    /// @notice Emitted when fee configuration is updated.
+    event FeeConfigUpdated(uint16 protocolFeeBps, uint16 creatorFeeBps);
+
+    /// @notice Emitted when protocol fee recipient is updated.
+    event ProtocolFeeRecipientUpdated(address indexed recipient);
+
+    /// @notice Emitted when a market creator claims accrued fees.
+    event CreatorFeesClaimed(bytes32 indexed marketId, address indexed creator, uint256 amount);
+
+    /// @notice Emitted when a protocol fee recipient claims accrued fees.
+    event ProtocolFeesClaimed(address indexed recipient, uint256 amount);
+
+    /// @notice Emitted when the protocol is paused.
+    event Paused(address indexed by);
+
+    /// @notice Emitted when the protocol is unpaused.
+    event Unpaused(address indexed by);
+
     // ─────────────────────────────────────────────────────────────────────────
     // Errors
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Thrown when the caller (or tx.origin in hook context) is not a registered agent.
+    /// @notice Thrown when the caller is not a registered agent.
     error NotRegisteredAgent();
+
+    /// @notice Thrown when a non-owner calls owner-restricted controls.
+    error OnlyOwner();
+
+    /// @notice Thrown when a mutable action is blocked by pause state.
+    error ContractPaused();
 
     /// @notice Thrown when a marketId does not correspond to an initialized market.
     error MarketNotFound();
@@ -78,6 +111,21 @@ interface IPredictionMarketHook {
     /// @notice Thrown when the output tokens from a buy are below the caller's minimum.
     error InsufficientOutput();
 
+    /// @notice Thrown when fee configuration is invalid.
+    error InvalidFeeConfig();
+
+    /// @notice Thrown when protocol fee recipient is the zero address.
+    error InvalidFeeRecipient();
+
+    /// @notice Thrown when caller is not the creator of the target market.
+    error NotMarketCreator();
+
+    /// @notice Thrown when there are no fees available for claim.
+    error NoFeesToClaim();
+
+    /// @notice Thrown when trade amount is fully consumed by fees.
+    error InsufficientTradeAmount();
+
     // ─────────────────────────────────────────────────────────────────────────
     // Functions
     // ─────────────────────────────────────────────────────────────────────────
@@ -96,6 +144,24 @@ interface IPredictionMarketHook {
         uint256 reward,
         uint256 requiredBond
     ) external payable returns (bytes32 marketId);
+
+    /// @notice Pause all mutable market actions.
+    function pause() external;
+
+    /// @notice Unpause all mutable market actions.
+    function unpause() external;
+
+    /// @notice Update protocol and creator fee rates for CPMM trades.
+    function setFeeConfig(uint16 protocolFeeBps, uint16 creatorFeeBps) external;
+
+    /// @notice Update protocol fee recipient.
+    function setProtocolFeeRecipient(address recipient) external;
+
+    /// @notice Claim creator fees for a specific market.
+    function claimCreatorFees(bytes32 marketId) external;
+
+    /// @notice Claim protocol fees for the current caller.
+    function claimProtocolFees() external;
 
     /// @notice Deposit ETH collateral to mint equal amounts of both outcome tokens.
     /// @param marketId The market to mint tokens for.
@@ -146,6 +212,24 @@ interface IPredictionMarketHook {
     /// @return reserve1 The outcome1 token reserve.
     /// @return reserve2 The outcome2 token reserve.
     function getMarketReserves(bytes32 marketId) external view returns (uint256 reserve1, uint256 reserve2);
+
+    /// @notice Returns market creator and fee accrual data.
+    function getMarketFeeInfo(bytes32 marketId)
+        external
+        view
+        returns (
+            address creator,
+            uint256 creatorFeesAccrued,
+            uint256 protocolFeesAccrued,
+            uint16 protocolFeeBps,
+            uint16 creatorFeeBps
+        );
+
+    /// @notice Returns aggregate claimable creator/protocol fees for an account.
+    function getClaimableFees(address account)
+        external
+        view
+        returns (uint256 creatorClaimable, uint256 protocolClaimable);
 
     /// @notice Returns all market IDs for enumeration.
     /// @return An array of all created marketId values.

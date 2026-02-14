@@ -68,7 +68,7 @@ function loadDeployment(): DeploymentInfo {
 }
 
 function createClient(privateKey: Hex): ClawlogicClient {
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.AGENT_RPC_URL ?? process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
   const deployment = loadDeployment();
   const config = loadConfigFromDeployment(deployment, rpcUrl);
   return new ClawlogicClient(config, privateKey);
@@ -675,8 +675,9 @@ async function main(): Promise<void> {
   console.log('>>> PHASE 5: UMA Assertion - Agent Alpha determines truth');
   separator();
 
+  let assertionIdForSettlement: `0x${string}` | null = null;
   try {
-    await runAssertDemo(marketId, alphaClient);
+    assertionIdForSettlement = await runAssertDemo(marketId, alphaClient);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error(`\nAssertion Demo failed: ${msg}`);
@@ -695,7 +696,7 @@ async function main(): Promise<void> {
   separator();
 
   try {
-    await runSettleDemo(marketId, alphaClient);
+    await runSettleDemo(marketId, alphaClient, assertionIdForSettlement ?? undefined);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error(`\nSettlement Demo failed: ${msg}`);
@@ -705,7 +706,7 @@ async function main(): Promise<void> {
   // Also settle for Beta (they hold tokens too)
   try {
     console.log('\n[Orchestrator] Settling Beta tokens...');
-    await runSettleDemo(marketId, betaClient);
+    await runSettleDemo(marketId, betaClient, assertionIdForSettlement ?? undefined);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error(`\nBeta Settlement failed: ${msg}`);

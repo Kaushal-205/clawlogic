@@ -10,8 +10,10 @@
 # WARNING: Asserting requires posting a bond. If disputed and wrong, you LOSE the bond.
 #
 # Environment:
-#   AGENT_PRIVATE_KEY          - Agent wallet private key (required)
-#   ARBITRUM_SEPOLIA_RPC_URL   - RPC endpoint (optional, has default)
+#   AGENT_PRIVATE_KEY          - Optional if initialized wallet state is present
+#   CLAWLOGIC_STATE_PATH       - Optional wallet state path (default: ~/.config/clawlogic/agent.json)
+#   AGENT_RPC_URL              - Optional per-agent RPC override
+#   ARBITRUM_SEPOLIA_RPC_URL   - Optional shared RPC override
 #
 # Output: JSON to stdout with { success, txHash, assertedOutcome }
 

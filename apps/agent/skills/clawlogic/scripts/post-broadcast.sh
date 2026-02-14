@@ -13,7 +13,8 @@
 #   reasoning  - Human-readable reasoning text (quote if it has spaces)
 #
 # Environment:
-#   AGENT_PRIVATE_KEY       - Required
+#   AGENT_PRIVATE_KEY       - Optional if initialized wallet state is present
+#   CLAWLOGIC_STATE_PATH    - Optional wallet state path (default: ~/.config/clawlogic/agent.json)
 #   AGENT_BROADCAST_URL     - Optional (default: https://clawlogic.vercel.app/api/agent-broadcasts)
 #   AGENT_BROADCAST_ENDPOINT - Optional alias for AGENT_BROADCAST_URL
 #   AGENT_BROADCAST_API_KEY - Optional

@@ -22,10 +22,17 @@ import type {
   MarketEventCallback,
   MarketProbability,
   MarketReserves,
+  MarketFeeInfo,
+  ClaimableFees,
+  EnsNameInfo,
+  EnsRegistrarPricing,
+  EnsRegistrarCommitWindow,
+  EnsRegistrarAdminState,
 } from './types.js';
 import { agentRegistryAbi } from './abis/agentRegistryAbi.js';
 import { predictionMarketHookAbi } from './abis/predictionMarketHookAbi.js';
 import { outcomeTokenAbi } from './abis/outcomeTokenAbi.js';
+import { ensPremiumRegistrarAbi } from './abis/ensPremiumRegistrarAbi.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Chain definition for Arbitrum Sepolia (in case viem does not export it)
@@ -182,6 +189,19 @@ export class ClawlogicClient {
   }
 
   /**
+   * Resolve configured ENS premium registrar address.
+   */
+  private getEnsPremiumRegistrarAddress(): `0x${string}` {
+    const addr = this.config.contracts.ensPremiumRegistrar;
+    if (!addr || addr === ZERO_ADDRESS) {
+      throw new Error(
+        'ClawlogicClient: ENS premium registrar is not configured for this network.',
+      );
+    }
+    return addr;
+  }
+
+  /**
    * Wait for a transaction receipt and return the transaction hash.
    */
   private async waitForTx(hash: `0x${string}`): Promise<`0x${string}`> {
@@ -237,6 +257,26 @@ export class ClawlogicClient {
       abi: agentRegistryAbi,
       functionName: 'registerAgentWithENS',
       args: [name, attestation, ensNode],
+    });
+
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Link an ENS node/name to the caller's existing agent registration.
+   *
+   * @param ensNodeOrName - ENS namehash (`0x...`) or ENS name (`alpha.clawlogic.eth`).
+   * @returns Transaction hash of the link operation.
+   */
+  async linkAgentENS(ensNodeOrName: `0x${string}` | string): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const ensNode = resolveEnsNode(ensNodeOrName);
+
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.agentRegistry,
+      abi: agentRegistryAbi,
+      functionName: 'linkENS',
+      args: [ensNode],
     });
 
     return this.waitForTx(hash);
@@ -489,6 +529,45 @@ export class ClawlogicClient {
     return this.waitForTx(hash);
   }
 
+  /**
+   * Claim creator fees for a specific market.
+   *
+   * Caller must be the market creator.
+   *
+   * @param marketId - Market identifier (bytes32).
+   * @returns Transaction hash of the claim.
+   */
+  async claimCreatorFees(marketId: `0x${string}`): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'claimCreatorFees',
+      args: [marketId],
+    });
+
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Claim protocol fees for the caller address.
+   *
+   * @returns Transaction hash of the claim.
+   */
+  async claimProtocolFees(): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'claimProtocolFees',
+      args: [],
+    });
+
+    return this.waitForTx(hash);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // Prediction Market Methods (Read)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -523,7 +602,7 @@ export class ClawlogicClient {
       assertedOutcomeId,
       poolId,
       totalCollateral,
-    ] = result as [
+    ] = result as readonly [
       string,
       string,
       string,
@@ -624,6 +703,309 @@ export class ClawlogicClient {
     const [reserve1, reserve2] = result as [bigint, bigint];
 
     return { reserve1, reserve2 };
+  }
+
+  /**
+   * Get market-level fee configuration and accrual data.
+   *
+   * @param marketId - The market identifier (bytes32).
+   * @returns MarketFeeInfo with creator, accruals, and fee rates.
+   */
+  async getMarketFeeInfo(marketId: `0x${string}`): Promise<MarketFeeInfo> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'getMarketFeeInfo',
+      args: [marketId],
+    });
+
+    const [
+      creator,
+      creatorFeesAccrued,
+      protocolFeesAccrued,
+      protocolFeeBps,
+      creatorFeeBps,
+    ] = result as readonly [
+      `0x${string}`,
+      bigint,
+      bigint,
+      number,
+      number,
+    ];
+
+    return {
+      creator,
+      creatorFeesAccrued,
+      protocolFeesAccrued,
+      protocolFeeBps,
+      creatorFeeBps,
+    };
+  }
+
+  /**
+   * Get claimable creator/protocol fee balances for an account.
+   *
+   * @param account - Address to query.
+   * @returns Claimable creator and protocol fees (wei).
+   */
+  async getClaimableFees(account: `0x${string}`): Promise<ClaimableFees> {
+    const result = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'getClaimableFees',
+      args: [account],
+    });
+
+    const [creatorClaimable, protocolClaimable] = result as [bigint, bigint];
+    return { creatorClaimable, protocolClaimable };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ENS Premium Name Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get ENS premium registrar treasury address.
+   *
+   * @returns Treasury address receiving purchase payments.
+   */
+  async getEnsRegistrarTreasury(): Promise<`0x${string}`> {
+    const address = this.getEnsPremiumRegistrarAddress();
+    const result = await this.publicClient.readContract({
+      address,
+      abi: ensPremiumRegistrarAbi,
+      functionName: 's_treasury',
+    });
+    return result as `0x${string}`;
+  }
+
+  /**
+   * Get ENS premium registrar pricing tiers.
+   *
+   * @returns Price tiers for short/medium/long labels.
+   */
+  async getEnsRegistrarPricing(): Promise<EnsRegistrarPricing> {
+    const address = this.getEnsPremiumRegistrarAddress();
+    const [shortPrice, mediumPrice, longPrice] = await Promise.all([
+      this.publicClient.readContract({
+        address,
+        abi: ensPremiumRegistrarAbi,
+        functionName: 's_shortPrice',
+      }),
+      this.publicClient.readContract({
+        address,
+        abi: ensPremiumRegistrarAbi,
+        functionName: 's_mediumPrice',
+      }),
+      this.publicClient.readContract({
+        address,
+        abi: ensPremiumRegistrarAbi,
+        functionName: 's_longPrice',
+      }),
+    ]);
+
+    return {
+      shortPrice: shortPrice as bigint,
+      mediumPrice: mediumPrice as bigint,
+      longPrice: longPrice as bigint,
+    };
+  }
+
+  /**
+   * Get ENS premium registrar commit-reveal timing configuration.
+   *
+   * @returns Minimum commit delay and maximum commit age (seconds).
+   */
+  async getEnsRegistrarCommitWindow(): Promise<EnsRegistrarCommitWindow> {
+    const address = this.getEnsPremiumRegistrarAddress();
+    const [minDelay, maxAge] = await Promise.all([
+      this.publicClient.readContract({
+        address,
+        abi: ensPremiumRegistrarAbi,
+        functionName: 's_commitMinDelay',
+      }),
+      this.publicClient.readContract({
+        address,
+        abi: ensPremiumRegistrarAbi,
+        functionName: 's_commitMaxAge',
+      }),
+    ]);
+
+    return {
+      minDelay: minDelay as bigint,
+      maxAge: maxAge as bigint,
+    };
+  }
+
+  /**
+   * Get ENS premium registrar agent-only mode.
+   *
+   * @returns True when only registered agents can buy names.
+   */
+  async getEnsRegistrarAgentOnlyMode(): Promise<boolean> {
+    const address = this.getEnsPremiumRegistrarAddress();
+    const result = await this.publicClient.readContract({
+      address,
+      abi: ensPremiumRegistrarAbi,
+      functionName: 's_agentOnlyMode',
+    });
+    return result as boolean;
+  }
+
+  /**
+   * Get consolidated ENS premium registrar admin/read state.
+   *
+   * @returns Treasury, pricing, commit window, and agent-only mode.
+   */
+  async getEnsRegistrarAdminState(): Promise<EnsRegistrarAdminState> {
+    const [treasury, pricing, commitWindow, agentOnlyMode] = await Promise.all([
+      this.getEnsRegistrarTreasury(),
+      this.getEnsRegistrarPricing(),
+      this.getEnsRegistrarCommitWindow(),
+      this.getEnsRegistrarAgentOnlyMode(),
+    ]);
+
+    return {
+      treasury,
+      pricing,
+      commitWindow,
+      agentOnlyMode,
+    };
+  }
+
+  /**
+   * Quote USDC purchase price for an ENS premium label.
+   *
+   * @param label - Label without suffix (e.g. "alpha").
+   * @returns Price in token base units (USDC = 6 decimals).
+   */
+  async quoteEnsName(label: string): Promise<bigint> {
+    const address = this.getEnsPremiumRegistrarAddress();
+    const result = await this.publicClient.readContract({
+      address,
+      abi: ensPremiumRegistrarAbi,
+      functionName: 'quotePrice',
+      args: [label],
+    });
+    return result as bigint;
+  }
+
+  /**
+   * Check current ENS premium label availability.
+   *
+   * @param label - Label without suffix.
+   * @returns True if available for purchase.
+   */
+  async isEnsNameAvailable(label: string): Promise<boolean> {
+    const address = this.getEnsPremiumRegistrarAddress();
+    const result = await this.publicClient.readContract({
+      address,
+      abi: ensPremiumRegistrarAbi,
+      functionName: 'isNameAvailable',
+      args: [label],
+    });
+    return result as boolean;
+  }
+
+  /**
+   * Get ENS premium label purchase info.
+   *
+   * @param label - Label without suffix.
+   * @returns Owner/purchase/availability details.
+   */
+  async getEnsNameInfo(label: string): Promise<EnsNameInfo> {
+    const address = this.getEnsPremiumRegistrarAddress();
+    const result = await this.publicClient.readContract({
+      address,
+      abi: ensPremiumRegistrarAbi,
+      functionName: 'getLabelInfo',
+      args: [label],
+    });
+    const [owner, purchasedAt, paidPrice, subnode, available] = result as readonly [
+      `0x${string}`,
+      bigint,
+      bigint,
+      `0x${string}`,
+      boolean,
+    ];
+    return { owner, purchasedAt, paidPrice, subnode, available };
+  }
+
+  /**
+   * Compute ENS purchase commitment hash for commit-reveal purchase flow.
+   *
+   * @param label - Label without suffix.
+   * @param secret - Random bytes32 secret.
+   * @param buyerOverride - Optional buyer address override.
+   * @returns Commitment hash.
+   */
+  async computeEnsPurchaseCommitment(
+    label: string,
+    secret: `0x${string}`,
+    buyerOverride?: `0x${string}`,
+  ): Promise<`0x${string}`> {
+    const address = this.getEnsPremiumRegistrarAddress();
+    const buyer = buyerOverride ?? (this.account?.address as `0x${string}` | undefined);
+    if (!buyer) {
+      throw new Error('ClawlogicClient: buyer address unavailable for commitment computation.');
+    }
+
+    const labelHash = (await this.publicClient.readContract({
+      address,
+      abi: ensPremiumRegistrarAbi,
+      functionName: 'computeLabelHash',
+      args: [label],
+    })) as `0x${string}`;
+
+    const commitment = await this.publicClient.readContract({
+      address,
+      abi: ensPremiumRegistrarAbi,
+      functionName: 'computeCommitment',
+      args: [buyer, labelHash, secret],
+    });
+    return commitment as `0x${string}`;
+  }
+
+  /**
+   * Submit ENS premium purchase commitment.
+   *
+   * @param commitment - Commit hash from computeEnsPurchaseCommitment().
+   * @returns Transaction hash.
+   */
+  async commitEnsNamePurchase(commitment: `0x${string}`): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const address = this.getEnsPremiumRegistrarAddress();
+    const hash = await wallet.writeContract({
+      address,
+      abi: ensPremiumRegistrarAbi,
+      functionName: 'commitPurchase',
+      args: [commitment],
+    });
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Complete ENS premium label purchase (reveal phase).
+   *
+   * @param label - Label without suffix.
+   * @param secret - Same bytes32 secret used in commitment.
+   * @param maxPrice - Max acceptable price in token base units.
+   * @returns Transaction hash.
+   */
+  async buyEnsName(
+    label: string,
+    secret: `0x${string}`,
+    maxPrice: bigint,
+  ): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const address = this.getEnsPremiumRegistrarAddress();
+    const hash = await wallet.writeContract({
+      address,
+      abi: ensPremiumRegistrarAbi,
+      functionName: 'buyName',
+      args: [label, secret, maxPrice],
+    });
+    return this.waitForTx(hash);
   }
 
   /**

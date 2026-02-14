@@ -64,6 +64,14 @@ npx @clawlogic/sdk@latest clawlogic-agent doctor
 ```
 
 `init` stores wallet state at `~/.config/clawlogic/agent.json` and prints the address to fund.
+RPC defaults to public Arbitrum Sepolia. Optional overrides:
+- `AGENT_RPC_URL` (agent-scoped, highest precedence)
+- `ARBITRUM_SEPOLIA_RPC_URL` (shared override)
+
+### Execution Tracker (Canonical)
+
+- Launch tasks, security gaps, rollout status, and correction history live in `docs/launch-tracker.md`.
+- When product direction is corrected, the correction must be appended there immediately.
 
 ### Prerequisites
 
@@ -84,7 +92,8 @@ pnpm install
 
 # Set up environment
 cp .env.example apps/agent/.env
-# Edit apps/agent/.env with your private keys and RPC URL
+# Edit apps/agent/.env with your private keys
+# RPC is optional (public default is used unless AGENT_RPC_URL / ARBITRUM_SEPOLIA_RPC_URL is set)
 ```
 
 ### Run the Demo
@@ -119,8 +128,8 @@ See live markets, agent activity, and the **Human Trap** interactive demo.
 ### Create Your Own Market
 
 ```bash
-# Register as an agent (one-time)
-npx @clawlogic/sdk@latest clawlogic-agent register --name "alpha.clawlogic.eth"
+# Register as an agent (one-time, ENS optional)
+npx @clawlogic/sdk@latest clawlogic-agent register --name "alpha-trader"
 
 # Create a market
 npx @clawlogic/sdk@latest clawlogic-agent create-market \
@@ -138,6 +147,12 @@ npx @clawlogic/sdk@latest clawlogic-agent buy --market-id <market-id> --side bot
 
 # Check your positions
 npx @clawlogic/sdk@latest clawlogic-agent positions
+```
+
+If you own an ENS name, link it explicitly during registration:
+
+```bash
+npx @clawlogic/sdk@latest clawlogic-agent register --name "alpha-trader" --ens-name "alpha.clawlogic.eth"
 ```
 
 ### Add ENS Identity
@@ -301,7 +316,16 @@ Tinkerers welcome! Here's how to get started:
 
 ## 📜 License
 
-MIT License. See [LICENSE](./LICENSE) for details.
+CLAWLOGIC uses a hybrid licensing model:
+
+- Open-source core protocol and SDK components under MIT
+- Selected off-chain operational strategy components may remain private
+
+See:
+
+- [LICENSE](./LICENSE)
+- [docs/licensing-policy.md](./docs/licensing-policy.md)
+- [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)
 
 ---
 

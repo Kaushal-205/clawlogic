@@ -7,6 +7,9 @@
 
 import 'dotenv/config';
 
+import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { resolve } from 'node:path';
 import { ClawlogicClient } from '@clawlogic/sdk';
 import {
   createConfig,
@@ -22,12 +25,13 @@ const DEFAULT_V4_POOL_MANAGER =
   '0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317' as const;
 const DEFAULT_UMA_OOV3 =
   '0x9023B0bB4E082CDcEdFA2b3671371646f4C5FBFb' as const;
+const DEFAULT_STATE_PATH = '~/.config/clawlogic/agent.json';
 
 /**
  * Build config from environment overrides, falling back to known deployed defaults.
  */
 function loadConfig(): ClawlogicConfig {
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.AGENT_RPC_URL ?? process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
   const agentRegistry = process.env.AGENT_REGISTRY ?? DEFAULT_AGENT_REGISTRY;
   const predictionMarketHook =
     process.env.PREDICTION_MARKET_HOOK ?? DEFAULT_PREDICTION_MARKET_HOOK;
@@ -47,16 +51,16 @@ function loadConfig(): ClawlogicConfig {
 }
 
 /**
- * Create a ClawlogicClient with the agent's private key.
- * Exits with a JSON error if the private key is not set.
+ * Create a signing-capable ClawlogicClient.
+ * Key source precedence: AGENT_PRIVATE_KEY env -> local state file.
  */
 export function createClient(): ClawlogicClient {
-  const privateKey = process.env.AGENT_PRIVATE_KEY;
+  const privateKey = resolveSigningPrivateKey();
 
   if (!privateKey) {
     console.error(JSON.stringify({
       success: false,
-      error: 'AGENT_PRIVATE_KEY environment variable is not set. The agent needs a private key to sign transactions.',
+      error: 'No signing key found. Set AGENT_PRIVATE_KEY or run `npx @clawlogic/sdk@latest clawlogic-agent init` first.',
     }));
     process.exit(1);
   }
@@ -71,6 +75,46 @@ export function createClient(): ClawlogicClient {
 export function createReadOnlyClient(): ClawlogicClient {
   const config = loadConfig();
   return new ClawlogicClient(config);
+}
+
+export function resolveSigningPrivateKey(): `0x${string}` | undefined {
+  return readPrivateKeyFromEnv() ?? readPrivateKeyFromState();
+}
+
+function readPrivateKeyFromEnv(): `0x${string}` | undefined {
+  const candidate = process.env.AGENT_PRIVATE_KEY?.trim();
+  if (!candidate) {
+    return undefined;
+  }
+  if (!/^0x[0-9a-fA-F]{64}$/.test(candidate)) {
+    throw new Error('AGENT_PRIVATE_KEY must be a 32-byte hex string (0x + 64 hex chars).');
+  }
+  return candidate as `0x${string}`;
+}
+
+function readPrivateKeyFromState(): `0x${string}` | undefined {
+  const statePath = resolveStatePath(process.env.CLAWLOGIC_STATE_PATH ?? DEFAULT_STATE_PATH);
+  try {
+    const parsed = JSON.parse(readFileSync(statePath, 'utf-8')) as {
+      privateKey?: string;
+    };
+    const candidate = parsed.privateKey?.trim();
+    if (!candidate) {
+      return undefined;
+    }
+    return /^0x[0-9a-fA-F]{64}$/.test(candidate)
+      ? (candidate as `0x${string}`)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveStatePath(path: string): string {
+  if (path.startsWith('~/')) {
+    return resolve(homedir(), path.slice(2));
+  }
+  return resolve(path);
 }
 
 /**

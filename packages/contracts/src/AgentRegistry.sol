@@ -106,6 +106,46 @@ contract AgentRegistry is IAgentRegistry {
         _registerAgent(msg.sender, name, attestation, ensNode);
     }
 
+    /// @inheritdoc IAgentRegistry
+    function linkENS(bytes32 ensNode) external {
+        address agent = msg.sender;
+        Agent storage agentData = s_agents[agent];
+
+        // ── Checks ──────────────────────────────────────────────────────────
+        if (!agentData.exists) {
+            revert AgentNotFound();
+        }
+
+        if (address(i_ensRegistry) == address(0)) {
+            revert ENSNotConfigured();
+        }
+
+        if (ensNode == bytes32(0)) {
+            revert ZeroENSNode();
+        }
+
+        if (i_ensRegistry.owner(ensNode) != agent) {
+            revert NotENSOwner();
+        }
+
+        address linkedAgent = s_ensNodeToAgent[ensNode];
+        if (linkedAgent != address(0) && linkedAgent != agent) {
+            revert ENSNodeAlreadyLinked();
+        }
+
+        // ── Effects ─────────────────────────────────────────────────────────
+        bytes32 previousNode = agentData.ensNode;
+        if (previousNode != bytes32(0) && previousNode != ensNode) {
+            delete s_ensNodeToAgent[previousNode];
+        }
+
+        agentData.ensNode = ensNode;
+        s_ensNodeToAgent[ensNode] = agent;
+
+        // ── Events ──────────────────────────────────────────────────────────
+        emit ENSLinked(agent, ensNode, agentData.name);
+    }
+
     /// @notice Register the caller as an agent with optional ENS linkage and TEE attestation.
     /// @dev Extends `registerAgentWithENS` with Phala TEE attestation verification.
     ///      If `attestationQuote` is non-empty, the validation registry's

@@ -85,7 +85,7 @@ export async function createRuntime(
 
 function resolveConfig(state: PersistedState | null): ClawlogicConfig {
   const rpcUrl =
-    process.env.ARBITRUM_SEPOLIA_RPC_URL ??
+    process.env.AGENT_RPC_URL ?? process.env.ARBITRUM_SEPOLIA_RPC_URL ??
     process.env.CLAWLOGIC_RPC_URL ??
     state?.rpcUrl ??
     DEFAULT_RPC_URL;
@@ -106,6 +106,11 @@ function resolveConfig(state: PersistedState | null): ClawlogicConfig {
     process.env.UMA_OOV3 ??
     state?.contracts?.optimisticOracleV3 ??
     DEFAULT_CONTRACTS.optimisticOracleV3;
+  const ensPremiumRegistrar =
+    process.env.ENS_PREMIUM_REGISTRAR ??
+    process.env.ENS_PREMIUM_REGISTRAR_ADDRESS ??
+    state?.contracts?.ensPremiumRegistrar ??
+    DEFAULT_CONTRACTS.ensPremiumRegistrar;
 
   return createConfig(
     {
@@ -113,6 +118,7 @@ function resolveConfig(state: PersistedState | null): ClawlogicConfig {
       predictionMarketHook: predictionMarketHook as `0x${string}`,
       poolManager: poolManager as `0x${string}`,
       optimisticOracleV3: optimisticOracleV3 as `0x${string}`,
+      ensPremiumRegistrar: ensPremiumRegistrar as `0x${string}`,
     },
     DEFAULT_CHAIN_ID,
     rpcUrl,

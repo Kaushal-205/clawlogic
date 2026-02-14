@@ -51,12 +51,10 @@ import {IAgentRegistry} from "./interfaces/IAgentRegistry.sol";
 ///      3. **UMA Callback Recipient** -- implements `assertionResolvedCallback` and
 ///         `assertionDisputedCallback` so UMA OOV3 can push resolution results back.
 ///
-///      **tx.origin usage (known limitation):**
-///         Hook callbacks (`beforeSwap`, `beforeAddLiquidity`) are invoked by the V4
-///         PoolManager, so `msg.sender` is always the PoolManager address. To identify
-///         the originating agent, this contract checks `tx.origin` against the registry.
-///         This is a deliberate hackathon trade-off; in production the sender address
-///         would be forwarded through the hookData parameter or a router contract.
+///      **Hook sender gating:**
+///         Hook callbacks receive the `sender` forwarded by V4 PoolManager. This contract
+///         validates that forwarded address directly against AgentRegistry and does not
+///         rely on `tx.origin`.
 contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientInterface {
 
     using SafeERC20 for IERC20;
@@ -71,6 +69,7 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
         string description;
         string outcome1; // e.g. "yes"
         string outcome2; // e.g. "no"
+        address creator; // market creator and creator-fee recipient
         OutcomeToken outcome1Token;
         OutcomeToken outcome2Token;
         uint256 reward; // incentive for the asserter
@@ -81,6 +80,8 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
         uint256 totalCollateral; // total ETH locked as collateral
         uint256 reserve1; // AMM reserve of outcome1 tokens held by contract
         uint256 reserve2; // AMM reserve of outcome2 tokens held by contract
+        uint256 creatorFeesAccrued; // gross creator fees accrued from trades
+        uint256 protocolFeesAccrued; // gross protocol fees accrued from trades
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -109,6 +110,15 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
     /// @dev UMA's standard assertion identifier. Hardcoded to avoid external call in constructor.
     bytes32 private constant ASSERT_TRUTH_IDENTIFIER = bytes32("ASSERT_TRUTH");
 
+    /// @dev Basis points denominator.
+    uint16 private constant BPS_DENOMINATOR = 10_000;
+
+    /// @dev Default protocol fee (in bps) charged on buy volume.
+    uint16 private constant DEFAULT_PROTOCOL_FEE_BPS = 50; // 0.50%
+
+    /// @dev Default creator fee (in bps) charged on buy volume.
+    uint16 private constant DEFAULT_CREATOR_FEE_BPS = 50; // 0.50%
+
     // ─────────────────────────────────────────────────────────────────────────
     // Storage
     // ─────────────────────────────────────────────────────────────────────────
@@ -128,12 +138,39 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
     /// @notice The hash of the "Unresolvable" outcome string, cached for comparison.
     bytes32 private constant UNRESOLVABLE_HASH = keccak256(bytes("Unresolvable"));
 
+    /// @notice Contract owner for operational controls.
+    address public immutable i_owner;
+
+    /// @notice Global pause switch for mutable market actions.
+    bool public s_paused;
+
+    /// @notice Recipient for protocol fee accrual.
+    address public s_protocolFeeRecipient;
+
+    /// @notice Protocol fee in basis points applied on each buy.
+    uint16 public s_protocolFeeBps;
+
+    /// @notice Market creator fee in basis points applied on each buy.
+    uint16 public s_creatorFeeBps;
+
+    /// @notice Aggregate claimable creator fees by address.
+    mapping(address => uint256) public s_claimableCreatorFees;
+
+    /// @notice Aggregate claimable protocol fees by fee recipient address.
+    mapping(address => uint256) public s_claimableProtocolFees;
+
     // ─────────────────────────────────────────────────────────────────────────
     // Custom Errors
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Thrown when the caller (or tx.origin in hook context) is not a registered agent.
+    /// @notice Thrown when the caller is not a registered agent.
     error NotRegisteredAgent();
+
+    /// @notice Thrown when a non-owner calls owner-restricted controls.
+    error OnlyOwner();
+
+    /// @notice Thrown when a mutable action is blocked by pause state.
+    error ContractPaused();
 
     /// @notice Thrown when a marketId does not correspond to an initialized market.
     error MarketNotFound();
@@ -165,6 +202,21 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
 
     /// @notice Thrown when the output tokens from a buy are below the caller's minimum.
     error InsufficientOutput();
+
+    /// @notice Thrown when fee configuration is invalid.
+    error InvalidFeeConfig();
+
+    /// @notice Thrown when protocol fee recipient is the zero address.
+    error InvalidFeeRecipient();
+
+    /// @notice Thrown when caller is not the creator of the target market.
+    error NotMarketCreator();
+
+    /// @notice Thrown when there are no fees available for claim.
+    error NoFeesToClaim();
+
+    /// @notice Thrown when trade amount is fully consumed by fees.
+    error InsufficientTradeAmount();
 
     // ─────────────────────────────────────────────────────────────────────────
     // Events
@@ -198,6 +250,47 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
         bytes32 indexed marketId, address indexed buyer, bool isOutcome1, uint256 ethIn, uint256 tokensOut
     );
 
+    /// @notice Emitted when creator/protocol fees are accrued for a trade.
+    event FeesAccrued(
+        bytes32 indexed marketId,
+        address indexed creator,
+        address indexed protocolRecipient,
+        uint256 creatorFee,
+        uint256 protocolFee
+    );
+
+    /// @notice Emitted when fee configuration is updated.
+    event FeeConfigUpdated(uint16 protocolFeeBps, uint16 creatorFeeBps);
+
+    /// @notice Emitted when protocol fee recipient is updated.
+    event ProtocolFeeRecipientUpdated(address indexed recipient);
+
+    /// @notice Emitted when a market creator claims accrued fees.
+    event CreatorFeesClaimed(bytes32 indexed marketId, address indexed creator, uint256 amount);
+
+    /// @notice Emitted when a protocol fee recipient claims accrued fees.
+    event ProtocolFeesClaimed(address indexed recipient, uint256 amount);
+
+    /// @notice Emitted when the protocol is paused.
+    event Paused(address indexed by);
+
+    /// @notice Emitted when the protocol is unpaused.
+    event Unpaused(address indexed by);
+
+    modifier onlyOwner() {
+        if (msg.sender != i_owner) {
+            revert OnlyOwner();
+        }
+        _;
+    }
+
+    modifier whenNotPaused() {
+        if (s_paused) {
+            revert ContractPaused();
+        }
+        _;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Constructor
     // ─────────────────────────────────────────────────────────────────────────
@@ -216,11 +309,15 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
         IERC20 _currency,
         uint64 _defaultLiveness
     ) BaseHook(_poolManager) {
+        i_owner = msg.sender;
         i_registry = _registry;
         i_oo = _oo;
         i_currency = _currency;
         i_defaultLiveness = _defaultLiveness;
         i_defaultIdentifier = ASSERT_TRUTH_IDENTIFIER;
+        s_protocolFeeRecipient = i_owner;
+        s_protocolFeeBps = DEFAULT_PROTOCOL_FEE_BPS;
+        s_creatorFeeBps = DEFAULT_CREATOR_FEE_BPS;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -252,34 +349,102 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Enforces that only registered agents can execute swaps on pools using this hook.
-    /// @dev Uses `tx.origin` because `msg.sender` in the hook callback is always the V4
-    ///      PoolManager. This is a known hackathon trade-off documented above.
-    function _beforeSwap(address, PoolKey calldata, SwapParams calldata, bytes calldata)
+    /// @dev Uses the forwarded `sender` from the V4 callback, not `tx.origin`.
+    function _beforeSwap(address sender, PoolKey calldata, SwapParams calldata, bytes calldata)
         internal
         view
         override
         returns (bytes4, BeforeSwapDelta, uint24)
     {
-        // solhint-disable-next-line avoid-tx-origin
-        if (!i_registry.isAgent(tx.origin)) {
+        if (!i_registry.isAgent(sender)) {
             revert NotRegisteredAgent();
         }
         return (this.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
     }
 
     /// @notice Enforces that only registered agents can add liquidity to pools using this hook.
-    /// @dev Same tx.origin rationale as _beforeSwap.
-    function _beforeAddLiquidity(address, PoolKey calldata, ModifyLiquidityParams calldata, bytes calldata)
+    /// @dev Uses the forwarded `sender` from the V4 callback, not `tx.origin`.
+    function _beforeAddLiquidity(address sender, PoolKey calldata, ModifyLiquidityParams calldata, bytes calldata)
         internal
         view
         override
         returns (bytes4)
     {
-        // solhint-disable-next-line avoid-tx-origin
-        if (!i_registry.isAgent(tx.origin)) {
+        if (!i_registry.isAgent(sender)) {
             revert NotRegisteredAgent();
         }
         return this.beforeAddLiquidity.selector;
+    }
+
+    /// @notice Pause all mutable market actions.
+    function pause() external onlyOwner {
+        s_paused = true;
+        emit Paused(msg.sender);
+    }
+
+    /// @notice Unpause all mutable market actions.
+    function unpause() external onlyOwner {
+        s_paused = false;
+        emit Unpaused(msg.sender);
+    }
+
+    /// @notice Update protocol and creator fee rates for CPMM trades.
+    /// @dev Sum of fee bps must be strictly less than 10000.
+    function setFeeConfig(uint16 protocolFeeBps, uint16 creatorFeeBps) external onlyOwner {
+        if (uint256(protocolFeeBps) + uint256(creatorFeeBps) >= BPS_DENOMINATOR) {
+            revert InvalidFeeConfig();
+        }
+        s_protocolFeeBps = protocolFeeBps;
+        s_creatorFeeBps = creatorFeeBps;
+        emit FeeConfigUpdated(protocolFeeBps, creatorFeeBps);
+    }
+
+    /// @notice Update protocol fee recipient.
+    function setProtocolFeeRecipient(address recipient) external onlyOwner {
+        if (recipient == address(0)) {
+            revert InvalidFeeRecipient();
+        }
+        s_protocolFeeRecipient = recipient;
+        emit ProtocolFeeRecipientUpdated(recipient);
+    }
+
+    /// @notice Claim creator fees for a specific market.
+    function claimCreatorFees(bytes32 marketId) external {
+        Market storage m = s_markets[marketId];
+        if (address(m.outcome1Token) == address(0)) {
+            revert MarketNotFound();
+        }
+        if (msg.sender != m.creator) {
+            revert NotMarketCreator();
+        }
+
+        uint256 amount = m.creatorFeesAccrued;
+        if (amount == 0) {
+            revert NoFeesToClaim();
+        }
+
+        m.creatorFeesAccrued = 0;
+        s_claimableCreatorFees[msg.sender] -= amount;
+
+        (bool success,) = msg.sender.call{value: amount}("");
+        if (!success) revert EthTransferFailed();
+
+        emit CreatorFeesClaimed(marketId, msg.sender, amount);
+    }
+
+    /// @notice Claim protocol fees for the current caller address.
+    function claimProtocolFees() external {
+        uint256 amount = s_claimableProtocolFees[msg.sender];
+        if (amount == 0) {
+            revert NoFeesToClaim();
+        }
+
+        s_claimableProtocolFees[msg.sender] = 0;
+
+        (bool success,) = msg.sender.call{value: amount}("");
+        if (!success) revert EthTransferFailed();
+
+        emit ProtocolFeesClaimed(msg.sender, amount);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -303,7 +468,7 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
         string calldata description,
         uint256 reward,
         uint256 requiredBond
-    ) external payable returns (bytes32 marketId) {
+    ) external payable whenNotPaused returns (bytes32 marketId) {
         if (!i_registry.isAgent(msg.sender)) {
             revert NotRegisteredAgent();
         }
@@ -334,6 +499,7 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
         m.description = description;
         m.outcome1 = outcome1;
         m.outcome2 = outcome2;
+        m.creator = msg.sender;
         m.outcome1Token = token1;
         m.outcome2Token = token2;
         m.reward = reward;
@@ -363,7 +529,7 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
     ///      the eventual settlement. The caller receives `msg.value` of outcome1Token AND
     ///      `msg.value` of outcome2Token.
     /// @param marketId The market to mint tokens for.
-    function mintOutcomeTokens(bytes32 marketId) external payable {
+    function mintOutcomeTokens(bytes32 marketId) external payable whenNotPaused {
         if (!i_registry.isAgent(msg.sender)) {
             revert NotRegisteredAgent();
         }
@@ -398,7 +564,7 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
     /// @param marketId        The market to assert.
     /// @param assertedOutcome The outcome string being asserted (must match outcome1/outcome2
     ///                        or "Unresolvable").
-    function assertMarket(bytes32 marketId, string calldata assertedOutcome) external {
+    function assertMarket(bytes32 marketId, string calldata assertedOutcome) external whenNotPaused {
         if (!i_registry.isAgent(msg.sender)) {
             revert NotRegisteredAgent();
         }
@@ -525,7 +691,7 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
     ///        where callerTotal = outcome1Balance + outcome2Balance
     ///
     /// @param marketId The resolved market.
-    function settleOutcomeTokens(bytes32 marketId) external {
+    function settleOutcomeTokens(bytes32 marketId) external whenNotPaused {
         Market storage m = s_markets[marketId];
 
         if (address(m.outcome1Token) == address(0)) {
@@ -599,7 +765,7 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
     /// @param marketId      The market to trade on.
     /// @param isOutcome1    True to buy outcome1 tokens, false to buy outcome2 tokens.
     /// @param minTokensOut  Minimum tokens the buyer expects to receive (slippage protection).
-    function buyOutcomeToken(bytes32 marketId, bool isOutcome1, uint256 minTokensOut) external payable {
+    function buyOutcomeToken(bytes32 marketId, bool isOutcome1, uint256 minTokensOut) external payable whenNotPaused {
         if (!i_registry.isAgent(msg.sender)) {
             revert NotRegisteredAgent();
         }
@@ -618,17 +784,35 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
             revert MarketNotFound(); // No liquidity seeded
         }
 
+        uint256 protocolFee = (msg.value * s_protocolFeeBps) / BPS_DENOMINATOR;
+        uint256 creatorFee = (msg.value * s_creatorFeeBps) / BPS_DENOMINATOR;
+        uint256 tradeValue = msg.value - protocolFee - creatorFee;
+        if (tradeValue == 0) {
+            revert InsufficientTradeAmount();
+        }
+
         // Save the old invariant before adding new tokens.
         uint256 k = m.reserve1 * m.reserve2;
 
         // Mint both tokens to the contract (adds to reserves).
-        m.outcome1Token.mint(address(this), msg.value);
-        m.outcome2Token.mint(address(this), msg.value);
-        m.totalCollateral += msg.value;
+        m.outcome1Token.mint(address(this), tradeValue);
+        m.outcome2Token.mint(address(this), tradeValue);
+        m.totalCollateral += tradeValue;
 
         // Add to both reserves.
-        m.reserve1 += msg.value;
-        m.reserve2 += msg.value;
+        m.reserve1 += tradeValue;
+        m.reserve2 += tradeValue;
+
+        // Track creator/protocol fee accrual.
+        if (creatorFee > 0) {
+            m.creatorFeesAccrued += creatorFee;
+            s_claimableCreatorFees[m.creator] += creatorFee;
+        }
+        if (protocolFee > 0) {
+            address protocolRecipient = s_protocolFeeRecipient;
+            m.protocolFeesAccrued += protocolFee;
+            s_claimableProtocolFees[protocolRecipient] += protocolFee;
+        }
 
         // Calculate how many tokens to release from the chosen side using the
         // constant product formula: newReserve = k / otherReserve.
@@ -654,6 +838,7 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
             m.outcome2Token.transfer(msg.sender, tokensOut);
         }
 
+        emit FeesAccrued(marketId, m.creator, s_protocolFeeRecipient, creatorFee, protocolFee);
         emit OutcomeTokenBought(marketId, msg.sender, isOutcome1, msg.value, tokensOut);
     }
 
@@ -744,6 +929,43 @@ contract PredictionMarketHook is BaseHook, OptimisticOracleV3CallbackRecipientIn
     {
         Market storage m = s_markets[marketId];
         return (m.reserve1, m.reserve2);
+    }
+
+    /// @notice Returns market creator and fee accrual data.
+    /// @param marketId The market to query.
+    /// @return creator The market creator address.
+    /// @return creatorFeesAccrued Accrued (unclaimed) creator fees for this market.
+    /// @return protocolFeesAccrued Accrued protocol fees generated by this market.
+    /// @return protocolFeeBps Current protocol fee configuration (bps).
+    /// @return creatorFeeBps Current creator fee configuration (bps).
+    function getMarketFeeInfo(bytes32 marketId)
+        external
+        view
+        returns (
+            address creator,
+            uint256 creatorFeesAccrued,
+            uint256 protocolFeesAccrued,
+            uint16 protocolFeeBps,
+            uint16 creatorFeeBps
+        )
+    {
+        Market storage m = s_markets[marketId];
+        if (address(m.outcome1Token) == address(0)) {
+            revert MarketNotFound();
+        }
+        return (m.creator, m.creatorFeesAccrued, m.protocolFeesAccrued, s_protocolFeeBps, s_creatorFeeBps);
+    }
+
+    /// @notice Returns aggregate claimable creator/protocol fees for an account.
+    /// @param account The address to query.
+    /// @return creatorClaimable Claimable creator fees.
+    /// @return protocolClaimable Claimable protocol fees.
+    function getClaimableFees(address account)
+        external
+        view
+        returns (uint256 creatorClaimable, uint256 protocolClaimable)
+    {
+        return (s_claimableCreatorFees[account], s_claimableProtocolFees[account]);
     }
 
     /// @notice Allow the contract to receive ETH (required for mintOutcomeTokens).

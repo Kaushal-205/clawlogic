@@ -12,10 +12,27 @@ import {
   type ClawlogicConfig,
   type MarketInfo,
   type AgentInfo,
+  type EnsNameInfo,
 } from '@clawlogic/sdk';
 
 const ZERO_BYTES32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
+const ENS_SUFFIX = 'clawlogic.eth';
+const ENS_USDC_DECIMALS = 6;
+const ENS_LABEL_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+function normalizeOptionalAddress(value?: string): `0x${string}` | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return /^0x[a-fA-F0-9]{40}$/.test(trimmed) ? (trimmed as `0x${string}`) : undefined;
+}
+
+const ENS_PREMIUM_REGISTRAR = normalizeOptionalAddress(
+  process.env.NEXT_PUBLIC_ENS_PREMIUM_REGISTRAR,
+);
 
 // ---------------------------------------------------------------------------
 // Configuration — Arbitrum Sepolia deployed addresses
@@ -27,6 +44,7 @@ const DEFAULT_CONFIG: ClawlogicConfig = createConfig(
     predictionMarketHook: '0xB3C4a85906493f3Cf0d59e891770Bb2e77FA8880',
     poolManager: '0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317',
     optimisticOracleV3: '0x9023B0bB4E082CDcEdFA2b3671371646f4C5FBFb',
+    ensPremiumRegistrar: ENS_PREMIUM_REGISTRAR,
   },
   421614,
   ARBITRUM_SEPOLIA_RPC_URL,
@@ -112,6 +130,112 @@ export async function getProtocolStats(
 }
 
 // ---------------------------------------------------------------------------
+// ENS premium onboarding helpers
+// ---------------------------------------------------------------------------
+
+export interface EnsPremiumQuotePreview {
+  label: string;
+  fullName: string;
+  configured: boolean;
+  available: boolean;
+  quote: bigint | null;
+  info: EnsNameInfo | null;
+  error?: string;
+}
+
+export function normalizeEnsLabel(label: string): string {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/\.clawlogic\.eth$/, '')
+    .replace(/\.eth$/, '');
+}
+
+export function getEnsFullNameFromLabel(label: string): string {
+  const normalized = normalizeEnsLabel(label);
+  return normalized ? `${normalized}.${ENS_SUFFIX}` : `<label>.${ENS_SUFFIX}`;
+}
+
+export function formatUsdcBaseUnits(amount: bigint): string {
+  const isNegative = amount < 0n;
+  const absolute = isNegative ? amount * -1n : amount;
+  const base = 10n ** BigInt(ENS_USDC_DECIMALS);
+  const whole = absolute / base;
+  const fractionRaw = (absolute % base).toString().padStart(ENS_USDC_DECIMALS, '0');
+  const fraction = fractionRaw.replace(/0+$/, '');
+  const rendered = fraction ? `${whole.toString()}.${fraction}` : whole.toString();
+  return isNegative ? `-${rendered}` : rendered;
+}
+
+export async function getEnsPremiumQuotePreview(
+  rawLabel: string,
+  config: ClawlogicConfig = DEFAULT_CONFIG,
+): Promise<EnsPremiumQuotePreview> {
+  const label = normalizeEnsLabel(rawLabel);
+  const fullName = getEnsFullNameFromLabel(label);
+  const configured = Boolean(
+    config.contracts.ensPremiumRegistrar &&
+    config.contracts.ensPremiumRegistrar !== ZERO_ADDRESS,
+  );
+
+  if (!label) {
+    return {
+      label,
+      fullName,
+      configured,
+      available: false,
+      quote: null,
+      info: null,
+      error: 'Enter a label to fetch an ENS quote.',
+    };
+  }
+
+  if (!ENS_LABEL_PATTERN.test(label)) {
+    return {
+      label,
+      fullName,
+      configured,
+      available: false,
+      quote: null,
+      info: null,
+      error: 'Invalid label. Use lowercase letters, numbers, and hyphens only.',
+    };
+  }
+
+  try {
+    const client = createReadOnlyClient(config);
+    const [quote, available, info] = await Promise.all([
+      client.quoteEnsName(label),
+      client.isEnsNameAvailable(label),
+      client.getEnsNameInfo(label),
+    ]);
+
+    return {
+      label,
+      fullName,
+      configured,
+      available,
+      quote,
+      info,
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unable to fetch ENS premium quote.';
+    const notConfigured = message.includes('ENS premium registrar is not configured');
+
+    return {
+      label,
+      fullName,
+      configured: configured && !notConfigured,
+      available: false,
+      quote: null,
+      info: null,
+      error: message,
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Agent identity display helpers (ENS-first with address fallback)
 // ---------------------------------------------------------------------------
 
@@ -181,7 +305,8 @@ export function getAgentOnboardingStatus(agent: AgentInfo): AgentOnboardingStatu
   const registryRegistered = Boolean(agent.exists);
   const identityMinted = Boolean(agent.agentId);
   const teeVerified = Boolean(agent.attestation && agent.attestation !== '0x');
-  const marketReady = registryRegistered && ensLinked;
+  // ENS is optional for launch readiness; registration is the hard gate.
+  const marketReady = registryRegistered;
 
   return {
     identity,
@@ -433,3 +558,203 @@ export const DEMO_FEED_EVENTS: DemoFeedEvent[] = [
     timestamp: new Date(Date.now() - 20000),
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Lightweight onboarding funnel analytics (inferred web view)
+// ---------------------------------------------------------------------------
+
+export type OnboardingFunnelStageKey =
+  | 'init'
+  | 'funded'
+  | 'registered'
+  | 'first-trade'
+  | 'first-settle';
+
+export interface OnboardingFunnelStage {
+  key: OnboardingFunnelStageKey;
+  label: string;
+  count: number;
+  inferred: boolean;
+  basis: string;
+}
+
+export interface OnboardingFunnelView {
+  stages: OnboardingFunnelStage[];
+  discoveredAgents: number;
+  usedFallbackData: boolean;
+  limitations: string[];
+  updatedAt: string;
+}
+
+function toAddressKey(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+    return null;
+  }
+  return trimmed.toLowerCase();
+}
+
+function countIntersection(a: Set<string>, b: Set<string>): number {
+  let total = 0;
+  for (const item of a) {
+    if (b.has(item)) {
+      total += 1;
+    }
+  }
+  return total;
+}
+
+export async function getOnboardingFunnelView(
+  config: ClawlogicConfig = DEFAULT_CONFIG,
+): Promise<OnboardingFunnelView> {
+  const client = createReadOnlyClient(config);
+
+  let agents: AgentInfo[] = [];
+  let markets: MarketInfo[] = [];
+  let usedFallbackData = false;
+
+  try {
+    const addresses = await client.getAgentAddresses();
+    agents = await Promise.all(addresses.map((address) => client.getAgent(address)));
+  } catch {
+    agents = DEMO_AGENTS;
+    usedFallbackData = true;
+  }
+
+  try {
+    markets = await client.getAllMarkets();
+  } catch {
+    markets = DEMO_MARKETS;
+    usedFallbackData = true;
+  }
+
+  const broadcasts = await getAgentBroadcasts();
+
+  const registered = new Set<string>();
+  for (const agent of agents) {
+    if (!agent.exists) {
+      continue;
+    }
+    const key = toAddressKey(agent.address);
+    if (key) {
+      registered.add(key);
+    }
+  }
+
+  const onboardingSignals = new Set<string>();
+  const fundingSignals = new Set<string>();
+  const tradeSignals = new Set<string>();
+  const settleSignals = new Set<string>();
+
+  for (const event of broadcasts) {
+    const key = toAddressKey(event.agentAddress);
+    if (!key) {
+      continue;
+    }
+
+    if (event.type === 'Onboarding') {
+      onboardingSignals.add(key);
+    }
+
+    if (
+      event.type === 'Onboarding' ||
+      event.type === 'MarketBroadcast' ||
+      event.type === 'NegotiationIntent' ||
+      event.type === 'TradeRationale'
+    ) {
+      fundingSignals.add(key);
+    }
+
+    if (event.type === 'NegotiationIntent' || event.type === 'TradeRationale') {
+      tradeSignals.add(key);
+    }
+
+    if (/settl/i.test(event.reasoning)) {
+      settleSignals.add(key);
+    }
+  }
+
+  const discovered = new Set<string>(registered);
+  for (const key of onboardingSignals) {
+    discovered.add(key);
+  }
+  for (const key of fundingSignals) {
+    discovered.add(key);
+  }
+
+  const initCount = discovered.size;
+
+  const fundedAddresses = new Set<string>(registered);
+  for (const key of fundingSignals) {
+    fundedAddresses.add(key);
+  }
+  const fundedCount = Math.min(initCount, fundedAddresses.size);
+
+  const registeredCount = Math.min(fundedCount, registered.size);
+  const firstTradeCount = Math.min(registeredCount, countIntersection(registered, tradeSignals));
+
+  const resolvedMarketCount = markets.filter((market) => market.resolved).length;
+  const explicitSettles = countIntersection(registered, settleSignals);
+  const inferredSettles =
+    explicitSettles > 0 ? explicitSettles : Math.min(firstTradeCount, resolvedMarketCount);
+  const firstSettleCount = Math.min(firstTradeCount, inferredSettles);
+
+  const limitations = [
+    'Counts are inferred from AgentRegistry snapshots, market state, and optional broadcast events.',
+    'Funded is a proxy (registration/activity evidence), not a historical wallet-balance query.',
+    'First settle uses explicit settle wording in broadcasts when available, else resolved-market count as a proxy.',
+    'Agents that do not post broadcasts may be undercounted in later stages.',
+  ];
+  if (usedFallbackData) {
+    limitations.push('Read calls failed for at least one source, so demo fallback data was used.');
+  }
+
+  return {
+    stages: [
+      {
+        key: 'init',
+        label: 'Init',
+        count: initCount,
+        inferred: true,
+        basis: 'Unique agent addresses discovered from registry plus onboarding/activity broadcasts.',
+      },
+      {
+        key: 'funded',
+        label: 'Funded',
+        count: fundedCount,
+        inferred: true,
+        basis: 'Inferred from registration or activity signals that imply transaction capability.',
+      },
+      {
+        key: 'registered',
+        label: 'Registered',
+        count: registeredCount,
+        inferred: false,
+        basis: 'Direct AgentRegistry exists=true count.',
+      },
+      {
+        key: 'first-trade',
+        label: 'First trade',
+        count: firstTradeCount,
+        inferred: true,
+        basis: 'Registered agents with at least one trade/intent broadcast.',
+      },
+      {
+        key: 'first-settle',
+        label: 'First settle',
+        count: firstSettleCount,
+        inferred: true,
+        basis: explicitSettles > 0
+          ? 'Registered agents with settle wording detected in broadcasts.'
+          : 'Proxy based on resolved markets capped by first-trade count.',
+      },
+    ],
+    discoveredAgents: initCount,
+    usedFallbackData,
+    limitations,
+    updatedAt: new Date().toISOString(),
+  };
+}

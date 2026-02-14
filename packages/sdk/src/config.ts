@@ -121,6 +121,7 @@ export function loadConfigFromDeployment(
       optimisticOracleV3: (deployment.contracts.OptimisticOracleV3 ?? zero) as `0x${string}`,
       bondCurrency: (deployment.contracts.BondCurrency ?? zero) as `0x${string}`,
       ensRegistry: (deployment.contracts.ENSRegistry ?? zero) as `0x${string}`,
+      ensPremiumRegistrar: (deployment.contracts.ENSPremiumRegistrar ?? zero) as `0x${string}`,
       agentIdentityRegistry: (deployment.contracts.AgentIdentityRegistry ?? zero) as `0x${string}`,
       agentValidationRegistry: (deployment.contracts.AgentValidationRegistry ?? zero) as `0x${string}`,
       agentReputationRegistry: (deployment.contracts.AgentReputationRegistry ?? zero) as `0x${string}`,
@@ -143,6 +144,7 @@ export function createConfig(
     predictionMarketHook: `0x${string}`;
     poolManager: `0x${string}`;
     optimisticOracleV3?: `0x${string}`;
+    ensPremiumRegistrar?: `0x${string}`;
   },
   chainId = ARBITRUM_SEPOLIA_CHAIN_ID,
   rpcUrl = ARBITRUM_SEPOLIA_RPC_URL,
@@ -156,6 +158,8 @@ export function createConfig(
       poolManager: addresses.poolManager,
       optimisticOracleV3:
         addresses.optimisticOracleV3 ?? '0x0000000000000000000000000000000000000000',
+      ensPremiumRegistrar:
+        addresses.ensPremiumRegistrar ?? '0x0000000000000000000000000000000000000000',
     },
   };
 }

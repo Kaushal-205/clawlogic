@@ -11,7 +11,7 @@
  */
 
 import { formatEther } from 'viem';
-import { createClient, outputSuccess, outputError } from './setup.js';
+import { createReadOnlyClient, outputSuccess, outputError } from './setup.js';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   }
 
   const marketId = args[0] as `0x${string}`;
-  const client = createClient();
+  const client = createReadOnlyClient();
   const agentAddress = client.getAddress();
 
   // Fetch market data

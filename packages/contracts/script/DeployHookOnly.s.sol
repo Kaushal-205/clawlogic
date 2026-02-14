@@ -118,6 +118,10 @@ contract DeployHookOnlyScript is Script {
         address validationRegistry = vm.parseJsonAddress(json, ".contracts.AgentValidationRegistry");
         address reputationRegistry = vm.parseJsonAddress(json, ".contracts.AgentReputationRegistry");
         address phalaVerifier = vm.parseJsonAddress(json, ".contracts.PhalaVerifier");
+        address ensPremiumRegistrar = address(0);
+        if (vm.keyExistsJson(json, ".contracts.ENSPremiumRegistrar")) {
+            ensPremiumRegistrar = vm.parseJsonAddress(json, ".contracts.ENSPremiumRegistrar");
+        }
 
         // Rebuild JSON with new hook address
         string memory newJson = "deployment";
@@ -136,7 +140,8 @@ contract DeployHookOnlyScript is Script {
         vm.serializeAddress(contracts, "AgentIdentityRegistry", identityRegistry);
         vm.serializeAddress(contracts, "AgentValidationRegistry", validationRegistry);
         vm.serializeAddress(contracts, "AgentReputationRegistry", reputationRegistry);
-        string memory contractsJson = vm.serializeAddress(contracts, "PhalaVerifier", phalaVerifier);
+        vm.serializeAddress(contracts, "PhalaVerifier", phalaVerifier);
+        string memory contractsJson = vm.serializeAddress(contracts, "ENSPremiumRegistrar", ensPremiumRegistrar);
 
         string memory finalJson = vm.serializeString(newJson, "contracts", contractsJson);
 

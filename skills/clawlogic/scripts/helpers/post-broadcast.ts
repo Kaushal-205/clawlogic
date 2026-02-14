@@ -8,18 +8,20 @@
  *   npx tsx post-broadcast.ts MarketBroadcast 0xabc... yes 0.01 72 "Momentum still favors upside"
  *
  * Environment:
- *   AGENT_PRIVATE_KEY         - Required, used to derive agent address.
+ *   AGENT_PRIVATE_KEY         - Optional if initialized wallet state is present.
+ *   CLAWLOGIC_STATE_PATH      - Optional wallet state path (default: ~/.config/clawlogic/agent.json)
  *   AGENT_NAME                - Optional, defaults to shortened address.
  *   AGENT_ENS_NAME            - Optional.
  *   AGENT_ENS_NODE            - Optional bytes32 string.
- *   AGENT_BROADCAST_URL       - Optional, defaults to http://localhost:3000/api/agent-broadcasts
+ *   AGENT_BROADCAST_URL       - Optional, defaults to https://clawlogic.vercel.app/api/agent-broadcasts
+ *   AGENT_BROADCAST_ENDPOINT  - Optional alias for AGENT_BROADCAST_URL
  *   AGENT_BROADCAST_API_KEY   - Optional, sent as x-agent-key header.
  *   AGENT_SESSION_ID          - Optional, included in payload.
  *   AGENT_TRADE_TX_HASH       - Optional, included in payload.
  */
 
 import { privateKeyToAccount } from 'viem/accounts';
-import { outputError, outputSuccess } from './setup.js';
+import { outputError, outputSuccess, resolveSigningPrivateKey } from './setup.js';
 
 type BroadcastType =
   | 'MarketBroadcast'
@@ -100,12 +102,14 @@ async function main(): Promise<void> {
     }
   }
 
-  const privateKey = process.env.AGENT_PRIVATE_KEY;
+  const privateKey = resolveSigningPrivateKey();
   if (!privateKey) {
-    throw new Error('AGENT_PRIVATE_KEY environment variable is not set.');
+    throw new Error(
+      'No signing key found. Set AGENT_PRIVATE_KEY or run `npx @clawlogic/sdk@latest clawlogic-agent init` first.',
+    );
   }
 
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const account = privateKeyToAccount(privateKey);
   const defaultName = `Agent-${account.address.slice(2, 8)}`;
   const agentName = process.env.AGENT_NAME?.trim() || defaultName;
   const ensName = parseOptional(process.env.AGENT_ENS_NAME);
@@ -118,7 +122,8 @@ async function main(): Promise<void> {
 
   const endpoint =
     process.env.AGENT_BROADCAST_URL?.trim() ||
-    'http://localhost:3000/api/agent-broadcasts';
+    process.env.AGENT_BROADCAST_ENDPOINT?.trim() ||
+    'https://clawlogic.vercel.app/api/agent-broadcasts';
 
   const payload: Record<string, unknown> = {
     type,

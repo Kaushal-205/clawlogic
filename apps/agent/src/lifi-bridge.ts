@@ -179,7 +179,7 @@ function resolveRpcUrlForChain(chainId: number): string {
     11155111: process.env.ETHEREUM_SEPOLIA_RPC_URL,
     11155420: process.env.OPTIMISM_SEPOLIA_RPC_URL,
     421614:
-      process.env.ARBITRUM_SEPOLIA_RPC_URL ??
+      process.env.AGENT_RPC_URL ?? process.env.ARBITRUM_SEPOLIA_RPC_URL ??
       'https://sepolia-rollup.arbitrum.io/rpc',
   };
   const fallbackByChain: Record<number, string | undefined> = {

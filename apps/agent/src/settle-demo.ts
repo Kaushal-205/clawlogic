@@ -38,6 +38,7 @@ import {
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { findLatestAssertionIdForMarket } from './assertion-records.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -104,7 +105,7 @@ function loadDeployment(): DeploymentInfo {
 }
 
 function createClient(privateKey: Hex): ClawlogicClient {
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.AGENT_RPC_URL ?? process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
   const deployment = loadDeployment();
   const config = loadConfigFromDeployment(deployment, rpcUrl);
   return new ClawlogicClient(config, privateKey);
@@ -265,36 +266,41 @@ export async function runSettleDemo(
     if (assertionId) {
       console.log(`  Using provided assertionId: ${assertionId}`);
     } else {
-      console.log('  No assertionId provided, scanning logs...');
-      console.log('  (Note: This may fail on Alchemy free tier due to block range limits)');
+      assertionId = await findLatestAssertionIdForMarket(marketId);
+      if (assertionId) {
+        console.log(`  Found assertionId in local record store: ${assertionId}`);
+      } else {
+        console.log('  No assertionId provided, scanning logs...');
+        console.log('  (Note: This may fail on Alchemy free tier due to block range limits)');
 
-      // Try extracting from event logs (may fail on Alchemy free tier)
-      try {
-        assertionId = await findAssertionId(client, marketId);
-      } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
-        if (msg.includes('block range')) {
-          console.log('\n  ✗ Log scanning failed: RPC block range limit.');
-          console.log('  \n  Please provide the assertionId manually:');
+        // Try extracting from event logs (may fail on Alchemy free tier)
+        try {
+          assertionId = await findAssertionId(client, marketId);
+        } catch (error: unknown) {
+          const msg = error instanceof Error ? error.message : String(error);
+          if (msg.includes('block range')) {
+            console.log('\n  ✗ Log scanning failed: RPC block range limit.');
+            console.log('  \n  Please provide the assertionId manually:');
+            console.log('  1. Run: pnpm agent:assert');
+            console.log('  2. Copy the "Assertion ID: 0x..." from output');
+            console.log('  3. Run: pnpm agent:settle 0x<assertionId>');
+            return;
+          } else {
+            throw error;
+          }
+        }
+
+        if (!assertionId) {
+          console.log('\n  ✗ Could not find assertionId in logs.');
+          console.log('  \n  Please provide it manually:');
           console.log('  1. Run: pnpm agent:assert');
           console.log('  2. Copy the "Assertion ID: 0x..." from output');
           console.log('  3. Run: pnpm agent:settle 0x<assertionId>');
           return;
-        } else {
-          throw error;
         }
-      }
 
-      if (!assertionId) {
-        console.log('\n  ✗ Could not find assertionId in logs.');
-        console.log('  \n  Please provide it manually:');
-        console.log('  1. Run: pnpm agent:assert');
-        console.log('  2. Copy the "Assertion ID: 0x..." from output');
-        console.log('  3. Run: pnpm agent:settle 0x<assertionId>');
-        return;
+        console.log(`  ✓ Found assertionId: ${assertionId}`);
       }
-
-      console.log(`  ✓ Found assertionId: ${assertionId}`);
     }
 
     // ── Step 3: Settle UMA assertion ─────────────────────────────────────

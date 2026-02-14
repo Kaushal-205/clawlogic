@@ -27,6 +27,7 @@ import {
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { saveAssertionRecord } from './assertion-records.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -46,7 +47,7 @@ function loadDeployment(): DeploymentInfo {
 }
 
 function createAssertClient(privateKey: Hex): ClawlogicClient {
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.AGENT_RPC_URL ?? process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
   const deployment = loadDeployment();
   const config = loadConfigFromDeployment(deployment, rpcUrl);
   return new ClawlogicClient(config, privateKey);
@@ -67,11 +68,12 @@ function createAssertClient(privateKey: Hex): ClawlogicClient {
  *                   the latest unresolved market without an active assertion.
  * @param client - A ClawlogicClient initialized with the asserting agent's key.
  *                 If not provided, will create one from AGENT_ALPHA_PRIVATE_KEY env var.
+ * @returns UMA assertionId when captured from transaction logs, otherwise null.
  */
 export async function runAssertDemo(
   marketId?: `0x${string}`,
   client?: ClawlogicClient,
-): Promise<void> {
+): Promise<`0x${string}` | null> {
   if (!client) {
     const privateKey = process.env.AGENT_ALPHA_PRIVATE_KEY as Hex;
     if (!privateKey) {
@@ -105,7 +107,7 @@ export async function runAssertDemo(
   if (!isRegistered) {
     console.log('  ERROR: Asserter is not a registered agent.');
     console.log('  Run Agent Alpha first to register.');
-    return;
+    return null;
   }
 
   const agent = await client.getAgent(address);
@@ -119,7 +121,7 @@ export async function runAssertDemo(
     const marketIds = await client.getMarketIds();
     if (marketIds.length === 0) {
       console.log('  No markets found. Create a market first.');
-      return;
+      return null;
     }
 
     // Find the latest unresolved market without an active assertion
@@ -140,12 +142,12 @@ export async function runAssertDemo(
           console.log(`  Market "${market.description}" already has an active assertion.`);
           console.log(`  Asserted outcome ID: ${market.assertedOutcomeId}`);
           console.log('  Waiting for liveness window to expire...');
-          return;
+          return null;
         }
       }
 
       console.log('  No assertable markets found (all resolved or have active assertions).');
-      return;
+      return null;
     }
   } else {
     const market = await client.getMarket(marketId);
@@ -153,13 +155,13 @@ export async function runAssertDemo(
 
     if (market.resolved) {
       console.log('  Market already resolved. Nothing to assert.');
-      return;
+      return null;
     }
 
     if (market.assertedOutcomeId !== ZERO_BYTES32) {
       console.log('  Market already has an active assertion.');
       console.log(`  Asserted outcome ID: ${market.assertedOutcomeId}`);
-      return;
+      return null;
     }
   }
 
@@ -212,11 +214,23 @@ export async function runAssertDemo(
       assertionId = (decoded.args as any).assertionId;
       console.log(`  Assertion ID: ${assertionId}`);
       console.log('  (Save this for manual settlement if needed)');
+      if (assertionId) {
+        await saveAssertionRecord({
+          marketId,
+          assertionId,
+          asserter: address,
+          txHash,
+          chainId: client.config.chainId,
+          source: 'assert-demo',
+          createdAt: new Date().toISOString(),
+        });
+        console.log('  Stored assertion metadata for deterministic settlement fallback.');
+      }
     }
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error(`  Assertion failed: ${msg}`);
-    return;
+    return null;
   }
 
   // ── Liveness window info ─────────────────────────────────────────────────
@@ -259,6 +273,7 @@ export async function runAssertDemo(
   console.log('    2. Call settleOutcomeTokens() to redeem winnings');
   console.log('    3. Or another agent can dispute during the window');
   console.log('================================================================\n');
+  return assertionId ?? null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

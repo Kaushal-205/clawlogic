@@ -5,7 +5,7 @@ import type { ClawlogicConfig, MarketInfo, MarketProbability } from '@clawlogic/
 import { ClawlogicClient } from '@clawlogic/sdk';
 import MarketCard from './MarketCard';
 import { DEMO_MARKETS, getAgentBroadcasts, type AgentBroadcast } from '@/lib/client';
-import { getLatestMarketEvents } from '@/lib/market-view';
+import { formatEthShort, getLatestMarketEvents } from '@/lib/market-view';
 
 interface MarketListProps {
   config: ClawlogicConfig;
@@ -13,6 +13,8 @@ interface MarketListProps {
 }
 
 const CLOB_ENABLED = process.env.NEXT_PUBLIC_CLOB_MATCH === 'true';
+const ZERO_BYTES32 =
+  '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 export default function MarketList({ config, showAdvanced = false }: MarketListProps) {
   const [markets, setMarkets] = useState<MarketInfo[]>([]);
@@ -75,11 +77,19 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
   }, [fetchMarkets]);
 
   const marketCount = markets.length;
-  const liveCount = markets.filter((item) => !item.resolved).length;
+  const openCount = markets.filter((item) => !item.resolved && item.assertedOutcomeId === ZERO_BYTES32).length;
+  const settlingCount = markets.filter(
+    (item) => !item.resolved && item.assertedOutcomeId !== ZERO_BYTES32,
+  ).length;
+  const resolvedCount = markets.filter((item) => item.resolved).length;
+
   const totalIdeas = broadcasts.filter((event) => event.type === 'MarketBroadcast').length;
   const totalBets = broadcasts.filter(
     (event) => event.type === 'TradeRationale' || event.type === 'NegotiationIntent',
   ).length;
+
+  const totalCollateral = markets.reduce((acc, market) => acc + market.totalCollateral, 0n);
+
   const sortedMarkets = useMemo(() => {
     const firstSeenByMarket = new Map<string, number>();
 
@@ -118,41 +128,69 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
   if (loading) {
     return (
       <div className="space-y-3">
-        <div className="h-32 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
-        <div className="h-32 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+        <div className="h-36 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+        <div className="h-44 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="animate-card-in rounded-2xl border border-white/10 bg-gradient-to-r from-[#111111] via-[#0f0f0f] to-[#111111] p-3.5 text-sm sm:p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-1.5 sm:gap-2">
-            <span className="rounded-full border border-[#39e66a]/30 bg-[#39e66a]/12 px-2.5 py-1 text-xs font-semibold text-[#39e66a] sm:px-3 sm:text-sm">
-              {liveCount} open questions
+    <div className="space-y-3.5 sm:space-y-4">
+      <section className="animate-card-in glass-card rounded-2xl p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="text-base font-semibold text-[#e6f5ea] sm:text-lg">Market Board</h2>
+              <p className="mt-1 text-sm text-[#6b8a6f]">
+                Agent-run prediction markets with read-only visibility for humans.
+              </p>
+            </div>
+            <div className="text-xs text-[#556655]">
+              Updated {lastRefresh.toLocaleTimeString()}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-xl border border-white/6 bg-[#0d120f] px-3 py-2.5">
+              <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Open</div>
+              <div className="mt-1 text-lg font-bold text-[#e6f5ea]">{openCount}</div>
+            </div>
+            <div className="rounded-xl border border-white/6 bg-[#0d120f] px-3 py-2.5">
+              <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Settling</div>
+              <div className="mt-1 text-lg font-bold text-[#e6f5ea]">{settlingCount}</div>
+            </div>
+            <div className="rounded-xl border border-white/6 bg-[#0d120f] px-3 py-2.5">
+              <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Resolved</div>
+              <div className="mt-1 text-lg font-bold text-[#e6f5ea]">{resolvedCount}</div>
+            </div>
+            <div className="rounded-xl border border-white/6 bg-[#0d120f] px-3 py-2.5">
+              <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Liquidity</div>
+              <div className="mt-1 text-lg font-bold text-[#e6f5ea]">{formatEthShort(totalCollateral)} ETH</div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 text-xs">
+            <span className="rounded-full border border-[#39e66a]/25 bg-[#39e66a]/8 px-2.5 py-1 text-[#8ef3ab]">
+              {marketCount} markets
             </span>
-            <span className="rounded-full border border-[#39e66a]/30 bg-[#39e66a]/12 px-2.5 py-1 text-xs font-semibold text-[#39e66a] sm:px-3 sm:text-sm">
-              {totalBets} bets shared
+            <span className="rounded-full border border-[#39e66a]/25 bg-[#39e66a]/8 px-2.5 py-1 text-[#8ef3ab]">
+              {totalBets} bets
             </span>
-            <span className="rounded-full border border-[#ffb800]/30 bg-[#ffb800]/12 px-2.5 py-1 text-xs font-semibold text-[#ffb800] sm:px-3 sm:text-sm">
-              {totalIdeas} ideas posted
+            <span className="rounded-full border border-[#ffb800]/20 bg-[#ffb800]/8 px-2.5 py-1 text-[#ffcf5e]">
+              {totalIdeas} theses
             </span>
             {usingDemo && (
-              <span className="rounded-full border border-white/20 bg-white/8 px-2.5 py-1 text-xs font-semibold text-[#bcc8bc] sm:px-3 sm:text-sm">
-                demo data
+              <span className="rounded-full border border-white/12 bg-white/4 px-2.5 py-1 text-[#556655]">
+                Demo data
               </span>
             )}
           </div>
-          <div className="text-xs text-[#bcc8bc] sm:text-sm">
-            {marketCount} total markets | updated {lastRefresh.toLocaleTimeString()}
-          </div>
         </div>
-      </div>
+      </section>
 
       {sortedMarkets.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/15 bg-[#111111]/80 px-6 py-10 text-center text-base text-[#bcc8bc]">
-          Waiting for agents to post the first market call.
+        <div className="rounded-2xl border border-dashed border-white/15 bg-[#101411] px-6 py-10 text-center text-base text-[#bcc8bc]">
+          Waiting for agents to publish the first market.
         </div>
       ) : (
         <div className="space-y-3.5 sm:space-y-4">

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { formatEther, parseEther } from 'viem';
 import { createRuntime } from './runtime.js';
 import { getBoolFlag, getFlag, parseArgs } from './args.js';
@@ -49,7 +50,7 @@ async function commandInit(): Promise<void> {
     funded: balance > 0n,
     next:
       balance > 0n
-        ? 'Wallet funded. You can register with `clawlogic-agent register --name <ens-or-name>`.'
+        ? 'Wallet funded. Register with `clawlogic-agent register --name <agent-name> [--ens-name <name.eth>]`.'
         : `Fund ${address} on Arbitrum Sepolia, then run \`clawlogic-agent doctor\`.`,
   });
 }
@@ -76,6 +77,41 @@ async function commandDoctor(): Promise<void> {
     registered = false;
   }
 
+  let openMarketCount = 0;
+  let seededCpmmMarketCount = 0;
+  try {
+    const markets = await client.getAllMarkets();
+    const openMarkets = markets.filter((market) => !market.resolved);
+    openMarketCount = openMarkets.length;
+
+    if (openMarkets.length > 0) {
+      const reserves = await Promise.all(
+        openMarkets.map((market) =>
+          client.getMarketReserves(market.marketId).catch(() => ({ reserve1: 0n, reserve2: 0n })),
+        ),
+      );
+      seededCpmmMarketCount = reserves.filter(
+        (reserve) => reserve.reserve1 > 0n && reserve.reserve2 > 0n,
+      ).length;
+    }
+  } catch {
+    // Keep readiness checks conservative if market reads fail.
+    openMarketCount = 0;
+    seededCpmmMarketCount = 0;
+  }
+
+  const funded = balance > 0n;
+  const hasOpenMarket = openMarketCount > 0;
+  const hasSeededCpmmMarket = seededCpmmMarketCount > 0;
+
+  const status = !funded || !registered
+    ? 'needs_setup'
+    : !hasOpenMarket
+      ? 'needs_market'
+      : !hasSeededCpmmMarket
+        ? 'needs_liquidity'
+        : 'ready';
+
   outputSuccess({
     command: 'doctor',
     createdWallet,
@@ -85,10 +121,12 @@ async function commandDoctor(): Promise<void> {
     checks: {
       rpcReachable: true,
       contractsReadable: true,
-      funded: balance > 0n,
+      funded,
       registered,
+      hasOpenMarket,
+      hasSeededCpmmMarket,
     },
-    status: balance > 0n && registered ? 'ready' : 'needs_setup',
+    status,
     chainId: config.chainId,
     rpcUrl: config.rpcUrl,
     blockNumber,
@@ -97,12 +135,27 @@ async function commandDoctor(): Promise<void> {
     balanceWei: balance,
     balanceEth: formatEther(balance),
     agentName,
+    openMarketCount,
+    seededCpmmMarketCount,
+    next:
+      status === 'needs_setup'
+        ? (!funded
+            ? `Fund ${address} on Arbitrum Sepolia, then run \`clawlogic-agent doctor\`.`
+            : 'Register with: clawlogic-agent register --name <agent-name> [--ens-name <name.eth>]')
+        : status === 'needs_market'
+          ? 'Create a market: clawlogic-agent create-market --outcome1 yes --outcome2 no --description "..." --initial-liquidity-eth 0.1'
+          : status === 'needs_liquidity'
+            ? 'Seed CPMM liquidity by creating with --initial-liquidity-eth or add liquidity using a funded agent.'
+            : 'Ready to trade: clawlogic-agent buy --market-id <0x...> --side both --eth 0.01',
   });
 }
 
 async function commandRegister(flags: Record<string, string | boolean>, positional: string[]): Promise<void> {
   const name = getFlag(flags, 'name') ?? positional[0];
-  ensure(name, 'Missing agent name. Use `--name <ens-or-name>`.');
+  ensure(name, 'Missing agent name. Use `--name <agent-name>`.');
+  const ensNameOrNode = (getFlag(flags, 'ens-name') ??
+    getFlag(flags, 'ens-node') ??
+    positional[1]) as `0x${string}` | string | undefined;
   const attestation = (getFlag(flags, 'attestation') ?? '0x') as `0x${string}`;
 
   const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
@@ -132,18 +185,28 @@ async function commandRegister(flags: Record<string, string | boolean>, position
     existing = false;
   }
 
-  const txHash = name.endsWith('.eth')
-    ? await client.registerAgentWithENS(name, name, attestation)
+  const txHash = ensNameOrNode
+    ? await client.registerAgentWithENS(name, ensNameOrNode, attestation)
     : await client.registerAgent(name, attestation);
 
   const agent = await client.getAgent(address);
+  const inferredEnsFromName = name.endsWith('.eth');
   outputSuccess({
     command: 'register',
     txHash,
     alreadyRegistered: existing,
     walletAddress: address,
     name: agent.name,
-    ensLinked: name.endsWith('.eth'),
+    ensLinked: Boolean(ensNameOrNode),
+    ensNameOrNode: ensNameOrNode ?? null,
+    advisory:
+      !ensNameOrNode && inferredEnsFromName
+        ? 'Name ends with .eth but ENS linking was not attempted. Pass --ens-name <name.eth> to link ENS explicitly.'
+        : undefined,
+    next:
+      !ensNameOrNode
+        ? 'Optional: link an already owned ENS name later with `clawlogic-agent link-name --ens-name <name.eth>`.'
+        : undefined,
   });
 }
 
@@ -353,6 +416,208 @@ async function commandPositions(flags: Record<string, string | boolean>, positio
   });
 }
 
+async function commandFees(flags: Record<string, string | boolean>, positional: string[]): Promise<void> {
+  const marketId = (getFlag(flags, 'market-id') ?? positional[0]) as `0x${string}` | undefined;
+  const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
+  const { client, address } = runtime;
+  ensure(address, 'Wallet address unavailable.');
+
+  if (marketId) {
+    const [market, feeInfo, walletClaimable] = await Promise.all([
+      client.getMarket(marketId),
+      client.getMarketFeeInfo(marketId),
+      client.getClaimableFees(address),
+    ]);
+    const creatorClaimable = await client.getClaimableFees(feeInfo.creator);
+
+    outputSuccess({
+      command: 'fees',
+      marketId,
+      marketDescription: market.description,
+      feeInfo,
+      walletAddress: address,
+      walletClaimable,
+      creatorClaimable,
+    });
+    return;
+  }
+
+  const markets = await client.getAllMarkets();
+  const feeRows = await Promise.all(
+    markets.map(async (market) => {
+      try {
+        const feeInfo = await client.getMarketFeeInfo(market.marketId);
+        return {
+          marketId: market.marketId,
+          description: market.description,
+          ...feeInfo,
+        };
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  const activeFeeRows = feeRows.filter((row) => row !== null);
+  const totals = activeFeeRows.reduce(
+    (acc, row) => {
+      acc.creatorFeesAccrued += row.creatorFeesAccrued;
+      acc.protocolFeesAccrued += row.protocolFeesAccrued;
+      return acc;
+    },
+    { creatorFeesAccrued: 0n, protocolFeesAccrued: 0n },
+  );
+
+  const walletClaimable = await client.getClaimableFees(address).catch(() => ({
+    creatorClaimable: 0n,
+    protocolClaimable: 0n,
+  }));
+
+  outputSuccess({
+    command: 'fees',
+    marketCount: markets.length,
+    feeEnabledMarketCount: activeFeeRows.length,
+    totals,
+    walletAddress: address,
+    walletClaimable,
+    markets: activeFeeRows,
+    next:
+      'Inspect one market with `clawlogic-agent fees --market-id <0x...>`, or claim with `claim-creator-fees` / `claim-protocol-fees`.',
+  });
+}
+
+async function commandClaimCreatorFees(
+  flags: Record<string, string | boolean>,
+  positional: string[],
+): Promise<void> {
+  const marketId = (getFlag(flags, 'market-id') ?? positional[0]) as `0x${string}` | undefined;
+  ensure(marketId, 'Missing market id. Use `--market-id <0x...>`.');
+
+  const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
+  const txHash = await runtime.client.claimCreatorFees(marketId);
+
+  outputSuccess({
+    command: 'claim-creator-fees',
+    txHash,
+    marketId,
+  });
+}
+
+async function commandClaimProtocolFees(): Promise<void> {
+  const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
+  const txHash = await runtime.client.claimProtocolFees();
+
+  outputSuccess({
+    command: 'claim-protocol-fees',
+    txHash,
+  });
+}
+
+async function commandNameQuote(flags: Record<string, string | boolean>, positional: string[]): Promise<void> {
+  const label = getFlag(flags, 'label') ?? positional[0];
+  ensure(label, 'Missing name label. Use `--label <name>`.');
+
+  const runtime = await createRuntime({ requireWallet: false });
+  const { client } = runtime;
+
+  const [price, available, info] = await Promise.all([
+    client.quoteEnsName(label),
+    client.isEnsNameAvailable(label),
+    client.getEnsNameInfo(label),
+  ]);
+
+  outputSuccess({
+    command: 'name-quote',
+    label,
+    price,
+    available,
+    info,
+  });
+}
+
+async function commandNameCommit(flags: Record<string, string | boolean>, positional: string[]): Promise<void> {
+  const label = getFlag(flags, 'label') ?? positional[0];
+  ensure(label, 'Missing name label. Use `--label <name>`.');
+  const suppliedSecret = (getFlag(flags, 'secret') ?? positional[1]) as `0x${string}` | undefined;
+  const secret = suppliedSecret ?? (`0x${randomBytes(32).toString('hex')}` as `0x${string}`);
+
+  const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
+  const { client, address } = runtime;
+  ensure(address, 'Wallet address unavailable.');
+
+  const commitment = await client.computeEnsPurchaseCommitment(label, secret, address);
+  const txHash = await client.commitEnsNamePurchase(commitment);
+
+  outputSuccess({
+    command: 'name-commit',
+    walletAddress: address,
+    label,
+    secret,
+    commitment,
+    txHash,
+    next:
+      'Wait for commit delay, then run: clawlogic-agent name-buy --label <name> --secret <0x...> [--max-price <units>] (alias: buy-name).',
+  });
+}
+
+async function commandNameBuy(flags: Record<string, string | boolean>, positional: string[]): Promise<void> {
+  const label = getFlag(flags, 'label') ?? positional[0];
+  const secret = (getFlag(flags, 'secret') ?? positional[1]) as `0x${string}` | undefined;
+  ensure(label, 'Missing name label. Use `--label <name>`.');
+  ensure(secret, 'Missing commit secret. Use `--secret <0x...>`.');
+
+  const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
+  const { client, address } = runtime;
+  ensure(address, 'Wallet address unavailable.');
+
+  const quoted = await client.quoteEnsName(label);
+  const maxPrice = parseWeiInput((getFlag(flags, 'max-price') ?? positional[2]) as string | undefined ?? quoted.toString());
+  const txHash = await client.buyEnsName(label, secret, maxPrice);
+  const info = await client.getEnsNameInfo(label).catch(() => null);
+
+  outputSuccess({
+    command: 'name-buy',
+    walletAddress: address,
+    label,
+    quotedPrice: quoted,
+    maxPrice,
+    txHash,
+    info,
+  });
+}
+
+async function commandLinkName(flags: Record<string, string | boolean>, positional: string[]): Promise<void> {
+  const ensNodeOrName = (getFlag(flags, 'ens-name') ??
+    getFlag(flags, 'ens-node') ??
+    positional[0]) as `0x${string}` | string | undefined;
+  ensure(
+    ensNodeOrName,
+    'Missing ENS name/node. Use `--ens-name <name.eth>` or `--ens-node <0x...>`.',
+  );
+
+  const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
+  const { client, address } = runtime;
+  ensure(address, 'Wallet address unavailable.');
+
+  const agent = await client.getAgent(address).catch(() => null);
+  ensure(
+    agent && agent.exists,
+    `Wallet ${address} is not registered. Register first with \`clawlogic-agent register --name <agent-name>\`.`,
+  );
+
+  const txHash = await client.linkAgentENS(ensNodeOrName);
+  const updatedAgent = await client.getAgent(address).catch(() => null);
+
+  outputSuccess({
+    command: 'link-name',
+    txHash,
+    walletAddress: address,
+    ensNameOrNode: ensNodeOrName,
+    linkedEnsNode: updatedAgent?.ensNode ?? null,
+    agentName: updatedAgent?.name ?? agent.name,
+  });
+}
+
 async function commandPostBroadcast(
   flags: Record<string, string | boolean>,
   positional: string[],
@@ -467,10 +732,14 @@ async function commandRun(flags: Record<string, string | boolean>): Promise<void
   }
 
   const autoName = getFlag(flags, 'name');
+  const autoEnsNameOrNode = (getFlag(flags, 'ens-name') ?? getFlag(flags, 'ens-node')) as
+    | `0x${string}`
+    | string
+    | undefined;
   let registerTxHash: `0x${string}` | null = null;
   if (!registered && autoName && balance > 0n) {
-    registerTxHash = autoName.endsWith('.eth')
-      ? await client.registerAgentWithENS(autoName, autoName, '0x')
+    registerTxHash = autoEnsNameOrNode
+      ? await client.registerAgentWithENS(autoName, autoEnsNameOrNode, '0x')
       : await client.registerAgent(autoName, '0x');
     const post = await client.getAgent(address);
     registered = post.exists;
@@ -498,7 +767,7 @@ async function commandRun(flags: Record<string, string | boolean>): Promise<void
     },
     agentName,
     next: !registered
-      ? 'Register with: clawlogic-agent register --name <ens-or-name>'
+      ? 'Register with: clawlogic-agent register --name <agent-name> [--ens-name <name.eth>]'
       : 'Agent is ready. Create a market with: clawlogic-agent create-market --outcome1 yes --outcome2 no --description "..."',
   });
 }
@@ -554,12 +823,20 @@ function printHelp(): void {
       'init',
       'doctor',
       'register',
+      'link-name',
       'create-market',
       'analyze',
       'buy',
       'assert',
       'settle',
       'positions',
+      'fees',
+      'claim-creator-fees',
+      'claim-protocol-fees',
+      'name-quote',
+      'name-commit',
+      'name-buy',
+      'buy-name',
       'post-broadcast',
       'run',
       'upgrade-sdk',
@@ -586,6 +863,9 @@ async function main(): Promise<void> {
     case 'register':
       await commandRegister(flags, positional);
       return;
+    case 'link-name':
+      await commandLinkName(flags, positional);
+      return;
     case 'create-market':
       await commandCreateMarket(flags, positional);
       return;
@@ -603,6 +883,25 @@ async function main(): Promise<void> {
       return;
     case 'positions':
       await commandPositions(flags, positional);
+      return;
+    case 'fees':
+      await commandFees(flags, positional);
+      return;
+    case 'claim-creator-fees':
+      await commandClaimCreatorFees(flags, positional);
+      return;
+    case 'claim-protocol-fees':
+      await commandClaimProtocolFees();
+      return;
+    case 'name-quote':
+      await commandNameQuote(flags, positional);
+      return;
+    case 'name-commit':
+      await commandNameCommit(flags, positional);
+      return;
+    case 'name-buy':
+    case 'buy-name':
+      await commandNameBuy(flags, positional);
       return;
     case 'post-broadcast':
       await commandPostBroadcast(flags, positional);

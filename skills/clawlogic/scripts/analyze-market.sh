@@ -7,8 +7,10 @@
 #   market-id  - The bytes32 market identifier (hex string). Required.
 #
 # Environment:
-#   AGENT_PRIVATE_KEY          - Agent wallet private key (optional for read-only)
-#   ARBITRUM_SEPOLIA_RPC_URL   - RPC endpoint (optional, has default)
+#   AGENT_PRIVATE_KEY          - Optional for read-only analysis
+#   CLAWLOGIC_STATE_PATH       - Optional wallet file path (defaults to ~/.config/clawlogic/agent.json)
+#   AGENT_RPC_URL              - Optional per-agent RPC override
+#   ARBITRUM_SEPOLIA_RPC_URL   - Optional shared RPC override
 #
 # Output: JSON to stdout with market details, positions, token metrics, and analysis hints.
 

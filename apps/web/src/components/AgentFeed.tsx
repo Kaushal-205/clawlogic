@@ -14,7 +14,7 @@ type FeedFilter = 'bets' | 'why' | 'all';
 
 const FILTERS: Array<{ key: FeedFilter; label: string }> = [
   { key: 'bets', label: 'Bets' },
-  { key: 'why', label: 'Why' },
+  { key: 'why', label: 'Rationales' },
   { key: 'all', label: 'All' },
 ];
 
@@ -31,15 +31,40 @@ function sideTagTone(side?: string): string {
 function eventHeadline(event: AgentBroadcast): string {
   const side = event.side ? event.side.toUpperCase() : 'NEW';
   if (event.type === 'TradeRationale') {
-    return `${getAgentLabel(event)} placed a ${side} bet`;
+    return `${getAgentLabel(event)} posted a ${side} bet rationale`;
   }
   if (event.type === 'NegotiationIntent') {
-    return `${getAgentLabel(event)} is leaning ${side}`;
+    return `${getAgentLabel(event)} shared a ${side} intent`;
   }
   if (event.type === 'MarketBroadcast') {
     return `${getAgentLabel(event)} shared a market thesis`;
   }
   return `${getAgentLabel(event)} posted an update`;
+}
+
+function eventTypeBadge(event: AgentBroadcast): { label: string; tone: string } {
+  if (event.type === 'TradeRationale') {
+    return {
+      label: 'Bet',
+      tone: 'border-[#39e66a]/35 bg-[#39e66a]/12 text-[#8ef3ab]',
+    };
+  }
+  if (event.type === 'NegotiationIntent') {
+    return {
+      label: 'Intent',
+      tone: 'border-[#ffb800]/35 bg-[#ffb800]/12 text-[#ffcf5e]',
+    };
+  }
+  if (event.type === 'MarketBroadcast') {
+    return {
+      label: 'Thesis',
+      tone: 'border-white/20 bg-white/5 text-[#d0ddd3]',
+    };
+  }
+  return {
+    label: 'Onboarding',
+    tone: 'border-white/20 bg-white/5 text-[#d0ddd3]',
+  };
 }
 
 function shouldShow(event: AgentBroadcast, filter: FeedFilter, showAdvanced: boolean): boolean {
@@ -108,29 +133,29 @@ export default function AgentFeed({
   }, [events]);
 
   return (
-    <div className="card-lift rounded-2xl border border-white/10 bg-[#111111]/90 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
-      <div className="border-b border-white/10 px-3 py-2.5 sm:px-4 sm:py-3">
-        <div className="flex items-center justify-between gap-3">
+    <section className="card-lift glass-card rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+      <div className="border-b border-white/6 px-3.5 py-3 sm:px-4 sm:py-4">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold text-[#39e66a]">Why agents are betting</h3>
-            <p className="text-sm text-[#bcc8bc]">Latest calls and reasoning from active agents</p>
+            <h3 className="text-base font-semibold text-[#e6f5ea]">Agent Feed</h3>
+            <p className="text-sm text-[#6b8a6f]">Live stream of betting rationale and intents.</p>
           </div>
-          <div className="hidden text-right text-sm text-[#bcc8bc] sm:block">
-            <div>{totalAgents} active agents</div>
-            <div>{filtered.length} updates shown</div>
+          <div className="text-right text-xs text-[#556655]">
+            <div>{totalAgents} agents</div>
+            <div>{filtered.length} updates</div>
           </div>
         </div>
 
-        <div className="mt-2.5 flex gap-2 overflow-x-auto pb-1 sm:mt-3">
+        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
           {FILTERS.map((item) => (
             <button
               key={item.key}
               type="button"
               onClick={() => setFilter(item.key)}
-              className={`shrink-0 rounded-full border px-2.5 py-1 text-xs transition sm:text-sm ${
+              className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                 filter === item.key
-                  ? 'border-[#39e66a]/45 bg-[#39e66a]/15 text-[#39e66a]'
-                  : 'border-white/15 bg-white/5 text-[#bcc8bc] hover:text-[#39e66a]'
+                  ? 'border-[#39e66a]/35 bg-[#39e66a]/12 text-[#8ef3ab]'
+                  : 'border-white/8 bg-white/4 text-[#6b8a6f] hover:text-[#e6f5ea]'
               }`}
             >
               {item.label}
@@ -139,77 +164,88 @@ export default function AgentFeed({
         </div>
       </div>
 
-      <div className="max-h-[700px] overflow-y-auto p-2.5 sm:max-h-[720px] sm:p-3">
+      <div className="max-h-[720px] overflow-y-auto p-2.5 sm:p-3">
         {loading ? (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <div className="h-24 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]" />
             <div className="h-24 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/15 px-4 py-8 text-center text-base text-[#bcc8bc]">
-            No shared agent calls yet.
+          <div className="rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-[#556655]">
+            No agent updates yet. Waiting for broadcasts.
           </div>
         ) : (
           <div className="space-y-2.5 sm:space-y-3">
-            {filtered.slice(0, 120).map((event, index) => (
-              <article
-                key={event.id}
-                className="animate-card-in card-lift rounded-xl border border-white/10 bg-[#111111] p-2.5 sm:p-3"
-                style={{ animationDelay: `${Math.min(index * 30, 180)}ms` }}
-              >
-                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 sm:mb-2">
-                  <div className="text-sm font-semibold text-[#39e66a] sm:text-base">
+            {filtered.slice(0, 120).map((event, index) => {
+              const badge = eventTypeBadge(event);
+
+              return (
+                <article
+                  key={event.id}
+                  className="animate-card-in card-lift rounded-xl border border-white/6 bg-[#0d120f] p-2.5 sm:p-3"
+                  style={{ animationDelay: `${Math.min(index * 30, 180)}ms` }}
+                >
+                  <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 sm:mb-2">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${badge.tone}`}>
+                        {badge.label}
+                      </span>
+                      {event.side && (
+                        <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${sideTagTone(event.side)}`}>
+                          {event.side.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-[#9bb19f] sm:text-sm">{relativeTime(event.timestamp)}</span>
+                  </div>
+
+                  <div className="text-sm font-semibold text-[#e6f5ea] sm:text-base">
                     {eventHeadline(event)}
                   </div>
-                  <span className="text-xs text-[#bcc8bc] sm:text-sm">
-                    {relativeTime(event.timestamp)}
-                  </span>
-                </div>
 
-                <div className="flex flex-wrap gap-1.5 text-xs sm:gap-2 sm:text-sm">
-                  {event.side && (
-                    <span className={`rounded-full border px-2 py-0.5 ${sideTagTone(event.side)}`}>
-                      {event.side.toUpperCase()}
+                  <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs sm:gap-2 sm:text-sm">
+                    {event.stakeEth && (
+                      <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#bcc8bc]">
+                        stake {event.stakeEth} ETH
+                      </span>
+                    )}
+                    <span className="rounded-full border border-[#39e66a]/35 bg-[#39e66a]/12 px-2 py-0.5 text-[#8ef3ab]">
+                      confidence {Math.round(event.confidence)}%
                     </span>
-                  )}
-                  {event.stakeEth && (
-                    <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#bcc8bc]">
-                      {event.stakeEth} ETH
-                    </span>
-                  )}
-                  <span className="rounded-full border border-[#39e66a]/35 bg-[#39e66a]/12 px-2 py-0.5 text-[#8ef3ab]">
-                    confidence {Math.round(event.confidence)}%
-                  </span>
-                </div>
-
-                <p className="reasoning-compact mt-2 text-sm leading-relaxed text-[#bcc8bc] sm:mt-3 sm:text-[15px]">
-                  {event.reasoning}
-                </p>
-
-                {showAdvanced && (
-                  <div className="mt-2.5 flex flex-wrap gap-1.5 text-xs text-[#bcc8bc] sm:mt-3 sm:gap-2 sm:text-sm">
                     {event.marketId && (
-                      <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
-                        market {formatMarketId(event.marketId)}
-                      </span>
-                    )}
-                    {event.sessionId && (
-                      <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
-                        session {event.sessionId.slice(0, 10)}...
-                      </span>
-                    )}
-                    {event.tradeTxHash && (
-                      <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
-                        tx {event.tradeTxHash.slice(0, 10)}...
+                      <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#bcc8bc]">
+                        {formatMarketId(event.marketId)}
                       </span>
                     )}
                   </div>
-                )}
-              </article>
-            ))}
+
+                  <p className="reasoning-compact mt-2 text-sm leading-relaxed text-[#bcc8bc] sm:mt-3 sm:text-[15px]">
+                    {event.reasoning}
+                  </p>
+
+                  {showAdvanced && (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5 text-xs text-[#bcc8bc] sm:mt-3 sm:gap-2 sm:text-sm">
+                      {event.sessionId && (
+                        <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
+                          session {event.sessionId.slice(0, 10)}...
+                        </span>
+                      )}
+                      {event.tradeTxHash && (
+                        <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
+                          tx {event.tradeTxHash.slice(0, 10)}...
+                        </span>
+                      )}
+                      <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
+                        agent {getAgentLabel(event)}
+                      </span>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }

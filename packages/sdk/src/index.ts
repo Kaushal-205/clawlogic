@@ -33,6 +33,9 @@ export type {
   MarketEventCallback,
   MarketProbability,
   MarketReserves,
+  MarketFeeInfo,
+  ClaimableFees,
+  EnsNameInfo,
   ReputationScore,
   GlobalReputationScore,
   ValidationProof,
@@ -57,6 +60,7 @@ export {
 export { agentRegistryAbi } from './abis/agentRegistryAbi.js';
 export { predictionMarketHookAbi } from './abis/predictionMarketHookAbi.js';
 export { outcomeTokenAbi } from './abis/outcomeTokenAbi.js';
+export { ensPremiumRegistrarAbi } from './abis/ensPremiumRegistrarAbi.js';
 
 // Phase 1: Identity ABIs
 export { agentIdentityRegistryAbi } from './abis/agentIdentityRegistryAbi.js';

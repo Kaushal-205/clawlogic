@@ -11,6 +11,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {HookMiner} from "v4-periphery/src/utils/HookMiner.sol";
 
 import {AgentRegistry} from "../src/AgentRegistry.sol";
+import {ENSPremiumRegistrar} from "../src/ENSPremiumRegistrar.sol";
 import {PredictionMarketHook} from "../src/PredictionMarketHook.sol";
 import {IAgentRegistry} from "../src/interfaces/IAgentRegistry.sol";
 import {IENS} from "../src/interfaces/IENS.sol";
@@ -62,6 +63,10 @@ import {AgentReputationRegistry} from "../src/erc8004/AgentReputationRegistry.so
 ///        PHALA_VERIFIER            -- Phala zkDCAP verifier address
 ///        VALIDATION_REGISTRY       -- Pre-deployed AgentValidationRegistry
 ///        DEFAULT_LIVENESS          -- UMA liveness in seconds (default: 120)
+///        ENS_PREMIUM_BASE_NODE     -- Base ENS node for premium registrar (bytes32)
+///        ENS_PREMIUM_USDC          -- USDC token address used for premium ENS sales
+///        ENS_PREMIUM_TREASURY      -- Treasury receiving premium ENS payments
+///                                     (registrar deploys only when all 3 are non-zero)
 ///
 ///      Usage:
 ///        source .env && forge script script/Deploy.s.sol \
@@ -178,6 +183,31 @@ contract DeployScript is Script {
         );
         console2.log("AgentRegistry:           ", address(registry));
 
+        // Optional ENS premium registrar wiring.
+        // Backward-compatibility: when any required env var is missing/zero, skip deployment.
+        address ensPremiumTreasury = vm.envOr("ENS_PREMIUM_TREASURY", address(0));
+        address ensPremiumUsdc = vm.envOr("ENS_PREMIUM_USDC", address(0));
+        bytes32 ensPremiumBaseNode = vm.envOr("ENS_PREMIUM_BASE_NODE", bytes32(0));
+
+        address ensPremiumRegistrarAddr = address(0);
+        bool shouldDeployEnsPremiumRegistrar = ensPremiumTreasury != address(0)
+            && ensPremiumUsdc != address(0)
+            && ensPremiumBaseNode != bytes32(0);
+
+        if (shouldDeployEnsPremiumRegistrar) {
+            ENSPremiumRegistrar ensPremiumRegistrar = new ENSPremiumRegistrar(
+                IENS(ensRegistryAddr),
+                ensPremiumBaseNode,
+                IERC20(ensPremiumUsdc),
+                IAgentRegistry(address(registry)),
+                ensPremiumTreasury
+            );
+            ensPremiumRegistrarAddr = address(ensPremiumRegistrar);
+            console2.log("ENSPremiumRegistrar:     ", ensPremiumRegistrarAddr);
+        } else {
+            console2.log("[skip] ENSPremiumRegistrar: missing ENS_PREMIUM_BASE_NODE / ENS_PREMIUM_USDC / ENS_PREMIUM_TREASURY");
+        }
+
         // ── 5. Mine a CREATE2 salt for the PredictionMarketHook ─────────
         //
         // The hook address must have BEFORE_SWAP_FLAG (bit 7) and
@@ -253,7 +283,8 @@ contract DeployScript is Script {
             address(identityRegistry),
             validationRegistryAddr,
             address(reputationRegistry),
-            phalaVerifierAddr
+            phalaVerifierAddr,
+            ensPremiumRegistrarAddr
         );
     }
 
@@ -273,7 +304,8 @@ contract DeployScript is Script {
         address identityRegistry,
         address validationRegistry,
         address reputationRegistry,
-        address phalaVerifier
+        address phalaVerifier,
+        address ensPremiumRegistrar
     ) internal {
         string memory json = "deployment";
 
@@ -293,7 +325,8 @@ contract DeployScript is Script {
         vm.serializeAddress(contracts, "AgentIdentityRegistry", identityRegistry);
         vm.serializeAddress(contracts, "AgentValidationRegistry", validationRegistry);
         vm.serializeAddress(contracts, "AgentReputationRegistry", reputationRegistry);
-        string memory contractsJson = vm.serializeAddress(contracts, "PhalaVerifier", phalaVerifier);
+        vm.serializeAddress(contracts, "PhalaVerifier", phalaVerifier);
+        string memory contractsJson = vm.serializeAddress(contracts, "ENSPremiumRegistrar", ensPremiumRegistrar);
 
         // Finalize the top-level JSON with the nested contracts.
         string memory finalJson = vm.serializeString(

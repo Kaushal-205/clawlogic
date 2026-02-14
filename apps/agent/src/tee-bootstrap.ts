@@ -76,7 +76,7 @@ async function getTeeAttestation(): Promise<{
 // ─── On-Chain Registration ──────────────────────────────────────────────────
 
 async function registerAgent(result: TeeBootstrapResult): Promise<TeeBootstrapResult> {
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia-rollup.arbitrum.io/rpc';
+  const rpcUrl = process.env.AGENT_RPC_URL || process.env.ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia-rollup.arbitrum.io/rpc';
   const registryAddress = process.env.AGENT_REGISTRY as `0x${string}` | undefined;
 
   if (!registryAddress) {
