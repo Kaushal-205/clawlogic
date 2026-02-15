@@ -1,6 +1,6 @@
 # CLAWLOGIC Launch Tracker
 
-Last updated: 2026-02-12 (UTC)
+Last updated: 2026-02-15 (UTC)
 Owner: Founder (solo) + AI contributors
 Canonical status file for launch execution, risk, and correction history.
 
@@ -187,6 +187,7 @@ Do not delete old entries. If direction changes again, append a new entry.
 | COR-013 | 2026-02-11 | Sequential single-thread implementation flow is acceptable by default | Use autonomous skill installation and parallel multi-workstream execution with task-specific skill ownership | Execute launch backlog in parallel tracks wherever safely possible |
 | COR-014 | 2026-02-11T18:35:01Z | Skill installation remained part of active launch backlog | Remove skill installation tasks from current launch execution | Focus parallel execution only on product-critical launch tasks |
 | COR-015 | 2026-02-12T20:30:36Z | RPC override path can remain global-only | Keep public RPC as default and allow agent-level custom RPC overrides | Runtime must default to public RPC while honoring `AGENT_RPC_URL` per agent before shared RPC envs |
+| COR-016 | 2026-02-15T20:43:32Z | Terminal-style, protocol-heavy frontend can remain the default UX | Reposition web app to spectator-first prediction-market UX with agent-native style and advanced details hidden by default | Default UI must emphasize markets, odds, and agent interactions; protocol internals are advanced-only disclosures |
 
 ### Correction Log Addendum (Detailed Fields)
 
@@ -196,6 +197,7 @@ Do not delete old entries. If direction changes again, append a new entry.
 | COR-013A | 2026-02-11T12:25:27Z | Skill installation could be manual or deferred | Install requested external skills autonomously when instructed | Attempt automated skill install first; if blocked, log blocker and proceed with implementation tracks | `runtime environment`, `/home/kaushal/.codex/skills`, `packages/sdk/src/cli/index.ts`, `apps/web/src/app/page.tsx`, `packages/contracts/src/ENSPremiumRegistrar.sol` | Retry `find-skills` install once DNS/network is available; restart Codex after install |
 | COR-014A | 2026-02-11T18:35:01Z | Skill installation remained in active tracker backlog and implementation sequencing | Remove skill installation tasks from active launch plan now | Launch execution excludes skill-install workstream unless reintroduced explicitly by founder | `docs/launch-tracker.md`, `.agents/skills/*` | Keep existing installed skills inert; do not schedule further skill-install tasks in launch backlog |
 | COR-015A | 2026-02-12T20:30:36Z | Skill/runtime docs could treat private key and RPC behavior as implicitly understood | Explicitly document wallet key resolution + external broadcast target + per-agent RPC override precedence | Public RPC default is mandatory baseline; wallet signing can resolve from env or initialized state; broadcast egress must be disclosed in skill docs | `packages/sdk/src/cli/runtime.ts`, `apps/agent/skills/clawlogic/scripts/helpers/setup.ts`, `apps/agent/skills/clawlogic/scripts/helpers/analyze-market.ts`, `apps/agent/skills/clawlogic/scripts/helpers/post-broadcast.ts`, `apps/agent/skills/clawlogic/SKILL.md`, `README.md`, `packages/sdk/README.md` | Sync published skill mirror and re-run checker commands for docs/skill consistency |
+| COR-016A | 2026-02-15T20:43:32Z | Frontend could remain terminal/infra-first for launch visibility | Shift to spectator-first market product experience; keep technical proof paths but not in default flow | Home and market surfaces must read like a prediction market product: clean copy, no raw addresses/jargon by default, advanced toggles for protocol detail | `apps/web/src/app/page.tsx`, `apps/web/src/components/MarketList.tsx`, `apps/web/src/components/MarketCard.tsx`, `apps/web/src/components/AgentFeed.tsx`, `apps/web/src/components/Navigation.tsx`, `apps/web/src/components/Footer.tsx`, `apps/web/src/app/market/[id]/page.tsx`, `apps/web/src/app/layout.tsx` | Validate responsive UX and advanced toggle behavior; run web build checks after dependency install |
 
 ## Change History
 
@@ -217,3 +219,4 @@ Do not delete old entries. If direction changes again, append a new entry.
 - 2026-02-12T19:33:42Z: Aligned `clawlogic` skill for ClawHub/OpenClaw publication by converting frontmatter metadata to single-line JSON, removing stale dispute-command guidance, making ENS optional by default in examples, emphasizing creator-seeded CPMM create flow, adding fee + ENS add-on command coverage, and syncing published mirror (`apps/agent/skills/clawlogic` -> `skills/clawlogic`).
 - 2026-02-12T20:07:01Z: Completed ClawHub publish flow: authenticated CLI as `@Kaushal-205`, published `clawlogic@0.1.0` (`k97eax7c154thtr80td1ttq0sd810k2c`), and confirmed registry visibility via `clawhub explore`.
 - 2026-02-12T20:30:36Z: Enforced public-RPC default with agent-level override precedence (`AGENT_RPC_URL` -> shared RPC vars -> default), switched market analysis helper to true read-only client path, added wallet-state fallback for signing helpers, and documented broadcast egress + credential expectations in skill docs/README.
+- 2026-02-15T20:43:32Z: Implemented spectator-first UI repositioning on web market surfaces by removing terminal-first home emphasis, simplifying market/feed language, hiding protocol internals behind advanced toggles, moving Silicon Gate simulation to advanced-only display, and reducing default footer/nav technical clutter.

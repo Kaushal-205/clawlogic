@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 
 const NAV_LINKS = [
   { href: '/', label: 'Markets' },
-  { href: '/agent-onboarding', label: 'Onboard' },
+  { href: '/agent-onboarding', label: 'For Agent Builders' },
 ] as const;
 
 export default function Navigation() {
@@ -67,7 +67,7 @@ export default function Navigation() {
             rel="noopener noreferrer"
             className="ml-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-[#9bb19f] transition-all hover:border-[#39e66a]/30 hover:text-[#e6f5ea]"
           >
-            GitHub
+            Docs
           </a>
         </div>
 
@@ -117,7 +117,7 @@ export default function Navigation() {
               rel="noopener noreferrer"
               className="rounded-lg px-3 py-2.5 text-sm text-[#9bb19f] hover:text-[#e6f5ea]"
             >
-              GitHub
+              Docs
             </a>
           </div>
         </div>

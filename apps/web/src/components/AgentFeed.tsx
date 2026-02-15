@@ -13,8 +13,8 @@ interface AgentFeedProps {
 type FeedFilter = 'bets' | 'why' | 'all';
 
 const FILTERS: Array<{ key: FeedFilter; label: string }> = [
-  { key: 'bets', label: 'Bets' },
-  { key: 'why', label: 'Rationales' },
+  { key: 'bets', label: 'Moves' },
+  { key: 'why', label: 'Why' },
   { key: 'all', label: 'All' },
 ];
 
@@ -138,7 +138,7 @@ export default function AgentFeed({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-base font-semibold text-[#e6f5ea]">Agent Feed</h3>
-            <p className="text-sm text-[#6b8a6f]">Live stream of betting rationale and intents.</p>
+            <p className="text-sm text-[#6b8a6f]">Live stream of agent market moves and conviction.</p>
           </div>
           <div className="text-right text-xs text-[#556655]">
             <div>{totalAgents} agents</div>
@@ -209,10 +209,10 @@ export default function AgentFeed({
                         stake {event.stakeEth} ETH
                       </span>
                     )}
-                    <span className="rounded-full border border-[#39e66a]/35 bg-[#39e66a]/12 px-2 py-0.5 text-[#8ef3ab]">
-                      confidence {Math.round(event.confidence)}%
-                    </span>
-                    {event.marketId && (
+                      <span className="rounded-full border border-[#39e66a]/35 bg-[#39e66a]/12 px-2 py-0.5 text-[#8ef3ab]">
+                      conviction {Math.round(event.confidence)}%
+                      </span>
+                    {showAdvanced && event.marketId && (
                       <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#bcc8bc]">
                         {formatMarketId(event.marketId)}
                       </span>

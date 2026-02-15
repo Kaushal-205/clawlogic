@@ -6,7 +6,6 @@ import type { MarketInfo, MarketProbability } from '@clawlogic/sdk';
 import {
   estimateSlippageBand,
   formatEthShort,
-  formatMarketId,
   getAgentLabel,
   parseCrossedIntentQuote,
   relativeTime,
@@ -137,14 +136,16 @@ export default function MarketCard({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/6 bg-[#0d120f] px-3 py-2.5 sm:px-4 sm:py-3">
         <div className="flex items-center gap-2 text-xs text-[#6b8a6f] sm:text-sm">
           <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-semibold text-[#dbe8de]">
-            Q{String(index).padStart(2, '0')}
+            Market {String(index).padStart(2, '0')}
           </span>
-          <Link
-            href={`/market/${market.marketId}`}
-            className="transition hover:text-[#39e66a]"
-          >
-            {formatMarketId(market.marketId)}
-          </Link>
+          {showAdvanced && (
+            <Link
+              href={`/market/${market.marketId}`}
+              className="transition hover:text-[#39e66a]"
+            >
+              {`${market.marketId.slice(0, 6)}...${market.marketId.slice(-4)}`}
+            </Link>
+          )}
         </div>
         <span
           className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold sm:text-sm ${getStatusTone(market)}`}
@@ -161,7 +162,7 @@ export default function MarketCard({
             </h3>
           </Link>
           <p className="mt-1 text-xs text-[#9bb19f] sm:text-sm">
-            Read-only pricing snapshot. Liquidity {formatEthShort(market.totalCollateral)} ETH.
+            Live pricing snapshot. Liquidity {formatEthShort(market.totalCollateral)} ETH.
           </p>
         </div>
 

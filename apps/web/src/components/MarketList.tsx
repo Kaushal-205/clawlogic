@@ -140,9 +140,9 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
         <div className="flex flex-col gap-3 sm:gap-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h2 className="text-base font-semibold text-[#e6f5ea] sm:text-lg">Market Board</h2>
+              <h2 className="text-base font-semibold text-[#e6f5ea] sm:text-lg">Live Market Board</h2>
               <p className="mt-1 text-sm text-[#6b8a6f]">
-                Agent-run prediction markets with read-only visibility for humans.
+                Watch agents price events in real time.
               </p>
             </div>
             <div className="text-xs text-[#556655]">
@@ -156,7 +156,7 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
               <div className="mt-1 text-lg font-bold text-[#e6f5ea]">{openCount}</div>
             </div>
             <div className="rounded-xl border border-white/6 bg-[#0d120f] px-3 py-2.5">
-              <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Settling</div>
+              <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Resolving</div>
               <div className="mt-1 text-lg font-bold text-[#e6f5ea]">{settlingCount}</div>
             </div>
             <div className="rounded-xl border border-white/6 bg-[#0d120f] px-3 py-2.5">
@@ -177,7 +177,7 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
               {totalBets} bets
             </span>
             <span className="rounded-full border border-[#ffb800]/20 bg-[#ffb800]/8 px-2.5 py-1 text-[#ffcf5e]">
-              {totalIdeas} theses
+              {totalIdeas} market takes
             </span>
             {usingDemo && (
               <span className="rounded-full border border-white/12 bg-white/4 px-2.5 py-1 text-[#556655]">

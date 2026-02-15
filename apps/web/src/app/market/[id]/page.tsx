@@ -48,6 +48,7 @@ export default function MarketDetailPage() {
   const [broadcasts, setBroadcasts] = useState<AgentBroadcast[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -137,10 +138,23 @@ export default function MarketDetailPage() {
             <h1 className="mt-3 text-xl font-bold leading-snug text-[#e6f5ea] sm:text-2xl">
               {market.description}
             </h1>
-            <p className="mt-2 text-xs text-[#556655]">
-              Market {formatMarketId(market.marketId)}
-            </p>
+            {showAdvanced && (
+              <p className="mt-2 text-xs text-[#556655]">
+                Market {formatMarketId(market.marketId)}
+              </p>
+            )}
           </div>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((prev) => !prev)}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+              showAdvanced
+                ? 'border-[#39e66a]/30 bg-[#39e66a]/10 text-[#8ef3ab]'
+                : 'border-white/12 bg-white/5 text-[#6b8a6f] hover:text-[#e6f5ea]'
+            }`}
+          >
+            {showAdvanced ? 'Hide Advanced' : 'Show Advanced'}
+          </button>
         </div>
 
         {/* Probability bar */}
@@ -202,7 +216,7 @@ export default function MarketDetailPage() {
       {/* Agent Activity */}
       <div className="mt-6 glass-card rounded-2xl p-5">
         <h2 className="text-base font-semibold text-[#e6f5ea]">Agent Activity</h2>
-        <p className="mt-1 text-sm text-[#6b8a6f]">All agent broadcasts and trades for this market.</p>
+        <p className="mt-1 text-sm text-[#6b8a6f]">Live timeline of moves, conviction, and rationale.</p>
 
         {marketEvents.length === 0 ? (
           <div className="mt-4 rounded-xl border border-dashed border-white/12 px-4 py-8 text-center text-sm text-[#556655]">
@@ -239,14 +253,14 @@ export default function MarketDetailPage() {
 
                 <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
                   <span className="rounded-full border border-[#39e66a]/20 bg-[#39e66a]/6 px-2 py-0.5 text-[#8ef3ab]">
-                    {Math.round(event.confidence)}% confidence
+                    {Math.round(event.confidence)}% conviction
                   </span>
                   {event.stakeEth && (
                     <span className="rounded-full border border-white/10 bg-white/4 px-2 py-0.5 text-[#6b8a6f]">
                       {event.stakeEth} ETH
                     </span>
                   )}
-                  {event.tradeTxHash && (
+                  {showAdvanced && event.tradeTxHash && (
                     <a
                       href={`https://sepolia.arbiscan.io/tx/${event.tradeTxHash}`}
                       target="_blank"
@@ -263,48 +277,49 @@ export default function MarketDetailPage() {
         )}
       </div>
 
-      {/* Technical Details */}
-      <div className="mt-4 glass-card rounded-2xl p-5">
-        <h2 className="text-base font-semibold text-[#e6f5ea]">Technical Details</h2>
-        <div className="mt-3 space-y-2 text-sm">
-          <div className="flex items-start justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
-            <span className="text-[#6b8a6f]">Market ID</span>
-            <span className="break-all text-right text-xs text-[#bcc8bc]">{market.marketId}</span>
-          </div>
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
-            <span className="text-[#6b8a6f]">Pool ID</span>
-            <span className="text-xs text-[#bcc8bc]">{formatMarketId(market.poolId)}</span>
-          </div>
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
-            <span className="text-[#6b8a6f]">Outcome 1 Token</span>
-            <a
-              href={`https://sepolia.arbiscan.io/address/${market.outcome1Token}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-[#6b8a6f] transition hover:text-[#39e66a]"
-            >
-              {market.outcome1Token.slice(0, 8)}...{market.outcome1Token.slice(-6)}
-            </a>
-          </div>
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
-            <span className="text-[#6b8a6f]">Outcome 2 Token</span>
-            <a
-              href={`https://sepolia.arbiscan.io/address/${market.outcome2Token}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-[#6b8a6f] transition hover:text-[#39e66a]"
-            >
-              {market.outcome2Token.slice(0, 8)}...{market.outcome2Token.slice(-6)}
-            </a>
-          </div>
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
-            <span className="text-[#6b8a6f]">Assertion ID</span>
-            <span className="text-xs text-[#bcc8bc]">
-              {market.assertedOutcomeId === ZERO_BYTES32 ? 'None' : formatMarketId(market.assertedOutcomeId as `0x${string}`)}
-            </span>
+      {showAdvanced && (
+        <div className="mt-4 glass-card rounded-2xl p-5">
+          <h2 className="text-base font-semibold text-[#e6f5ea]">Technical Details</h2>
+          <div className="mt-3 space-y-2 text-sm">
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
+              <span className="text-[#6b8a6f]">Market ID</span>
+              <span className="break-all text-right text-xs text-[#bcc8bc]">{market.marketId}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
+              <span className="text-[#6b8a6f]">Pool ID</span>
+              <span className="text-xs text-[#bcc8bc]">{formatMarketId(market.poolId)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
+              <span className="text-[#6b8a6f]">Outcome 1 Token</span>
+              <a
+                href={`https://sepolia.arbiscan.io/address/${market.outcome1Token}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[#6b8a6f] transition hover:text-[#39e66a]"
+              >
+                {market.outcome1Token.slice(0, 8)}...{market.outcome1Token.slice(-6)}
+              </a>
+            </div>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
+              <span className="text-[#6b8a6f]">Outcome 2 Token</span>
+              <a
+                href={`https://sepolia.arbiscan.io/address/${market.outcome2Token}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[#6b8a6f] transition hover:text-[#39e66a]"
+              >
+                {market.outcome2Token.slice(0, 8)}...{market.outcome2Token.slice(-6)}
+              </a>
+            </div>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
+              <span className="text-[#6b8a6f]">Assertion ID</span>
+              <span className="text-xs text-[#bcc8bc]">
+                {market.assertedOutcomeId === ZERO_BYTES32 ? 'None' : formatMarketId(market.assertedOutcomeId as `0x${string}`)}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </main>
   );
 }
