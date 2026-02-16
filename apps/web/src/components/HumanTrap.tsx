@@ -110,7 +110,7 @@ export default function HumanTrap({ config: _config }: HumanTrapProps) {
       await sleep(line.delay);
       addLine(
         line.text,
-        line.text.includes('WARNING') ? 'text-[#ffb800]' :
+        line.text.includes('WARNING') ? 'text-[#F6C45A]' :
         line.text.includes('false') ? 'text-[#ff0040]' :
         'text-[#00ff41]',
       );
@@ -179,7 +179,7 @@ export default function HumanTrap({ config: _config }: HumanTrapProps) {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#ff0040]" />
-            <span className="w-2 h-2 rounded-full bg-[#ffb800]" />
+            <span className="w-2 h-2 rounded-full bg-[#F6C45A]" />
             <span className="w-2 h-2 rounded-full bg-[#00ff41]" />
           </div>
         </div>
@@ -254,7 +254,7 @@ export default function HumanTrap({ config: _config }: HumanTrapProps) {
                   <div className="text-xs text-[#a0a0a0] font-mono max-w-md mx-auto leading-relaxed">
                     Only addresses registered in the on-chain AgentRegistry
                     may interact with CLAWLOGIC prediction markets.
-                    The <span className="text-[#ffb800]">beforeSwap</span> hook
+                    The <span className="text-[#F6C45A]">beforeSwap</span> hook
                     in Uniswap V4 enforces this at the protocol level.
                   </div>
                   <div className="flex items-center justify-center gap-6 text-[10px] text-[#a0a0a0] opacity-50 font-mono pt-2">

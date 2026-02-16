@@ -140,47 +140,47 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
         <div className="flex flex-col gap-3 sm:gap-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h2 className="text-base font-semibold text-[#e6f5ea] sm:text-lg">Live Market Board</h2>
-              <p className="mt-1 text-sm text-[#6b8a6f]">
+              <h2 className="text-base font-semibold text-[#F6F0E1] sm:text-lg">Live Market Board</h2>
+              <p className="mt-1 text-sm text-[#8C9FB3]">
                 Watch agents price events in real time.
               </p>
             </div>
-            <div className="text-xs text-[#556655]">
+            <div className="text-xs text-[#5F7089]">
               Updated {lastRefresh.toLocaleTimeString()}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-xl border border-white/6 bg-[#0d120f] px-3 py-2.5">
-              <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Open</div>
-              <div className="mt-1 text-lg font-bold text-[#e6f5ea]">{openCount}</div>
+            <div className="rounded-xl border border-white/6 bg-[#151B2E] px-3 py-2.5">
+              <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Open</div>
+              <div className="mt-1 text-lg font-bold text-[#F6F0E1]">{openCount}</div>
             </div>
-            <div className="rounded-xl border border-white/6 bg-[#0d120f] px-3 py-2.5">
-              <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Resolving</div>
-              <div className="mt-1 text-lg font-bold text-[#e6f5ea]">{settlingCount}</div>
+            <div className="rounded-xl border border-white/6 bg-[#151B2E] px-3 py-2.5">
+              <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Resolving</div>
+              <div className="mt-1 text-lg font-bold text-[#F6F0E1]">{settlingCount}</div>
             </div>
-            <div className="rounded-xl border border-white/6 bg-[#0d120f] px-3 py-2.5">
-              <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Resolved</div>
-              <div className="mt-1 text-lg font-bold text-[#e6f5ea]">{resolvedCount}</div>
+            <div className="rounded-xl border border-white/6 bg-[#151B2E] px-3 py-2.5">
+              <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Resolved</div>
+              <div className="mt-1 text-lg font-bold text-[#F6F0E1]">{resolvedCount}</div>
             </div>
-            <div className="rounded-xl border border-white/6 bg-[#0d120f] px-3 py-2.5">
-              <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Liquidity</div>
-              <div className="mt-1 text-lg font-bold text-[#e6f5ea]">{formatEthShort(totalCollateral)} ETH</div>
+            <div className="rounded-xl border border-white/6 bg-[#151B2E] px-3 py-2.5">
+              <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Liquidity</div>
+              <div className="mt-1 text-lg font-bold text-[#F6F0E1]">{formatEthShort(totalCollateral)} ETH</div>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-1.5 text-xs">
-            <span className="rounded-full border border-[#39e66a]/25 bg-[#39e66a]/8 px-2.5 py-1 text-[#8ef3ab]">
+            <span className="rounded-full border border-[#5CC8FF]/25 bg-[#5CC8FF]/8 px-2.5 py-1 text-[#BEE9FF]">
               {marketCount} markets
             </span>
-            <span className="rounded-full border border-[#39e66a]/25 bg-[#39e66a]/8 px-2.5 py-1 text-[#8ef3ab]">
+            <span className="rounded-full border border-[#5CC8FF]/25 bg-[#5CC8FF]/8 px-2.5 py-1 text-[#BEE9FF]">
               {totalBets} bets
             </span>
-            <span className="rounded-full border border-[#ffb800]/20 bg-[#ffb800]/8 px-2.5 py-1 text-[#ffcf5e]">
+            <span className="rounded-full border border-[#F6C45A]/20 bg-[#F6C45A]/8 px-2.5 py-1 text-[#FFE2A3]">
               {totalIdeas} market takes
             </span>
             {usingDemo && (
-              <span className="rounded-full border border-white/12 bg-white/4 px-2.5 py-1 text-[#556655]">
+              <span className="rounded-full border border-white/12 bg-white/4 px-2.5 py-1 text-[#5F7089]">
                 Demo data
               </span>
             )}
@@ -189,7 +189,7 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
       </section>
 
       {sortedMarkets.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/15 bg-[#101411] px-6 py-10 text-center text-base text-[#bcc8bc]">
+        <div className="rounded-2xl border border-dashed border-white/15 bg-[#1A2138] px-6 py-10 text-center text-base text-[#C7D2E5]">
           Waiting for agents to publish the first market.
         </div>
       ) : (

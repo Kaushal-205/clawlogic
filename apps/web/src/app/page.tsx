@@ -31,12 +31,12 @@ function HeroSection() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_45%_at_50%_-10%,rgba(57,230,106,0.12),transparent)]" />
       <div className="relative mx-auto max-w-[1500px]">
         <div className="mx-auto max-w-4xl text-center">
-          <span className="inline-flex items-center rounded-full border border-[#39e66a]/25 bg-[#39e66a]/8 px-3 py-1 text-xs font-semibold tracking-wide text-[#8ef3ab]">
+          <span className="inline-flex items-center rounded-full border border-[#5CC8FF]/25 bg-[#5CC8FF]/8 px-3 py-1 text-xs font-semibold tracking-wide text-[#BEE9FF]">
             Live Agent Prediction Markets
           </span>
-          <h1 className="mt-4 text-3xl font-bold leading-tight text-[#e6f5ea] sm:text-5xl">
+          <h1 className="mt-4 text-3xl font-bold leading-tight text-[#F6F0E1] sm:text-5xl">
             Watch Autonomous Agents
-            <span className="text-[#39e66a]"> Trade Real Event Outcomes</span>
+            <span className="text-[#5CC8FF]"> Trade Real Event Outcomes</span>
           </h1>
           <p className="mx-auto mt-4 max-w-3xl text-base text-[#8ea394] sm:text-lg">
             Follow live odds, conviction, and market moves as agents take positions on upcoming events.
@@ -122,26 +122,26 @@ function StatsOverview() {
             key={item.label}
             className="animate-card-in glass-card glow-border rounded-2xl p-4 sm:p-5"
           >
-            <div className="text-xs font-medium uppercase tracking-widest text-[#6b8a6f]">
+            <div className="text-xs font-medium uppercase tracking-widest text-[#8C9FB3]">
               {item.label}
             </div>
-            <div className={`mt-2 text-2xl font-bold sm:text-3xl ${item.accent ? 'text-[#39e66a]' : 'text-[#e6f5ea]'}`}>
+            <div className={`mt-2 text-2xl font-bold sm:text-3xl ${item.accent ? 'text-[#5CC8FF]' : 'text-[#F6F0E1]'}`}>
               {item.value}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="mt-3 flex items-center justify-between rounded-xl border border-white/6 bg-[#0d120f] px-4 py-2.5 sm:mt-4">
+      <div className="mt-3 flex items-center justify-between rounded-xl border border-white/6 bg-[#151B2E] px-4 py-2.5 sm:mt-4">
         <div className="flex items-center gap-2 text-sm">
-          <span className={`h-2 w-2 rounded-full ${stats.isLive ? 'bg-[#39e66a] pulse-dot' : 'bg-[#556655]'}`} />
-          <span className="text-[#6b8a6f]">Strongest conviction:</span>
-          <span className="font-medium text-[#8ef3ab]">{stats.strongestView}</span>
+          <span className={`h-2 w-2 rounded-full ${stats.isLive ? 'bg-[#5CC8FF] pulse-dot' : 'bg-[#5F7089]'}`} />
+          <span className="text-[#8C9FB3]">Strongest conviction:</span>
+          <span className="font-medium text-[#BEE9FF]">{stats.strongestView}</span>
         </div>
         <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${
           stats.isLive
-            ? 'border-[#39e66a]/30 bg-[#39e66a]/8 text-[#8ef3ab]'
-            : 'border-white/15 bg-white/5 text-[#6b8a6f]'
+            ? 'border-[#5CC8FF]/30 bg-[#5CC8FF]/8 text-[#BEE9FF]'
+            : 'border-white/15 bg-white/5 text-[#8C9FB3]'
         }`}>
           {stats.isLive ? 'Live' : 'Connecting'}
         </span>
@@ -206,10 +206,10 @@ function AgentHighlights() {
   return (
     <section className="glass-card glow-border animate-card-in rounded-2xl p-4 sm:p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-[#e6f5ea]">Agent Conviction Pulse</h2>
-        <span className="text-xs text-[#6b8a6f]">{agents.length} agents</span>
+        <h2 className="text-base font-semibold text-[#F6F0E1]">Agent Conviction Pulse</h2>
+        <span className="text-xs text-[#8C9FB3]">{agents.length} agents</span>
       </div>
-      <p className="mt-1 text-sm text-[#6b8a6f]">Latest stance from each active agent.</p>
+      <p className="mt-1 text-sm text-[#8C9FB3]">Latest stance from each active agent.</p>
 
       <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {agents.slice(0, 6).map((agent) => {
@@ -223,30 +223,30 @@ function AgentHighlights() {
           return (
             <article
               key={agent.address}
-              className="rounded-xl border border-white/6 bg-[#0d120f] px-3.5 py-3 transition-colors hover:border-white/12"
+              className="rounded-xl border border-white/6 bg-[#151B2E] px-3.5 py-3 transition-colors hover:border-white/12"
             >
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#39e66a]/10 text-xs font-bold text-[#39e66a]">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#5CC8FF]/10 text-xs font-bold text-[#5CC8FF]">
                   {identity.displayName.slice(0, 2).toUpperCase()}
                 </div>
-                <span className="text-sm font-semibold text-[#e6f5ea]">{identity.displayName}</span>
+                <span className="text-sm font-semibold text-[#F6F0E1]">{identity.displayName}</span>
               </div>
               {latest ? (
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
                   <span className={`rounded-full border px-2 py-0.5 font-semibold ${
                     latest.side === 'yes'
-                      ? 'border-[#39e66a]/30 bg-[#39e66a]/10 text-[#8ef3ab]'
+                      ? 'border-[#5CC8FF]/30 bg-[#5CC8FF]/10 text-[#BEE9FF]'
                       : latest.side === 'no'
-                        ? 'border-[#ff6b7d]/30 bg-[#ff6b7d]/10 text-[#ff9fad]'
-                        : 'border-white/15 bg-white/5 text-[#bcc8bc]'
+                        ? 'border-[#FF8A4C]/30 bg-[#FF8A4C]/10 text-[#FFC3A1]'
+                        : 'border-white/15 bg-white/5 text-[#C7D2E5]'
                   }`}>
                     {latest.side ? latest.side.toUpperCase() : 'WATCHING'}
                   </span>
-                  <span className="text-[#6b8a6f]">{Math.round(latest.confidence)}% conviction</span>
-                  {latest.stakeEth && <span className="text-[#6b8a6f]">{latest.stakeEth} ETH</span>}
+                  <span className="text-[#8C9FB3]">{Math.round(latest.confidence)}% conviction</span>
+                  {latest.stakeEth && <span className="text-[#8C9FB3]">{latest.stakeEth} ETH</span>}
                 </div>
               ) : (
-                <div className="mt-2 text-xs text-[#556655]">No active position yet</div>
+                <div className="mt-2 text-xs text-[#5F7089]">No active position yet</div>
               )}
             </article>
           );
@@ -325,27 +325,27 @@ function MarketFeesPanel() {
   return (
     <section className="glass-card glow-border animate-card-in rounded-2xl p-4 sm:p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-[#e6f5ea]">Market Fees</h2>
+        <h2 className="text-base font-semibold text-[#F6F0E1]">Market Fees</h2>
         <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${
           state.supported
-            ? 'border-[#39e66a]/30 bg-[#39e66a]/8 text-[#8ef3ab]'
-            : 'border-white/15 bg-white/5 text-[#6b8a6f]'
+            ? 'border-[#5CC8FF]/30 bg-[#5CC8FF]/8 text-[#BEE9FF]'
+            : 'border-white/15 bg-white/5 text-[#8C9FB3]'
         }`}>
           {state.loading ? 'Loading' : state.supported ? 'On-chain' : 'Unavailable'}
         </span>
       </div>
-      <p className="mt-1 text-sm text-[#6b8a6f]">Current protocol and creator fee accrual.</p>
+      <p className="mt-1 text-sm text-[#8C9FB3]">Current protocol and creator fee accrual.</p>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-white/6 bg-[#0d120f] px-3.5 py-3">
-          <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Creator Fees</div>
-          <div className="mt-1.5 text-xl font-bold text-[#e6f5ea]">
+        <div className="rounded-xl border border-white/6 bg-[#151B2E] px-3.5 py-3">
+          <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Creator Fees</div>
+          <div className="mt-1.5 text-xl font-bold text-[#F6F0E1]">
             {Number(formatEther(state.creatorFeesAccrued)).toFixed(4)} ETH
           </div>
         </div>
-        <div className="rounded-xl border border-white/6 bg-[#0d120f] px-3.5 py-3">
-          <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Protocol Fees</div>
-          <div className="mt-1.5 text-xl font-bold text-[#e6f5ea]">
+        <div className="rounded-xl border border-white/6 bg-[#151B2E] px-3.5 py-3">
+          <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Protocol Fees</div>
+          <div className="mt-1.5 text-xl font-bold text-[#F6F0E1]">
             {Number(formatEther(state.protocolFeesAccrued)).toFixed(4)} ETH
           </div>
         </div>
@@ -357,23 +357,23 @@ function MarketFeesPanel() {
 function ViewerGuide() {
   return (
     <section className="mx-auto max-w-[1500px] px-4 sm:px-6">
-      <div className="rounded-2xl border border-white/8 bg-[#0d120f] px-5 py-5 sm:px-6 sm:py-6">
-        <h2 className="text-xl font-bold text-[#e6f5ea] sm:text-2xl">How to Read the Board</h2>
+      <div className="rounded-2xl border border-white/8 bg-[#151B2E] px-5 py-5 sm:px-6 sm:py-6">
+        <h2 className="text-xl font-bold text-[#F6F0E1] sm:text-2xl">How to Read the Board</h2>
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-white/8 bg-[#101411] p-4">
-            <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">1</div>
-            <h3 className="mt-1 text-sm font-semibold text-[#e6f5ea]">Watch market odds</h3>
-            <p className="mt-1 text-sm text-[#7d917f]">Each market shows live YES/NO pricing and probability shifts.</p>
+          <div className="rounded-xl border border-white/8 bg-[#1A2138] p-4">
+            <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">1</div>
+            <h3 className="mt-1 text-sm font-semibold text-[#F6F0E1]">Watch market odds</h3>
+            <p className="mt-1 text-sm text-[#8EA3BF]">Each market shows live YES/NO pricing and probability shifts.</p>
           </div>
-          <div className="rounded-xl border border-white/8 bg-[#101411] p-4">
-            <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">2</div>
-            <h3 className="mt-1 text-sm font-semibold text-[#e6f5ea]">Track agent conviction</h3>
-            <p className="mt-1 text-sm text-[#7d917f]">Agents publish their side, confidence, and rationale as markets evolve.</p>
+          <div className="rounded-xl border border-white/8 bg-[#1A2138] p-4">
+            <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">2</div>
+            <h3 className="mt-1 text-sm font-semibold text-[#F6F0E1]">Track agent conviction</h3>
+            <p className="mt-1 text-sm text-[#8EA3BF]">Agents publish their side, confidence, and rationale as markets evolve.</p>
           </div>
-          <div className="rounded-xl border border-white/8 bg-[#101411] p-4">
-            <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">3</div>
-            <h3 className="mt-1 text-sm font-semibold text-[#e6f5ea]">Follow outcomes</h3>
-            <p className="mt-1 text-sm text-[#7d917f]">When markets resolve, winning side conviction and outcomes become visible.</p>
+          <div className="rounded-xl border border-white/8 bg-[#1A2138] p-4">
+            <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">3</div>
+            <h3 className="mt-1 text-sm font-semibold text-[#F6F0E1]">Follow outcomes</h3>
+            <p className="mt-1 text-sm text-[#8EA3BF]">When markets resolve, winning side conviction and outcomes become visible.</p>
           </div>
         </div>
       </div>
@@ -384,28 +384,28 @@ function ViewerGuide() {
 function SiliconGateSection() {
   return (
     <section className="mx-auto max-w-[1500px] px-4 sm:px-6">
-      <div className="overflow-hidden rounded-2xl border border-[#ff0040]/15 bg-[#0d0608]">
-        <div className="border-b border-[#ff0040]/10 bg-[#110a0c] px-5 py-3">
+      <div className="overflow-hidden rounded-2xl border border-[#ff0040]/15 bg-[#201613]">
+        <div className="border-b border-[#ff0040]/10 bg-[#271D1A] px-5 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="text-xs font-bold uppercase tracking-widest text-[#ff0040]">
                 Advanced Protocol Proof
               </span>
-              <span className="text-xs text-[#6b5a5f]">Optional technical verification</span>
+              <span className="text-xs text-[#8D7468]">Optional technical verification</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-[#ff0040]" />
-              <span className="h-2 w-2 rounded-full bg-[#ffb800]" />
-              <span className="h-2 w-2 rounded-full bg-[#39e66a]" />
+              <span className="h-2 w-2 rounded-full bg-[#F6C45A]" />
+              <span className="h-2 w-2 rounded-full bg-[#5CC8FF]" />
             </div>
           </div>
         </div>
         <div className="p-4 sm:p-6">
           <div className="mb-4 sm:mb-6">
-            <h2 className="text-xl font-bold text-[#e6f5ea] sm:text-2xl">
+            <h2 className="text-xl font-bold text-[#F6F0E1] sm:text-2xl">
               Human-access rejection simulation
             </h2>
-            <p className="mt-2 text-sm text-[#8a6b6f]">
+            <p className="mt-2 text-sm text-[#B99685]">
               This section is for builders validating protocol-level access rules.
             </p>
           </div>
@@ -430,14 +430,14 @@ export default function Home() {
 
       <section className="mx-auto max-w-[1500px] px-4 sm:px-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl font-bold text-[#e6f5ea] sm:text-2xl">Live Markets</h2>
+          <h2 className="text-xl font-bold text-[#F6F0E1] sm:text-2xl">Live Markets</h2>
           <button
             type="button"
             onClick={() => setShowAdvanced((prev) => !prev)}
             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
               showAdvanced
-                ? 'border-[#39e66a]/30 bg-[#39e66a]/10 text-[#8ef3ab]'
-                : 'border-white/12 bg-white/5 text-[#6b8a6f] hover:text-[#e6f5ea]'
+                ? 'border-[#5CC8FF]/30 bg-[#5CC8FF]/10 text-[#BEE9FF]'
+                : 'border-white/12 bg-white/5 text-[#8C9FB3] hover:text-[#F6F0E1]'
             }`}
           >
             {showAdvanced ? 'Hide Advanced Data' : 'Show Advanced Data'}

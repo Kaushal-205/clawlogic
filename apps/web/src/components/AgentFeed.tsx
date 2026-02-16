@@ -20,12 +20,12 @@ const FILTERS: Array<{ key: FeedFilter; label: string }> = [
 
 function sideTagTone(side?: string): string {
   if (side === 'no') {
-    return 'border-[#ff6b7d]/35 bg-[#ff6b7d]/12 text-[#ff9fad]';
+    return 'border-[#FF8A4C]/35 bg-[#FF8A4C]/12 text-[#FFC3A1]';
   }
   if (side === 'yes') {
-    return 'border-[#39e66a]/35 bg-[#39e66a]/12 text-[#8ef3ab]';
+    return 'border-[#5CC8FF]/35 bg-[#5CC8FF]/12 text-[#BEE9FF]';
   }
-  return 'border-white/20 bg-white/5 text-[#bcc8bc]';
+  return 'border-white/20 bg-white/5 text-[#C7D2E5]';
 }
 
 function eventHeadline(event: AgentBroadcast): string {
@@ -46,13 +46,13 @@ function eventTypeBadge(event: AgentBroadcast): { label: string; tone: string } 
   if (event.type === 'TradeRationale') {
     return {
       label: 'Bet',
-      tone: 'border-[#39e66a]/35 bg-[#39e66a]/12 text-[#8ef3ab]',
+      tone: 'border-[#5CC8FF]/35 bg-[#5CC8FF]/12 text-[#BEE9FF]',
     };
   }
   if (event.type === 'NegotiationIntent') {
     return {
       label: 'Intent',
-      tone: 'border-[#ffb800]/35 bg-[#ffb800]/12 text-[#ffcf5e]',
+      tone: 'border-[#F6C45A]/35 bg-[#F6C45A]/12 text-[#FFE2A3]',
     };
   }
   if (event.type === 'MarketBroadcast') {
@@ -137,10 +137,10 @@ export default function AgentFeed({
       <div className="border-b border-white/6 px-3.5 py-3 sm:px-4 sm:py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold text-[#e6f5ea]">Agent Feed</h3>
-            <p className="text-sm text-[#6b8a6f]">Live stream of agent market moves and conviction.</p>
+            <h3 className="text-base font-semibold text-[#F6F0E1]">Agent Feed</h3>
+            <p className="text-sm text-[#8C9FB3]">Live stream of agent market moves and conviction.</p>
           </div>
-          <div className="text-right text-xs text-[#556655]">
+          <div className="text-right text-xs text-[#5F7089]">
             <div>{totalAgents} agents</div>
             <div>{filtered.length} updates</div>
           </div>
@@ -154,8 +154,8 @@ export default function AgentFeed({
               onClick={() => setFilter(item.key)}
               className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                 filter === item.key
-                  ? 'border-[#39e66a]/35 bg-[#39e66a]/12 text-[#8ef3ab]'
-                  : 'border-white/8 bg-white/4 text-[#6b8a6f] hover:text-[#e6f5ea]'
+                  ? 'border-[#5CC8FF]/35 bg-[#5CC8FF]/12 text-[#BEE9FF]'
+                  : 'border-white/8 bg-white/4 text-[#8C9FB3] hover:text-[#F6F0E1]'
               }`}
             >
               {item.label}
@@ -171,7 +171,7 @@ export default function AgentFeed({
             <div className="h-24 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-[#556655]">
+          <div className="rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-[#5F7089]">
             No agent updates yet. Waiting for broadcasts.
           </div>
         ) : (
@@ -182,7 +182,7 @@ export default function AgentFeed({
               return (
                 <article
                   key={event.id}
-                  className="animate-card-in card-lift rounded-xl border border-white/6 bg-[#0d120f] p-2.5 sm:p-3"
+                  className="animate-card-in card-lift rounded-xl border border-white/6 bg-[#151B2E] p-2.5 sm:p-3"
                   style={{ animationDelay: `${Math.min(index * 30, 180)}ms` }}
                 >
                   <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 sm:mb-2">
@@ -196,35 +196,35 @@ export default function AgentFeed({
                         </span>
                       )}
                     </div>
-                    <span className="text-xs text-[#9bb19f] sm:text-sm">{relativeTime(event.timestamp)}</span>
+                    <span className="text-xs text-[#A4B6CF] sm:text-sm">{relativeTime(event.timestamp)}</span>
                   </div>
 
-                  <div className="text-sm font-semibold text-[#e6f5ea] sm:text-base">
+                  <div className="text-sm font-semibold text-[#F6F0E1] sm:text-base">
                     {eventHeadline(event)}
                   </div>
 
                   <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs sm:gap-2 sm:text-sm">
                     {event.stakeEth && (
-                      <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#bcc8bc]">
+                      <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#C7D2E5]">
                         stake {event.stakeEth} ETH
                       </span>
                     )}
-                      <span className="rounded-full border border-[#39e66a]/35 bg-[#39e66a]/12 px-2 py-0.5 text-[#8ef3ab]">
+                      <span className="rounded-full border border-[#5CC8FF]/35 bg-[#5CC8FF]/12 px-2 py-0.5 text-[#BEE9FF]">
                       conviction {Math.round(event.confidence)}%
                       </span>
                     {showAdvanced && event.marketId && (
-                      <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#bcc8bc]">
+                      <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#C7D2E5]">
                         {formatMarketId(event.marketId)}
                       </span>
                     )}
                   </div>
 
-                  <p className="reasoning-compact mt-2 text-sm leading-relaxed text-[#bcc8bc] sm:mt-3 sm:text-[15px]">
+                  <p className="reasoning-compact mt-2 text-sm leading-relaxed text-[#C7D2E5] sm:mt-3 sm:text-[15px]">
                     {event.reasoning}
                   </p>
 
                   {showAdvanced && (
-                    <div className="mt-2.5 flex flex-wrap gap-1.5 text-xs text-[#bcc8bc] sm:mt-3 sm:gap-2 sm:text-sm">
+                    <div className="mt-2.5 flex flex-wrap gap-1.5 text-xs text-[#C7D2E5] sm:mt-3 sm:gap-2 sm:text-sm">
                       {event.sessionId && (
                         <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
                           session {event.sessionId.slice(0, 10)}...

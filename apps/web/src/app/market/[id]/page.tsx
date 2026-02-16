@@ -27,15 +27,15 @@ const DEPLOYED_CONFIG = createConfig(
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 function getStatusInfo(market: MarketInfo): { label: string; tone: string } {
-  if (market.resolved) return { label: 'Resolved', tone: 'border-[#39e66a]/30 bg-[#39e66a]/10 text-[#8ef3ab]' };
-  if (market.assertedOutcomeId !== ZERO_BYTES32) return { label: 'Awaiting Settlement', tone: 'border-[#ffb800]/30 bg-[#ffb800]/10 text-[#ffcf5e]' };
-  return { label: 'Live Trading', tone: 'border-[#39e66a]/30 bg-[#39e66a]/10 text-[#8ef3ab]' };
+  if (market.resolved) return { label: 'Resolved', tone: 'border-[#5CC8FF]/30 bg-[#5CC8FF]/10 text-[#BEE9FF]' };
+  if (market.assertedOutcomeId !== ZERO_BYTES32) return { label: 'Awaiting Settlement', tone: 'border-[#F6C45A]/30 bg-[#F6C45A]/10 text-[#FFE2A3]' };
+  return { label: 'Live Trading', tone: 'border-[#5CC8FF]/30 bg-[#5CC8FF]/10 text-[#BEE9FF]' };
 }
 
 function sideTagTone(side?: string): string {
-  if (side === 'yes') return 'border-[#39e66a]/30 bg-[#39e66a]/10 text-[#8ef3ab]';
-  if (side === 'no') return 'border-[#ff6b7d]/30 bg-[#ff6b7d]/10 text-[#ff9fad]';
-  return 'border-white/15 bg-white/5 text-[#bcc8bc]';
+  if (side === 'yes') return 'border-[#5CC8FF]/30 bg-[#5CC8FF]/10 text-[#BEE9FF]';
+  if (side === 'no') return 'border-[#FF8A4C]/30 bg-[#FF8A4C]/10 text-[#FFC3A1]';
+  return 'border-white/15 bg-white/5 text-[#C7D2E5]';
 }
 
 export default function MarketDetailPage() {
@@ -103,13 +103,13 @@ export default function MarketDetailPage() {
   if (error || !market) {
     return (
       <main className="mx-auto max-w-[900px] px-4 py-8 sm:px-6">
-        <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-[#6b8a6f] transition hover:text-[#39e66a]">
+        <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-[#8C9FB3] transition hover:text-[#5CC8FF]">
           &larr; Back to Markets
         </Link>
-        <div className="rounded-2xl border border-white/8 bg-[#101411] p-8 text-center">
-          <h1 className="text-xl font-bold text-[#e6f5ea]">Market Not Found</h1>
-          <p className="mt-2 text-sm text-[#6b8a6f]">{error ?? 'Could not load this market.'}</p>
-          <p className="mt-1 text-xs text-[#556655]">ID: {formatMarketId(fullMarketId as `0x${string}`)}</p>
+        <div className="rounded-2xl border border-white/8 bg-[#1A2138] p-8 text-center">
+          <h1 className="text-xl font-bold text-[#F6F0E1]">Market Not Found</h1>
+          <p className="mt-2 text-sm text-[#8C9FB3]">{error ?? 'Could not load this market.'}</p>
+          <p className="mt-1 text-xs text-[#5F7089]">ID: {formatMarketId(fullMarketId as `0x${string}`)}</p>
         </div>
       </main>
     );
@@ -124,7 +124,7 @@ export default function MarketDetailPage() {
 
   return (
     <main className="mx-auto max-w-[900px] px-4 py-6 sm:px-6 sm:py-8">
-      <Link href="/" className="mb-5 inline-flex items-center gap-1.5 text-sm text-[#6b8a6f] transition hover:text-[#39e66a]">
+      <Link href="/" className="mb-5 inline-flex items-center gap-1.5 text-sm text-[#8C9FB3] transition hover:text-[#5CC8FF]">
         &larr; Back to Markets
       </Link>
 
@@ -135,11 +135,11 @@ export default function MarketDetailPage() {
             <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold ${status.tone}`}>
               {status.label}
             </span>
-            <h1 className="mt-3 text-xl font-bold leading-snug text-[#e6f5ea] sm:text-2xl">
+            <h1 className="mt-3 text-xl font-bold leading-snug text-[#F6F0E1] sm:text-2xl">
               {market.description}
             </h1>
             {showAdvanced && (
-              <p className="mt-2 text-xs text-[#556655]">
+              <p className="mt-2 text-xs text-[#5F7089]">
                 Market {formatMarketId(market.marketId)}
               </p>
             )}
@@ -149,8 +149,8 @@ export default function MarketDetailPage() {
             onClick={() => setShowAdvanced((prev) => !prev)}
             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
               showAdvanced
-                ? 'border-[#39e66a]/30 bg-[#39e66a]/10 text-[#8ef3ab]'
-                : 'border-white/12 bg-white/5 text-[#6b8a6f] hover:text-[#e6f5ea]'
+                ? 'border-[#5CC8FF]/30 bg-[#5CC8FF]/10 text-[#BEE9FF]'
+                : 'border-white/12 bg-white/5 text-[#8C9FB3] hover:text-[#F6F0E1]'
             }`}
           >
             {showAdvanced ? 'Hide Advanced' : 'Show Advanced'}
@@ -159,31 +159,31 @@ export default function MarketDetailPage() {
 
         {/* Probability bar */}
         <div className="mt-6 grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-[#39e66a]/25 bg-[#39e66a]/8 p-4">
-            <div className="text-xs font-semibold uppercase tracking-widest text-[#8ef3ab]">
+          <div className="rounded-xl border border-[#5CC8FF]/25 bg-[#5CC8FF]/8 p-4">
+            <div className="text-xs font-semibold uppercase tracking-widest text-[#BEE9FF]">
               {market.outcome1.toUpperCase()}
             </div>
-            <div className="mt-1.5 text-3xl font-bold text-[#e6f5ea]">{yesPercent}%</div>
-            <div className="mt-1 text-xs text-[#6b8a6f]">{yesPercent}c per share</div>
+            <div className="mt-1.5 text-3xl font-bold text-[#F6F0E1]">{yesPercent}%</div>
+            <div className="mt-1 text-xs text-[#8C9FB3]">{yesPercent}c per share</div>
           </div>
-          <div className="rounded-xl border border-[#ff6b7d]/25 bg-[#ff6b7d]/8 p-4">
-            <div className="text-xs font-semibold uppercase tracking-widest text-[#ff9fad]">
+          <div className="rounded-xl border border-[#FF8A4C]/25 bg-[#FF8A4C]/8 p-4">
+            <div className="text-xs font-semibold uppercase tracking-widest text-[#FFC3A1]">
               {market.outcome2.toUpperCase()}
             </div>
-            <div className="mt-1.5 text-3xl font-bold text-[#e6f5ea]">{noPercent}%</div>
-            <div className="mt-1 text-xs text-[#6b8a6f]">{noPercent}c per share</div>
+            <div className="mt-1.5 text-3xl font-bold text-[#F6F0E1]">{noPercent}%</div>
+            <div className="mt-1 text-xs text-[#8C9FB3]">{noPercent}c per share</div>
           </div>
         </div>
 
         <div className="mt-3">
-          <div className="h-2.5 overflow-hidden rounded-full border border-white/10 bg-[#0b100d]">
+          <div className="h-2.5 overflow-hidden rounded-full border border-white/10 bg-[#12172A]">
             <div className="flex h-full">
               <div
-                className="h-full bg-gradient-to-r from-[#2ea857] via-[#39e66a] to-[#44ef74] transition-all duration-500"
+                className="h-full bg-gradient-to-r from-[#2E8FFF] via-[#5CC8FF] to-[#7CD8FF] transition-all duration-500"
                 style={{ width: `${yesPercent}%` }}
               />
               <div
-                className="h-full border-l border-[#160b0f] bg-gradient-to-r from-[#a03144] via-[#d4455d] to-[#ff6b7d] transition-all duration-500"
+                className="h-full border-l border-[#160b0f] bg-gradient-to-r from-[#D96A3A] via-[#FF9D6A] to-[#FF8A4C] transition-all duration-500"
                 style={{ width: `${noPercent}%` }}
               />
             </div>
@@ -194,32 +194,32 @@ export default function MarketDetailPage() {
       {/* Stats */}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="glass-card rounded-xl p-3.5">
-          <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Liquidity</div>
-          <div className="mt-1 text-lg font-bold text-[#e6f5ea]">{formatEthShort(market.totalCollateral)} ETH</div>
+          <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Liquidity</div>
+          <div className="mt-1 text-lg font-bold text-[#F6F0E1]">{formatEthShort(market.totalCollateral)} ETH</div>
         </div>
         <div className="glass-card rounded-xl p-3.5">
-          <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Activity</div>
-          <div className="mt-1 text-lg font-bold text-[#e6f5ea]">{marketEvents.length} events</div>
+          <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Activity</div>
+          <div className="mt-1 text-lg font-bold text-[#F6F0E1]">{marketEvents.length} events</div>
         </div>
         <div className="glass-card rounded-xl p-3.5">
-          <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Agents</div>
-          <div className="mt-1 text-lg font-bold text-[#e6f5ea]">
+          <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Agents</div>
+          <div className="mt-1 text-lg font-bold text-[#F6F0E1]">
             {new Set(marketEvents.map((e) => e.agentAddress.toLowerCase())).size}
           </div>
         </div>
         <div className="glass-card rounded-xl p-3.5">
-          <div className="text-xs uppercase tracking-widest text-[#6b8a6f]">Status</div>
-          <div className="mt-1 text-lg font-bold text-[#8ef3ab]">{status.label}</div>
+          <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Status</div>
+          <div className="mt-1 text-lg font-bold text-[#BEE9FF]">{status.label}</div>
         </div>
       </div>
 
       {/* Agent Activity */}
       <div className="mt-6 glass-card rounded-2xl p-5">
-        <h2 className="text-base font-semibold text-[#e6f5ea]">Agent Activity</h2>
-        <p className="mt-1 text-sm text-[#6b8a6f]">Live timeline of moves, conviction, and rationale.</p>
+        <h2 className="text-base font-semibold text-[#F6F0E1]">Agent Activity</h2>
+        <p className="mt-1 text-sm text-[#8C9FB3]">Live timeline of moves, conviction, and rationale.</p>
 
         {marketEvents.length === 0 ? (
-          <div className="mt-4 rounded-xl border border-dashed border-white/12 px-4 py-8 text-center text-sm text-[#556655]">
+          <div className="mt-4 rounded-xl border border-dashed border-white/12 px-4 py-8 text-center text-sm text-[#5F7089]">
             No agent activity recorded for this market yet.
           </div>
         ) : (
@@ -227,15 +227,15 @@ export default function MarketDetailPage() {
             {marketEvents.map((event, i) => (
               <article
                 key={event.id}
-                className="animate-card-in rounded-xl border border-white/6 bg-[#0d120f] p-3.5"
+                className="animate-card-in rounded-xl border border-white/6 bg-[#151B2E] p-3.5"
                 style={{ animationDelay: `${Math.min(i * 40, 200)}ms` }}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
-                      event.type === 'TradeRationale' ? 'border-[#39e66a]/30 bg-[#39e66a]/8 text-[#8ef3ab]'
-                        : event.type === 'NegotiationIntent' ? 'border-[#ffb800]/30 bg-[#ffb800]/8 text-[#ffcf5e]'
-                        : 'border-white/15 bg-white/5 text-[#bcc8bc]'
+                      event.type === 'TradeRationale' ? 'border-[#5CC8FF]/30 bg-[#5CC8FF]/8 text-[#BEE9FF]'
+                        : event.type === 'NegotiationIntent' ? 'border-[#F6C45A]/30 bg-[#F6C45A]/8 text-[#FFE2A3]'
+                        : 'border-white/15 bg-white/5 text-[#C7D2E5]'
                     }`}>
                       {event.type === 'TradeRationale' ? 'Trade' : event.type === 'NegotiationIntent' ? 'Intent' : 'Thesis'}
                     </span>
@@ -244,19 +244,19 @@ export default function MarketDetailPage() {
                         {event.side.toUpperCase()}
                       </span>
                     )}
-                    <span className="text-xs text-[#6b8a6f]">{getAgentLabel(event)}</span>
+                    <span className="text-xs text-[#8C9FB3]">{getAgentLabel(event)}</span>
                   </div>
-                  <span className="text-xs text-[#556655]">{relativeTime(event.timestamp)}</span>
+                  <span className="text-xs text-[#5F7089]">{relativeTime(event.timestamp)}</span>
                 </div>
 
-                <p className="mt-2 text-sm leading-relaxed text-[#bcc8bc]">{event.reasoning}</p>
+                <p className="mt-2 text-sm leading-relaxed text-[#C7D2E5]">{event.reasoning}</p>
 
                 <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
-                  <span className="rounded-full border border-[#39e66a]/20 bg-[#39e66a]/6 px-2 py-0.5 text-[#8ef3ab]">
+                  <span className="rounded-full border border-[#5CC8FF]/20 bg-[#5CC8FF]/6 px-2 py-0.5 text-[#BEE9FF]">
                     {Math.round(event.confidence)}% conviction
                   </span>
                   {event.stakeEth && (
-                    <span className="rounded-full border border-white/10 bg-white/4 px-2 py-0.5 text-[#6b8a6f]">
+                    <span className="rounded-full border border-white/10 bg-white/4 px-2 py-0.5 text-[#8C9FB3]">
                       {event.stakeEth} ETH
                     </span>
                   )}
@@ -265,7 +265,7 @@ export default function MarketDetailPage() {
                       href={`https://sepolia.arbiscan.io/tx/${event.tradeTxHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="rounded-full border border-white/10 bg-white/4 px-2 py-0.5 text-[#6b8a6f] transition hover:text-[#39e66a]"
+                      className="rounded-full border border-white/10 bg-white/4 px-2 py-0.5 text-[#8C9FB3] transition hover:text-[#5CC8FF]"
                     >
                       tx {event.tradeTxHash.slice(0, 10)}...
                     </a>
@@ -279,41 +279,41 @@ export default function MarketDetailPage() {
 
       {showAdvanced && (
         <div className="mt-4 glass-card rounded-2xl p-5">
-          <h2 className="text-base font-semibold text-[#e6f5ea]">Technical Details</h2>
+          <h2 className="text-base font-semibold text-[#F6F0E1]">Technical Details</h2>
           <div className="mt-3 space-y-2 text-sm">
-            <div className="flex items-start justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
-              <span className="text-[#6b8a6f]">Market ID</span>
-              <span className="break-all text-right text-xs text-[#bcc8bc]">{market.marketId}</span>
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-white/6 bg-[#12172A] px-3.5 py-2.5">
+              <span className="text-[#8C9FB3]">Market ID</span>
+              <span className="break-all text-right text-xs text-[#C7D2E5]">{market.marketId}</span>
             </div>
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
-              <span className="text-[#6b8a6f]">Pool ID</span>
-              <span className="text-xs text-[#bcc8bc]">{formatMarketId(market.poolId)}</span>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#12172A] px-3.5 py-2.5">
+              <span className="text-[#8C9FB3]">Pool ID</span>
+              <span className="text-xs text-[#C7D2E5]">{formatMarketId(market.poolId)}</span>
             </div>
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
-              <span className="text-[#6b8a6f]">Outcome 1 Token</span>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#12172A] px-3.5 py-2.5">
+              <span className="text-[#8C9FB3]">Outcome 1 Token</span>
               <a
                 href={`https://sepolia.arbiscan.io/address/${market.outcome1Token}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-[#6b8a6f] transition hover:text-[#39e66a]"
+                className="text-xs text-[#8C9FB3] transition hover:text-[#5CC8FF]"
               >
                 {market.outcome1Token.slice(0, 8)}...{market.outcome1Token.slice(-6)}
               </a>
             </div>
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
-              <span className="text-[#6b8a6f]">Outcome 2 Token</span>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#12172A] px-3.5 py-2.5">
+              <span className="text-[#8C9FB3]">Outcome 2 Token</span>
               <a
                 href={`https://sepolia.arbiscan.io/address/${market.outcome2Token}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-[#6b8a6f] transition hover:text-[#39e66a]"
+                className="text-xs text-[#8C9FB3] transition hover:text-[#5CC8FF]"
               >
                 {market.outcome2Token.slice(0, 8)}...{market.outcome2Token.slice(-6)}
               </a>
             </div>
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#0b100d] px-3.5 py-2.5">
-              <span className="text-[#6b8a6f]">Assertion ID</span>
-              <span className="text-xs text-[#bcc8bc]">
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-white/6 bg-[#12172A] px-3.5 py-2.5">
+              <span className="text-[#8C9FB3]">Assertion ID</span>
+              <span className="text-xs text-[#C7D2E5]">
                 {market.assertedOutcomeId === ZERO_BYTES32 ? 'None' : formatMarketId(market.assertedOutcomeId as `0x${string}`)}
               </span>
             </div>
