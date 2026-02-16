@@ -6,28 +6,19 @@ export interface MarketProfileImageEntry {
   source: 'agent-file' | 'hybrid-backfill';
 }
 
-let manifestCache: MarketProfileImageEntry[] | null = null;
-
 export async function loadMarketImageManifest(): Promise<MarketProfileImageEntry[]> {
-  if (manifestCache) {
-    return manifestCache;
-  }
   try {
     const response = await fetch('/market-profiles.json', { cache: 'no-store' });
     if (!response.ok) {
-      manifestCache = [];
-      return manifestCache;
+      return [];
     }
     const data = await response.json();
     if (!Array.isArray(data)) {
-      manifestCache = [];
-      return manifestCache;
+      return [];
     }
-    manifestCache = data as MarketProfileImageEntry[];
-    return manifestCache;
+    return data as MarketProfileImageEntry[];
   } catch {
-    manifestCache = [];
-    return manifestCache;
+    return [];
   }
 }
 
