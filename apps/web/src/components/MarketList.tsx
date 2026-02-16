@@ -6,6 +6,11 @@ import { ClawlogicClient } from '@clawlogic/sdk';
 import MarketCard from './MarketCard';
 import { DEMO_MARKETS, getAgentBroadcasts, type AgentBroadcast } from '@/lib/client';
 import { formatEthShort, getLatestMarketEvents } from '@/lib/market-view';
+import {
+  fallbackMarketImageDataUri,
+  getMarketImageMap,
+  loadMarketImageManifest,
+} from '@/lib/market-images';
 
 interface MarketListProps {
   config: ClawlogicConfig;
@@ -23,6 +28,7 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
   const [loading, setLoading] = useState(true);
   const [usingDemo, setUsingDemo] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [marketImageMap, setMarketImageMap] = useState<Record<string, string>>({});
 
   const fetchMarkets = useCallback(async () => {
     try {
@@ -75,6 +81,21 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
     }, 12000);
     return () => clearInterval(interval);
   }, [fetchMarkets]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadImages = async () => {
+      const entries = await loadMarketImageManifest();
+      if (!mounted) {
+        return;
+      }
+      setMarketImageMap(getMarketImageMap(entries));
+    };
+    void loadImages();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const marketCount = markets.length;
   const openCount = markets.filter((item) => !item.resolved && item.assertedOutcomeId === ZERO_BYTES32).length;
@@ -140,47 +161,47 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
         <div className="flex flex-col gap-3 sm:gap-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h2 className="text-base font-semibold text-[#F6F0E1] sm:text-lg">Live Market Board</h2>
-              <p className="mt-1 text-sm text-[#8C9FB3]">
+              <h2 className="text-base font-semibold text-[var(--cl-text-primary)] sm:text-lg">Live Market Board</h2>
+              <p className="mt-1 text-sm text-[var(--cl-text-subtle)]">
                 Watch agents price events in real time.
               </p>
             </div>
-            <div className="text-xs text-[#5F7089]">
+            <div className="text-xs text-[var(--cl-text-dim)]">
               Updated {lastRefresh.toLocaleTimeString()}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-xl border border-white/6 bg-[#151B2E] px-3 py-2.5">
-              <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Open</div>
-              <div className="mt-1 text-lg font-bold text-[#F6F0E1]">{openCount}</div>
+            <div className="rounded-xl border border-white/6 bg-[var(--cl-surface-2)] px-3 py-2.5">
+              <div className="text-xs uppercase tracking-widest text-[var(--cl-text-subtle)]">Open</div>
+              <div className="mt-1 text-lg font-bold text-[var(--cl-text-primary)]">{openCount}</div>
             </div>
-            <div className="rounded-xl border border-white/6 bg-[#151B2E] px-3 py-2.5">
-              <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Resolving</div>
-              <div className="mt-1 text-lg font-bold text-[#F6F0E1]">{settlingCount}</div>
+            <div className="rounded-xl border border-white/6 bg-[var(--cl-surface-2)] px-3 py-2.5">
+              <div className="text-xs uppercase tracking-widest text-[var(--cl-text-subtle)]">Resolving</div>
+              <div className="mt-1 text-lg font-bold text-[var(--cl-text-primary)]">{settlingCount}</div>
             </div>
-            <div className="rounded-xl border border-white/6 bg-[#151B2E] px-3 py-2.5">
-              <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Resolved</div>
-              <div className="mt-1 text-lg font-bold text-[#F6F0E1]">{resolvedCount}</div>
+            <div className="rounded-xl border border-white/6 bg-[var(--cl-surface-2)] px-3 py-2.5">
+              <div className="text-xs uppercase tracking-widest text-[var(--cl-text-subtle)]">Resolved</div>
+              <div className="mt-1 text-lg font-bold text-[var(--cl-text-primary)]">{resolvedCount}</div>
             </div>
-            <div className="rounded-xl border border-white/6 bg-[#151B2E] px-3 py-2.5">
-              <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Liquidity</div>
-              <div className="mt-1 text-lg font-bold text-[#F6F0E1]">{formatEthShort(totalCollateral)} ETH</div>
+            <div className="rounded-xl border border-white/6 bg-[var(--cl-surface-2)] px-3 py-2.5">
+              <div className="text-xs uppercase tracking-widest text-[var(--cl-text-subtle)]">Liquidity</div>
+              <div className="mt-1 text-lg font-bold text-[var(--cl-text-primary)]">{formatEthShort(totalCollateral)} ETH</div>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-1.5 text-xs">
-            <span className="rounded-full border border-[#5CC8FF]/25 bg-[#5CC8FF]/8 px-2.5 py-1 text-[#BEE9FF]">
+            <span className="rounded-full border border-[var(--cl-accent)]/25 bg-[var(--cl-accent)]/8 px-2.5 py-1 text-[var(--cl-accent-soft)]">
               {marketCount} markets
             </span>
-            <span className="rounded-full border border-[#5CC8FF]/25 bg-[#5CC8FF]/8 px-2.5 py-1 text-[#BEE9FF]">
+            <span className="rounded-full border border-[var(--cl-accent)]/25 bg-[var(--cl-accent)]/8 px-2.5 py-1 text-[var(--cl-accent-soft)]">
               {totalBets} bets
             </span>
-            <span className="rounded-full border border-[#F6C45A]/20 bg-[#F6C45A]/8 px-2.5 py-1 text-[#FFE2A3]">
+            <span className="rounded-full border border-[var(--cl-warn)]/20 bg-[var(--cl-warn)]/8 px-2.5 py-1 text-[var(--cl-warn-soft)]">
               {totalIdeas} market takes
             </span>
             {usingDemo && (
-              <span className="rounded-full border border-white/12 bg-white/4 px-2.5 py-1 text-[#5F7089]">
+              <span className="rounded-full border border-white/12 bg-white/4 px-2.5 py-1 text-[var(--cl-text-dim)]">
                 Demo data
               </span>
             )}
@@ -189,7 +210,7 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
       </section>
 
       {sortedMarkets.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/15 bg-[#1A2138] px-6 py-10 text-center text-base text-[#C7D2E5]">
+        <div className="rounded-2xl border border-dashed border-white/15 bg-[var(--cl-surface-1)] px-6 py-10 text-center text-base text-[var(--cl-text-secondary)]">
           Waiting for agents to publish the first market.
         </div>
       ) : (
@@ -203,6 +224,10 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
               events={getLatestMarketEvents(market.marketId, broadcasts)}
               clobEnabled={CLOB_ENABLED}
               showAdvanced={showAdvanced}
+              imageSrc={
+                marketImageMap[market.marketId.toLowerCase()] ??
+                fallbackMarketImageDataUri(market.marketId, market.description)
+              }
             />
           ))}
         </div>

@@ -13,12 +13,31 @@ export default function Navigation() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem('clawlogic-theme');
+    const preferred = saved === 'light' || saved === 'dark'
+      ? saved
+      : window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light';
+    setTheme(preferred);
+    document.documentElement.setAttribute('data-theme', preferred);
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    document.documentElement.setAttribute('data-theme', next);
+    window.localStorage.setItem('clawlogic-theme', next);
+  };
 
   return (
     <nav
@@ -33,12 +52,12 @@ export default function Navigation() {
           <img
             src="/logo-mark.svg"
             alt="CLAWLOGIC"
-            className="h-8 w-8 rounded-lg border border-[#5CC8FF]/20 bg-[#1A2138] p-1 transition-all group-hover:border-[#5CC8FF]/50 group-hover:shadow-[0_0_16px_rgba(57,230,106,0.2)]"
+            className="h-8 w-8 rounded-lg border border-[var(--cl-accent)]/20 bg-[var(--cl-surface-1)] p-1 transition-all group-hover:border-[var(--cl-accent)]/50 group-hover:shadow-[0_0_16px_rgba(57,230,106,0.2)]"
           />
-          <span className="text-lg font-semibold tracking-tight text-[#F6F0E1] transition-colors group-hover:text-[#5CC8FF]">
+          <span className="text-lg font-semibold tracking-tight text-[var(--cl-text-primary)] transition-colors group-hover:text-[var(--cl-accent)]">
             CLAWLOGIC
           </span>
-          <span className="hidden rounded-full border border-[#5CC8FF]/30 bg-[#5CC8FF]/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-[#5CC8FF] sm:inline-block">
+          <span className="hidden rounded-full border border-[var(--cl-accent)]/30 bg-[var(--cl-accent)]/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-[var(--cl-accent)] sm:inline-block">
             Testnet
           </span>
         </Link>
@@ -53,8 +72,8 @@ export default function Navigation() {
                 href={link.href}
                 className={`rounded-lg px-3.5 py-2 text-sm font-medium transition-all ${
                   active
-                    ? 'bg-[#5CC8FF]/12 text-[#BEE9FF]'
-                    : 'text-[#A4B6CF] hover:bg-white/5 hover:text-[#F6F0E1]'
+                    ? 'bg-[var(--cl-accent)]/12 text-[var(--cl-accent-soft)]'
+                    : 'text-[var(--cl-text-muted)] hover:bg-white/5 hover:text-[var(--cl-text-primary)]'
                 }`}
               >
                 {link.label}
@@ -65,17 +84,24 @@ export default function Navigation() {
             href="https://github.com/Kaushal-205/clawlogic"
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-[#A4B6CF] transition-all hover:border-[#5CC8FF]/30 hover:text-[#F6F0E1]"
+            className="ml-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-[var(--cl-text-muted)] transition-all hover:border-[var(--cl-accent)]/30 hover:text-[var(--cl-text-primary)]"
           >
             Docs
           </a>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="ml-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-[var(--cl-text-muted)] transition-all hover:border-[var(--cl-accent)]/30 hover:text-[var(--cl-text-primary)]"
+          >
+            {theme === 'dark' ? 'Light' : 'Dark'}
+          </button>
         </div>
 
         {/* Mobile hamburger */}
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="rounded-lg border border-white/10 p-2 text-[#A4B6CF] transition hover:text-[#5CC8FF] sm:hidden"
+          className="rounded-lg border border-white/10 p-2 text-[var(--cl-text-muted)] transition hover:text-[var(--cl-accent)] sm:hidden"
           aria-label="Toggle menu"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -103,8 +129,8 @@ export default function Navigation() {
                   onClick={() => setMobileOpen(false)}
                   className={`rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                     active
-                      ? 'bg-[#5CC8FF]/12 text-[#BEE9FF]'
-                      : 'text-[#A4B6CF] hover:bg-white/5 hover:text-[#F6F0E1]'
+                      ? 'bg-[var(--cl-accent)]/12 text-[var(--cl-accent-soft)]'
+                      : 'text-[var(--cl-text-muted)] hover:bg-white/5 hover:text-[var(--cl-text-primary)]'
                   }`}
                 >
                   {link.label}
@@ -115,10 +141,17 @@ export default function Navigation() {
               href="https://github.com/Kaushal-205/clawlogic"
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-lg px-3 py-2.5 text-sm text-[#A4B6CF] hover:text-[#F6F0E1]"
+              className="rounded-lg px-3 py-2.5 text-sm text-[var(--cl-text-muted)] hover:text-[var(--cl-text-primary)]"
             >
               Docs
             </a>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="rounded-lg px-3 py-2.5 text-left text-sm text-[var(--cl-text-muted)] hover:text-[var(--cl-text-primary)]"
+            >
+              Switch to {theme === 'dark' ? 'Light' : 'Dark'} Theme
+            </button>
           </div>
         </div>
       )}

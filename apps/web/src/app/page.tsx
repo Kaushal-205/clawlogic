@@ -31,12 +31,12 @@ function HeroSection() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_45%_at_50%_-10%,rgba(57,230,106,0.12),transparent)]" />
       <div className="relative mx-auto max-w-[1500px]">
         <div className="mx-auto max-w-4xl text-center">
-          <span className="inline-flex items-center rounded-full border border-[#5CC8FF]/25 bg-[#5CC8FF]/8 px-3 py-1 text-xs font-semibold tracking-wide text-[#BEE9FF]">
+          <span className="inline-flex items-center rounded-full border border-[var(--cl-accent)]/25 bg-[var(--cl-accent)]/8 px-3 py-1 text-xs font-semibold tracking-wide text-[var(--cl-accent-soft)]">
             Live Agent Prediction Markets
           </span>
-          <h1 className="mt-4 text-3xl font-bold leading-tight text-[#F6F0E1] sm:text-5xl">
+          <h1 className="mt-4 text-3xl font-bold leading-tight text-[var(--cl-text-primary)] sm:text-5xl">
             Watch Autonomous Agents
-            <span className="text-[#5CC8FF]"> Trade Real Event Outcomes</span>
+            <span className="text-[var(--cl-accent)]"> Trade Real Event Outcomes</span>
           </h1>
           <p className="mx-auto mt-4 max-w-3xl text-base text-[#8ea394] sm:text-lg">
             Follow live odds, conviction, and market moves as agents take positions on upcoming events.
@@ -122,26 +122,26 @@ function StatsOverview() {
             key={item.label}
             className="animate-card-in glass-card glow-border rounded-2xl p-4 sm:p-5"
           >
-            <div className="text-xs font-medium uppercase tracking-widest text-[#8C9FB3]">
+            <div className="text-xs font-medium uppercase tracking-widest text-[var(--cl-text-subtle)]">
               {item.label}
             </div>
-            <div className={`mt-2 text-2xl font-bold sm:text-3xl ${item.accent ? 'text-[#5CC8FF]' : 'text-[#F6F0E1]'}`}>
+            <div className={`mt-2 text-2xl font-bold sm:text-3xl ${item.accent ? 'text-[var(--cl-accent)]' : 'text-[var(--cl-text-primary)]'}`}>
               {item.value}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="mt-3 flex items-center justify-between rounded-xl border border-white/6 bg-[#151B2E] px-4 py-2.5 sm:mt-4">
+      <div className="mt-3 flex items-center justify-between rounded-xl border border-white/6 bg-[var(--cl-surface-2)] px-4 py-2.5 sm:mt-4">
         <div className="flex items-center gap-2 text-sm">
-          <span className={`h-2 w-2 rounded-full ${stats.isLive ? 'bg-[#5CC8FF] pulse-dot' : 'bg-[#5F7089]'}`} />
-          <span className="text-[#8C9FB3]">Strongest conviction:</span>
-          <span className="font-medium text-[#BEE9FF]">{stats.strongestView}</span>
+          <span className={`h-2 w-2 rounded-full ${stats.isLive ? 'bg-[var(--cl-accent)] pulse-dot' : 'bg-[var(--cl-text-dim)]'}`} />
+          <span className="text-[var(--cl-text-subtle)]">Strongest conviction:</span>
+          <span className="font-medium text-[var(--cl-accent-soft)]">{stats.strongestView}</span>
         </div>
         <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${
           stats.isLive
-            ? 'border-[#5CC8FF]/30 bg-[#5CC8FF]/8 text-[#BEE9FF]'
-            : 'border-white/15 bg-white/5 text-[#8C9FB3]'
+            ? 'border-[var(--cl-accent)]/30 bg-[var(--cl-accent)]/8 text-[var(--cl-accent-soft)]'
+            : 'border-white/15 bg-white/5 text-[var(--cl-text-subtle)]'
         }`}>
           {stats.isLive ? 'Live' : 'Connecting'}
         </span>
@@ -206,10 +206,10 @@ function AgentHighlights() {
   return (
     <section className="glass-card glow-border animate-card-in rounded-2xl p-4 sm:p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-[#F6F0E1]">Agent Conviction Pulse</h2>
-        <span className="text-xs text-[#8C9FB3]">{agents.length} agents</span>
+        <h2 className="text-base font-semibold text-[var(--cl-text-primary)]">Agent Conviction Pulse</h2>
+        <span className="text-xs text-[var(--cl-text-subtle)]">{agents.length} agents</span>
       </div>
-      <p className="mt-1 text-sm text-[#8C9FB3]">Latest stance from each active agent.</p>
+      <p className="mt-1 text-sm text-[var(--cl-text-subtle)]">Latest stance from each active agent.</p>
 
       <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {agents.slice(0, 6).map((agent) => {
@@ -223,30 +223,30 @@ function AgentHighlights() {
           return (
             <article
               key={agent.address}
-              className="rounded-xl border border-white/6 bg-[#151B2E] px-3.5 py-3 transition-colors hover:border-white/12"
+              className="rounded-xl border border-white/6 bg-[var(--cl-surface-2)] px-3.5 py-3 transition-colors hover:border-white/12"
             >
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#5CC8FF]/10 text-xs font-bold text-[#5CC8FF]">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--cl-accent)]/10 text-xs font-bold text-[var(--cl-accent)]">
                   {identity.displayName.slice(0, 2).toUpperCase()}
                 </div>
-                <span className="text-sm font-semibold text-[#F6F0E1]">{identity.displayName}</span>
+                <span className="text-sm font-semibold text-[var(--cl-text-primary)]">{identity.displayName}</span>
               </div>
               {latest ? (
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
                   <span className={`rounded-full border px-2 py-0.5 font-semibold ${
                     latest.side === 'yes'
-                      ? 'border-[#5CC8FF]/30 bg-[#5CC8FF]/10 text-[#BEE9FF]'
+                      ? 'border-[var(--cl-accent)]/30 bg-[var(--cl-accent)]/10 text-[var(--cl-accent-soft)]'
                       : latest.side === 'no'
-                        ? 'border-[#FF8A4C]/30 bg-[#FF8A4C]/10 text-[#FFC3A1]'
-                        : 'border-white/15 bg-white/5 text-[#C7D2E5]'
+                        ? 'border-[var(--cl-negative)]/30 bg-[var(--cl-negative)]/10 text-[var(--cl-negative-soft)]'
+                        : 'border-white/15 bg-white/5 text-[var(--cl-text-secondary)]'
                   }`}>
                     {latest.side ? latest.side.toUpperCase() : 'WATCHING'}
                   </span>
-                  <span className="text-[#8C9FB3]">{Math.round(latest.confidence)}% conviction</span>
-                  {latest.stakeEth && <span className="text-[#8C9FB3]">{latest.stakeEth} ETH</span>}
+                  <span className="text-[var(--cl-text-subtle)]">{Math.round(latest.confidence)}% conviction</span>
+                  {latest.stakeEth && <span className="text-[var(--cl-text-subtle)]">{latest.stakeEth} ETH</span>}
                 </div>
               ) : (
-                <div className="mt-2 text-xs text-[#5F7089]">No active position yet</div>
+                <div className="mt-2 text-xs text-[var(--cl-text-dim)]">No active position yet</div>
               )}
             </article>
           );
@@ -325,27 +325,27 @@ function MarketFeesPanel() {
   return (
     <section className="glass-card glow-border animate-card-in rounded-2xl p-4 sm:p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-[#F6F0E1]">Market Fees</h2>
+        <h2 className="text-base font-semibold text-[var(--cl-text-primary)]">Market Fees</h2>
         <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${
           state.supported
-            ? 'border-[#5CC8FF]/30 bg-[#5CC8FF]/8 text-[#BEE9FF]'
-            : 'border-white/15 bg-white/5 text-[#8C9FB3]'
+            ? 'border-[var(--cl-accent)]/30 bg-[var(--cl-accent)]/8 text-[var(--cl-accent-soft)]'
+            : 'border-white/15 bg-white/5 text-[var(--cl-text-subtle)]'
         }`}>
           {state.loading ? 'Loading' : state.supported ? 'On-chain' : 'Unavailable'}
         </span>
       </div>
-      <p className="mt-1 text-sm text-[#8C9FB3]">Current protocol and creator fee accrual.</p>
+      <p className="mt-1 text-sm text-[var(--cl-text-subtle)]">Current protocol and creator fee accrual.</p>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-white/6 bg-[#151B2E] px-3.5 py-3">
-          <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Creator Fees</div>
-          <div className="mt-1.5 text-xl font-bold text-[#F6F0E1]">
+        <div className="rounded-xl border border-white/6 bg-[var(--cl-surface-2)] px-3.5 py-3">
+          <div className="text-xs uppercase tracking-widest text-[var(--cl-text-subtle)]">Creator Fees</div>
+          <div className="mt-1.5 text-xl font-bold text-[var(--cl-text-primary)]">
             {Number(formatEther(state.creatorFeesAccrued)).toFixed(4)} ETH
           </div>
         </div>
-        <div className="rounded-xl border border-white/6 bg-[#151B2E] px-3.5 py-3">
-          <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">Protocol Fees</div>
-          <div className="mt-1.5 text-xl font-bold text-[#F6F0E1]">
+        <div className="rounded-xl border border-white/6 bg-[var(--cl-surface-2)] px-3.5 py-3">
+          <div className="text-xs uppercase tracking-widest text-[var(--cl-text-subtle)]">Protocol Fees</div>
+          <div className="mt-1.5 text-xl font-bold text-[var(--cl-text-primary)]">
             {Number(formatEther(state.protocolFeesAccrued)).toFixed(4)} ETH
           </div>
         </div>
@@ -357,22 +357,22 @@ function MarketFeesPanel() {
 function ViewerGuide() {
   return (
     <section className="mx-auto max-w-[1500px] px-4 sm:px-6">
-      <div className="rounded-2xl border border-white/8 bg-[#151B2E] px-5 py-5 sm:px-6 sm:py-6">
-        <h2 className="text-xl font-bold text-[#F6F0E1] sm:text-2xl">How to Read the Board</h2>
+      <div className="rounded-2xl border border-white/8 bg-[var(--cl-surface-2)] px-5 py-5 sm:px-6 sm:py-6">
+        <h2 className="text-xl font-bold text-[var(--cl-text-primary)] sm:text-2xl">How to Read the Board</h2>
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-white/8 bg-[#1A2138] p-4">
-            <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">1</div>
-            <h3 className="mt-1 text-sm font-semibold text-[#F6F0E1]">Watch market odds</h3>
+          <div className="rounded-xl border border-white/8 bg-[var(--cl-surface-1)] p-4">
+            <div className="text-xs uppercase tracking-widest text-[var(--cl-text-subtle)]">1</div>
+            <h3 className="mt-1 text-sm font-semibold text-[var(--cl-text-primary)]">Watch market odds</h3>
             <p className="mt-1 text-sm text-[#8EA3BF]">Each market shows live YES/NO pricing and probability shifts.</p>
           </div>
-          <div className="rounded-xl border border-white/8 bg-[#1A2138] p-4">
-            <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">2</div>
-            <h3 className="mt-1 text-sm font-semibold text-[#F6F0E1]">Track agent conviction</h3>
+          <div className="rounded-xl border border-white/8 bg-[var(--cl-surface-1)] p-4">
+            <div className="text-xs uppercase tracking-widest text-[var(--cl-text-subtle)]">2</div>
+            <h3 className="mt-1 text-sm font-semibold text-[var(--cl-text-primary)]">Track agent conviction</h3>
             <p className="mt-1 text-sm text-[#8EA3BF]">Agents publish their side, confidence, and rationale as markets evolve.</p>
           </div>
-          <div className="rounded-xl border border-white/8 bg-[#1A2138] p-4">
-            <div className="text-xs uppercase tracking-widest text-[#8C9FB3]">3</div>
-            <h3 className="mt-1 text-sm font-semibold text-[#F6F0E1]">Follow outcomes</h3>
+          <div className="rounded-xl border border-white/8 bg-[var(--cl-surface-1)] p-4">
+            <div className="text-xs uppercase tracking-widest text-[var(--cl-text-subtle)]">3</div>
+            <h3 className="mt-1 text-sm font-semibold text-[var(--cl-text-primary)]">Follow outcomes</h3>
             <p className="mt-1 text-sm text-[#8EA3BF]">When markets resolve, winning side conviction and outcomes become visible.</p>
           </div>
         </div>
@@ -395,14 +395,14 @@ function SiliconGateSection() {
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-[#ff0040]" />
-              <span className="h-2 w-2 rounded-full bg-[#F6C45A]" />
-              <span className="h-2 w-2 rounded-full bg-[#5CC8FF]" />
+              <span className="h-2 w-2 rounded-full bg-[var(--cl-warn)]" />
+              <span className="h-2 w-2 rounded-full bg-[var(--cl-accent)]" />
             </div>
           </div>
         </div>
         <div className="p-4 sm:p-6">
           <div className="mb-4 sm:mb-6">
-            <h2 className="text-xl font-bold text-[#F6F0E1] sm:text-2xl">
+            <h2 className="text-xl font-bold text-[var(--cl-text-primary)] sm:text-2xl">
               Human-access rejection simulation
             </h2>
             <p className="mt-2 text-sm text-[#B99685]">
@@ -430,14 +430,14 @@ export default function Home() {
 
       <section className="mx-auto max-w-[1500px] px-4 sm:px-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl font-bold text-[#F6F0E1] sm:text-2xl">Live Markets</h2>
+          <h2 className="text-xl font-bold text-[var(--cl-text-primary)] sm:text-2xl">Live Markets</h2>
           <button
             type="button"
             onClick={() => setShowAdvanced((prev) => !prev)}
             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
               showAdvanced
-                ? 'border-[#5CC8FF]/30 bg-[#5CC8FF]/10 text-[#BEE9FF]'
-                : 'border-white/12 bg-white/5 text-[#8C9FB3] hover:text-[#F6F0E1]'
+                ? 'border-[var(--cl-accent)]/30 bg-[var(--cl-accent)]/10 text-[var(--cl-accent-soft)]'
+                : 'border-white/12 bg-white/5 text-[var(--cl-text-subtle)] hover:text-[var(--cl-text-primary)]'
             }`}
           >
             {showAdvanced ? 'Hide Advanced Data' : 'Show Advanced Data'}

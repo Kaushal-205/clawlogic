@@ -7,6 +7,11 @@ import { createRuntime } from './runtime.js';
 import { getBoolFlag, getFlag, parseArgs } from './args.js';
 import { outputError, outputSuccess, ensure, shortAddress } from './output.js';
 import { NPM_UPGRADE_COMMAND } from './constants.js';
+import {
+  persistAgentProvidedMarketImage,
+  generateAndPersistBackfillMarketImage,
+  getMarketImageManifest,
+} from './market-images.js';
 
 type BroadcastType =
   | 'MarketBroadcast'
@@ -221,6 +226,9 @@ async function commandCreateMarket(flags: Record<string, string | boolean>, posi
   const reward = parseWeiInput(getFlag(flags, 'reward-wei') ?? '0');
   const bond = parseWeiInput(getFlag(flags, 'bond-wei') ?? '0');
   const initialLiquidityEth = parseEthInput(getFlag(flags, 'initial-liquidity-eth') ?? '0');
+  const marketImageFile = getFlag(flags, 'market-image-file');
+  const marketImageAgent = getFlag(flags, 'market-image-agent') ?? 'cli-agent';
+  const skipMarketImage = getBoolFlag(flags, 'skip-market-image');
 
   const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
   const { client } = runtime;
@@ -238,6 +246,24 @@ async function commandCreateMarket(flags: Record<string, string | boolean>, posi
   const created = afterIds.find((id) => !beforeIds.includes(id));
   const marketId = created ?? afterIds.at(-1) ?? null;
 
+  let marketImage = null;
+  if (marketId && !skipMarketImage) {
+    if (marketImageFile) {
+      marketImage = await persistAgentProvidedMarketImage({
+        marketId,
+        sourceFilePath: marketImageFile,
+        providedBy: marketImageAgent,
+      });
+    } else {
+      marketImage = await generateAndPersistBackfillMarketImage({
+        marketId,
+        description,
+        providedBy: marketImageAgent,
+        force: true,
+      });
+    }
+  }
+
   outputSuccess({
     command: 'create-market',
     txHash,
@@ -248,6 +274,57 @@ async function commandCreateMarket(flags: Record<string, string | boolean>, posi
     rewardWei: reward,
     bondWei: bond,
     initialLiquidityWei: initialLiquidityEth,
+    marketImage,
+  });
+}
+
+async function commandBackfillMarketImages(
+  flags: Record<string, string | boolean>,
+): Promise<void> {
+  const once = getBoolFlag(flags, 'once');
+  const force = getBoolFlag(flags, 'force');
+  ensure(
+    once || force,
+    'This command is intended for first-time migration. Run with `--once` (or `--force` to overwrite).',
+  );
+
+  const runtime = await createRuntime({ requireWallet: false });
+  const { client } = runtime;
+
+  const markets = await client.getAllMarkets();
+  const manifest = await getMarketImageManifest();
+  const existing = new Set(manifest.map((entry) => entry.marketId.toLowerCase()));
+
+  let generated = 0;
+  let skipped = 0;
+  const updates: Array<{ marketId: `0x${string}`; imagePath: string; source: string }> = [];
+
+  for (const market of markets) {
+    const key = market.marketId.toLowerCase();
+    if (!force && existing.has(key)) {
+      skipped += 1;
+      continue;
+    }
+    const saved = await generateAndPersistBackfillMarketImage({
+      marketId: market.marketId,
+      description: market.description,
+      providedBy: 'market-backfill',
+      force,
+    });
+    generated += 1;
+    updates.push({
+      marketId: saved.marketId,
+      imagePath: saved.imagePath,
+      source: saved.source,
+    });
+  }
+
+  outputSuccess({
+    command: 'backfill-market-images',
+    totalMarkets: markets.length,
+    generated,
+    skipped,
+    updates,
   });
 }
 
@@ -838,6 +915,7 @@ function printHelp(): void {
       'name-buy',
       'buy-name',
       'post-broadcast',
+      'backfill-market-images',
       'run',
       'upgrade-sdk',
     ],
@@ -905,6 +983,9 @@ async function main(): Promise<void> {
       return;
     case 'post-broadcast':
       await commandPostBroadcast(flags, positional);
+      return;
+    case 'backfill-market-images':
+      await commandBackfillMarketImages(flags);
       return;
     case 'run':
       await commandRun(flags);

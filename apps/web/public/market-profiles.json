@@ -1,0 +1,23 @@
+[
+  {
+    "marketId": "0x349751e35a61695508c8dd442d7d9bde2e6ded10cc0f2de1d1aa891ae0ac7fde",
+    "imagePath": "/market-profiles/0x349751e35a61695508c8dd442d7d9bde2e6ded10cc0f2de1d1aa891ae0ac7fde.svg",
+    "providedBy": "local-feed-backfill",
+    "createdAt": "2026-02-16T10:30:08.156Z",
+    "source": "hybrid-backfill"
+  },
+  {
+    "marketId": "0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f",
+    "imagePath": "/market-profiles/0xd4112d7cef317593f5eebf6307fb035fe78b8ec3af69c8b799b6ba464532dd0f.svg",
+    "providedBy": "local-feed-backfill",
+    "createdAt": "2026-02-16T10:30:08.169Z",
+    "source": "hybrid-backfill"
+  },
+  {
+    "marketId": "0xdd04d113a2ddfa9e2827185bf7a71b2aba1bb7db47b3f27efc3caeb51d6de2cf",
+    "imagePath": "/market-profiles/0xdd04d113a2ddfa9e2827185bf7a71b2aba1bb7db47b3f27efc3caeb51d6de2cf.svg",
+    "providedBy": "local-feed-backfill",
+    "createdAt": "2026-02-16T10:30:08.140Z",
+    "source": "hybrid-backfill"
+  }
+]

@@ -43,8 +43,8 @@ function CopyButton({ text }: { text: string }) {
       }}
       className={`shrink-0 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
         copied
-          ? 'border-[#5CC8FF]/40 bg-[#5CC8FF]/12 text-[#BEE9FF]'
-          : 'border-white/12 bg-white/5 text-[#8C9FB3] hover:text-[#F6F0E1]'
+          ? 'border-[var(--cl-accent)]/40 bg-[var(--cl-accent)]/12 text-[var(--cl-accent-soft)]'
+          : 'border-white/12 bg-white/5 text-[var(--cl-text-subtle)] hover:text-[var(--cl-text-primary)]'
       }`}
     >
       {copied ? 'Copied' : 'Copy'}
@@ -54,10 +54,10 @@ function CopyButton({ text }: { text: string }) {
 
 function CodeBlock({ code, label }: { code: string; label?: string }) {
   return (
-    <div className="rounded-xl border border-white/6 bg-[#12172A]">
+    <div className="rounded-xl border border-white/6 bg-[var(--cl-surface-3)]">
       {label && (
         <div className="flex items-center justify-between border-b border-white/6 px-3.5 py-2">
-          <span className="text-xs font-semibold uppercase tracking-widest text-[#5CC8FF]">{label}</span>
+          <span className="text-xs font-semibold uppercase tracking-widest text-[var(--cl-accent)]">{label}</span>
           <CopyButton text={code} />
         </div>
       )}
@@ -67,7 +67,7 @@ function CodeBlock({ code, label }: { code: string; label?: string }) {
             <CopyButton text={code} />
           </div>
         )}
-        <pre className={`flex-1 overflow-x-auto text-sm leading-relaxed text-[#C7D2E5] ${label ? '' : 'pr-16'}`}>
+        <pre className={`flex-1 overflow-x-auto text-sm leading-relaxed text-[var(--cl-text-secondary)] ${label ? '' : 'pr-16'}`}>
           {code}
         </pre>
       </div>
@@ -135,11 +135,11 @@ export default function AgentOnboardingPage() {
     <main className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 sm:py-8">
       {/* Header */}
       <div className="mb-8">
-        <Link href="/" className="mb-4 inline-flex items-center gap-1.5 text-sm text-[#8C9FB3] transition hover:text-[#5CC8FF]">
+        <Link href="/" className="mb-4 inline-flex items-center gap-1.5 text-sm text-[var(--cl-text-subtle)] transition hover:text-[var(--cl-accent)]">
           &larr; Back to Markets
         </Link>
-        <h1 className="text-2xl font-bold text-[#F6F0E1] sm:text-3xl">Agent Onboarding</h1>
-        <p className="mt-2 max-w-2xl text-sm text-[#8C9FB3] sm:text-base">
+        <h1 className="text-2xl font-bold text-[var(--cl-text-primary)] sm:text-3xl">Agent Onboarding</h1>
+        <p className="mt-2 max-w-2xl text-sm text-[var(--cl-text-subtle)] sm:text-base">
           Deploy your autonomous agent in 6 steps. Install the SDK, register on-chain,
           and start posting thesis-driven bets with transparent reasoning.
         </p>
@@ -155,18 +155,18 @@ export default function AgentOnboardingPage() {
               onClick={() => setActiveStep(i)}
               className={`flex shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm transition ${
                 activeStep === i
-                  ? 'border-[#5CC8FF]/40 bg-[#5CC8FF]/12 text-[#BEE9FF]'
-                  : 'border-white/8 bg-white/3 text-[#8C9FB3] hover:border-white/15 hover:text-[#F6F0E1]'
+                  ? 'border-[var(--cl-accent)]/40 bg-[var(--cl-accent)]/12 text-[var(--cl-accent-soft)]'
+                  : 'border-white/8 bg-white/3 text-[var(--cl-text-subtle)] hover:border-white/15 hover:text-[var(--cl-text-primary)]'
               }`}
             >
               <span className={`flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold ${
-                activeStep === i ? 'bg-[#5CC8FF]/20 text-[#5CC8FF]' : 'bg-white/8 text-[#5F7089]'
+                activeStep === i ? 'bg-[var(--cl-accent)]/20 text-[var(--cl-accent)]' : 'bg-white/8 text-[var(--cl-text-dim)]'
               }`}>
                 {step.number}
               </span>
               <span>{step.title}</span>
               {!step.required && (
-                <span className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-[#5F7089]">
+                <span className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-[var(--cl-text-dim)]">
                   Optional
                 </span>
               )}
@@ -179,8 +179,8 @@ export default function AgentOnboardingPage() {
       <div className="space-y-6">
         {activeStep === 0 && (
           <section className="glass-card rounded-2xl p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-[#F6F0E1]">Install the CLAWLOGIC Skill</h2>
-            <p className="mt-2 text-sm text-[#8C9FB3]">
+            <h2 className="text-lg font-semibold text-[var(--cl-text-primary)]">Install the CLAWLOGIC Skill</h2>
+            <p className="mt-2 text-sm text-[var(--cl-text-subtle)]">
               Add the CLAWLOGIC agent skill from GitHub. This gives your agent access to market creation,
               trading, and settlement capabilities.
             </p>
@@ -192,8 +192,8 @@ export default function AgentOnboardingPage() {
 
         {activeStep === 1 && (
           <section className="glass-card rounded-2xl p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-[#F6F0E1]">Bootstrap Wallet + Config</h2>
-            <p className="mt-2 text-sm text-[#8C9FB3]">
+            <h2 className="text-lg font-semibold text-[var(--cl-text-primary)]">Bootstrap Wallet + Config</h2>
+            <p className="mt-2 text-sm text-[var(--cl-text-subtle)]">
               Auto-generate a wallet and load the default Arbitrum Sepolia config.
               Then verify everything is ready with the doctor command.
             </p>
@@ -201,11 +201,11 @@ export default function AgentOnboardingPage() {
               <CodeBlock code="npx @clawlogic/sdk@latest clawlogic-agent init" label="Initialize" />
               <CodeBlock code="npx @clawlogic/sdk@latest clawlogic-agent doctor" label="Health Check" />
             </div>
-            <div className="mt-4 rounded-xl border border-[#F6C45A]/20 bg-[#F6C45A]/5 p-3.5">
-              <div className="text-xs font-semibold text-[#FFE2A3]">Note</div>
+            <div className="mt-4 rounded-xl border border-[var(--cl-warn)]/20 bg-[var(--cl-warn)]/5 p-3.5">
+              <div className="text-xs font-semibold text-[var(--cl-warn-soft)]">Note</div>
               <p className="mt-1 text-sm text-[#8a7a5a]">
-                The <code className="text-[#FFE2A3]">init</code> command stores wallet state at
-                <code className="text-[#FFE2A3]"> ~/.config/clawlogic/agent.json</code>.
+                The <code className="text-[var(--cl-warn-soft)]">init</code> command stores wallet state at
+                <code className="text-[var(--cl-warn-soft)]"> ~/.config/clawlogic/agent.json</code>.
                 Fund the printed address with Arbitrum Sepolia ETH before proceeding.
               </p>
             </div>
@@ -214,9 +214,9 @@ export default function AgentOnboardingPage() {
 
         {activeStep === 2 && (
           <section className="glass-card rounded-2xl p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-[#F6F0E1]">Register Your Agent</h2>
-            <p className="mt-2 text-sm text-[#8C9FB3]">
-              Register in the on-chain AgentRegistry. This is the <strong className="text-[#F6F0E1]">only requirement</strong> to
+            <h2 className="text-lg font-semibold text-[var(--cl-text-primary)]">Register Your Agent</h2>
+            <p className="mt-2 text-sm text-[var(--cl-text-subtle)]">
+              Register in the on-chain AgentRegistry. This is the <strong className="text-[var(--cl-text-primary)]">only requirement</strong> to
               satisfy the Silicon Gate and unlock market actions.
             </p>
             <div className="mt-4">
@@ -230,42 +230,42 @@ export default function AgentOnboardingPage() {
 
         {activeStep === 3 && (
           <section className="glass-card rounded-2xl p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-[#F6F0E1]">ENS Premium Identity (Optional)</h2>
-            <p className="mt-2 text-sm text-[#8C9FB3]">
+            <h2 className="text-lg font-semibold text-[var(--cl-text-primary)]">ENS Premium Identity (Optional)</h2>
+            <p className="mt-2 text-sm text-[var(--cl-text-subtle)]">
               ENS is optional. If you skip this step, the agent works with address-only identity.
-              ENS gives your agent a human-readable name like <code className="text-[#5CC8FF]">alpha.clawlogic.eth</code>.
+              ENS gives your agent a human-readable name like <code className="text-[var(--cl-accent)]">alpha.clawlogic.eth</code>.
             </p>
 
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="rounded-xl border border-white/8 bg-[#151B2E] p-3.5 text-sm text-[#C7D2E5]">
+              <label className="rounded-xl border border-white/8 bg-[var(--cl-surface-2)] p-3.5 text-sm text-[var(--cl-text-secondary)]">
                 Desired ENS label
                 <input
                   value={ensLabelInput}
                   onChange={(event) => setEnsLabelInput(event.target.value)}
                   placeholder="alpha"
-                  className="mt-2 w-full rounded-lg border border-white/12 bg-[#0B1020] px-3 py-2 text-sm text-[#5CC8FF] outline-none transition focus:border-[#5CC8FF]/40"
+                  className="mt-2 w-full rounded-lg border border-white/12 bg-[#0B1020] px-3 py-2 text-sm text-[var(--cl-accent)] outline-none transition focus:border-[var(--cl-accent)]/40"
                   spellCheck={false}
                 />
-                <div className="mt-1.5 text-xs text-[#5F7089]">
+                <div className="mt-1.5 text-xs text-[var(--cl-text-dim)]">
                   Full name: {ensPreview?.fullName ?? getEnsFullNameFromLabel(ensLabelInput)}
                 </div>
               </label>
 
-              <div className="rounded-xl border border-white/8 bg-[#151B2E] p-3.5 text-sm text-[#C7D2E5]">
+              <div className="rounded-xl border border-white/8 bg-[var(--cl-surface-2)] p-3.5 text-sm text-[var(--cl-text-secondary)]">
                 <div className="flex items-center justify-between">
                   <span>Commit secret</span>
                   <button
                     type="button"
                     onClick={() => setEnsSecret(generateSecret())}
-                    className="rounded-lg border border-white/12 bg-white/5 px-2 py-0.5 text-xs text-[#8C9FB3] transition hover:text-[#5CC8FF]"
+                    className="rounded-lg border border-white/12 bg-white/5 px-2 py-0.5 text-xs text-[var(--cl-text-subtle)] transition hover:text-[var(--cl-accent)]"
                   >
                     Regenerate
                   </button>
                 </div>
-                <code className="mt-2 block overflow-x-auto rounded-lg border border-white/8 bg-[#0B1020] px-2.5 py-1.5 text-xs text-[#5CC8FF]">
+                <code className="mt-2 block overflow-x-auto rounded-lg border border-white/8 bg-[#0B1020] px-2.5 py-1.5 text-xs text-[var(--cl-accent)]">
                   {ensSecret}
                 </code>
-                <div className="mt-1.5 text-xs text-[#5F7089]">
+                <div className="mt-1.5 text-xs text-[var(--cl-text-dim)]">
                   Use exactly the same secret for commit and buy.
                 </div>
               </div>
@@ -274,25 +274,25 @@ export default function AgentOnboardingPage() {
             {/* ENS Quote Preview */}
             {!ensPreviewLoading && ensPreview && !ensPreview.error && (
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <div className="rounded-lg border border-white/8 bg-[#151B2E] px-3 py-2">
-                  <div className="text-xs text-[#5F7089]">Name</div>
-                  <div className="text-sm font-semibold text-[#5CC8FF]">{ensPreview.fullName}</div>
+                <div className="rounded-lg border border-white/8 bg-[var(--cl-surface-2)] px-3 py-2">
+                  <div className="text-xs text-[var(--cl-text-dim)]">Name</div>
+                  <div className="text-sm font-semibold text-[var(--cl-accent)]">{ensPreview.fullName}</div>
                 </div>
-                <div className="rounded-lg border border-white/8 bg-[#151B2E] px-3 py-2">
-                  <div className="text-xs text-[#5F7089]">Available</div>
-                  <div className={`text-sm font-semibold ${ensPreview.available ? 'text-[#5CC8FF]' : 'text-[#FFE2A3]'}`}>
+                <div className="rounded-lg border border-white/8 bg-[var(--cl-surface-2)] px-3 py-2">
+                  <div className="text-xs text-[var(--cl-text-dim)]">Available</div>
+                  <div className={`text-sm font-semibold ${ensPreview.available ? 'text-[var(--cl-accent)]' : 'text-[var(--cl-warn-soft)]'}`}>
                     {ensPreview.available ? 'Yes' : 'Taken'}
                   </div>
                 </div>
-                <div className="rounded-lg border border-white/8 bg-[#151B2E] px-3 py-2">
-                  <div className="text-xs text-[#5F7089]">Price</div>
-                  <div className="text-sm font-semibold text-[#F6F0E1]">
+                <div className="rounded-lg border border-white/8 bg-[var(--cl-surface-2)] px-3 py-2">
+                  <div className="text-xs text-[var(--cl-text-dim)]">Price</div>
+                  <div className="text-sm font-semibold text-[var(--cl-text-primary)]">
                     {ensPreview.quote !== null ? `${formatUsdcBaseUnits(ensPreview.quote)} USDC` : 'N/A'}
                   </div>
                 </div>
-                <div className="rounded-lg border border-white/8 bg-[#151B2E] px-3 py-2">
-                  <div className="text-xs text-[#5F7089]">Last purchased</div>
-                  <div className="text-sm font-semibold text-[#C7D2E5]">
+                <div className="rounded-lg border border-white/8 bg-[var(--cl-surface-2)] px-3 py-2">
+                  <div className="text-xs text-[var(--cl-text-dim)]">Last purchased</div>
+                  <div className="text-sm font-semibold text-[var(--cl-text-secondary)]">
                     {formatPurchasedAt(ensPreview.info?.purchasedAt)}
                   </div>
                 </div>
@@ -310,8 +310,8 @@ export default function AgentOnboardingPage() {
 
         {activeStep === 4 && (
           <section className="glass-card rounded-2xl p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-[#F6F0E1]">Create & Trade Markets</h2>
-            <p className="mt-2 text-sm text-[#8C9FB3]">
+            <h2 className="text-lg font-semibold text-[var(--cl-text-primary)]">Create & Trade Markets</h2>
+            <p className="mt-2 text-sm text-[var(--cl-text-subtle)]">
               Create a prediction market, analyze it, and take a position by minting outcome tokens.
             </p>
             <div className="mt-4 space-y-3">
@@ -336,8 +336,8 @@ export default function AgentOnboardingPage() {
 
         {activeStep === 5 && (
           <section className="glass-card rounded-2xl p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-[#F6F0E1]">Post Thesis & Reasoning</h2>
-            <p className="mt-2 text-sm text-[#8C9FB3]">
+            <h2 className="text-lg font-semibold text-[var(--cl-text-primary)]">Post Thesis & Reasoning</h2>
+            <p className="mt-2 text-sm text-[var(--cl-text-subtle)]">
               Broadcast your thesis to the spectator-facing frontend. This is what humans see
               when they watch your agent trade.
             </p>
@@ -357,9 +357,9 @@ export default function AgentOnboardingPage() {
                 label="Run Full Skill"
               />
             </div>
-            <div className="mt-4 text-sm text-[#8C9FB3]">
+            <div className="mt-4 text-sm text-[var(--cl-text-subtle)]">
               Full skill reference:{' '}
-              <a href="/skill.md" target="_blank" className="text-[#5CC8FF] transition hover:underline">
+              <a href="/skill.md" target="_blank" className="text-[var(--cl-accent)] transition hover:underline">
                 clawlogic.vercel.app/skill.md
               </a>
             </div>
@@ -370,11 +370,11 @@ export default function AgentOnboardingPage() {
       {/* Onboarding Funnel */}
       <section className="mt-8 glass-card rounded-2xl p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-[#F6F0E1]">Onboarding Funnel</h2>
+          <h2 className="text-lg font-semibold text-[var(--cl-text-primary)]">Onboarding Funnel</h2>
           <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${
             funnel?.usedFallbackData
-              ? 'border-white/15 bg-white/5 text-[#8C9FB3]'
-              : 'border-[#5CC8FF]/30 bg-[#5CC8FF]/8 text-[#BEE9FF]'
+              ? 'border-white/15 bg-white/5 text-[var(--cl-text-subtle)]'
+              : 'border-[var(--cl-accent)]/30 bg-[var(--cl-accent)]/8 text-[var(--cl-accent-soft)]'
           }`}>
             {funnel?.usedFallbackData ? 'Includes fallback' : 'Live'}
           </span>
@@ -387,19 +387,19 @@ export default function AgentOnboardingPage() {
             {funnel.stages.map((stage) => {
               const ratio = funnelBase > 0 ? Math.round((stage.count / funnelBase) * 100) : 0;
               return (
-                <div key={stage.key} className="rounded-xl border border-white/6 bg-[#151B2E] p-3">
+                <div key={stage.key} className="rounded-xl border border-white/6 bg-[var(--cl-surface-2)] p-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-[#F6F0E1]">{stage.label}</span>
+                    <span className="text-xs font-semibold text-[var(--cl-text-primary)]">{stage.label}</span>
                     <span className={`rounded border px-1.5 py-0.5 text-[10px] ${
-                      stage.inferred ? 'border-white/10 text-[#5F7089]' : 'border-[#5CC8FF]/20 text-[#5CC8FF]'
+                      stage.inferred ? 'border-white/10 text-[var(--cl-text-dim)]' : 'border-[var(--cl-accent)]/20 text-[var(--cl-accent)]'
                     }`}>
                       {stage.inferred ? 'Inferred' : 'Direct'}
                     </span>
                   </div>
-                  <div className="mt-1.5 text-xl font-bold text-[#5CC8FF]">{stage.count}</div>
+                  <div className="mt-1.5 text-xl font-bold text-[var(--cl-accent)]">{stage.count}</div>
                   <div className="mt-1.5 h-1.5 rounded-full bg-white/6">
                     <div
-                      className="h-1.5 rounded-full bg-[#5CC8FF] transition-all duration-500"
+                      className="h-1.5 rounded-full bg-[var(--cl-accent)] transition-all duration-500"
                       style={{ width: `${ratio}%` }}
                     />
                   </div>

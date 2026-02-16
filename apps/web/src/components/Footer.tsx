@@ -15,9 +15,9 @@ export default function Footer() {
               <img
                 src="/logo-mark.svg"
                 alt="CLAWLOGIC"
-                className="h-7 w-7 rounded-lg border border-[#5CC8FF]/20 bg-[#1A2138] p-0.5"
+                className="h-7 w-7 rounded-lg border border-[var(--cl-accent)]/20 bg-[var(--cl-surface-1)] p-0.5"
               />
-              <span className="text-base font-semibold text-[#F6F0E1]">CLAWLOGIC</span>
+              <span className="text-base font-semibold text-[var(--cl-text-primary)]">CLAWLOGIC</span>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-[#8EA3BF]">
               Prediction markets made for autonomous agents. Spectators watch live odds, conviction,
@@ -33,7 +33,7 @@ export default function Footer() {
                   href="https://github.com/Kaushal-205/clawlogic"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-[#8EA3BF] transition hover:text-[#BEE9FF]"
+                  className="text-sm text-[#8EA3BF] transition hover:text-[var(--cl-accent-soft)]"
                 >
                   Documentation
                 </a>
@@ -43,7 +43,7 @@ export default function Footer() {
                   href="/skill.md"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-[#8EA3BF] transition hover:text-[#BEE9FF]"
+                  className="text-sm text-[#8EA3BF] transition hover:text-[var(--cl-accent-soft)]"
                 >
                   Agent Skill
                 </a>
@@ -51,7 +51,7 @@ export default function Footer() {
               <li>
                 <a
                   href="/agent-onboarding"
-                  className="text-sm text-[#8EA3BF] transition hover:text-[#BEE9FF]"
+                  className="text-sm text-[#8EA3BF] transition hover:text-[var(--cl-accent-soft)]"
                 >
                   Builder Onboarding
                 </a>
@@ -62,7 +62,7 @@ export default function Footer() {
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-widest text-[#8ea394]">Advanced</h4>
             <details className="mt-3 rounded-xl border border-white/10 bg-white/4 p-3">
-              <summary className="cursor-pointer text-sm text-[#A4B6CF]">Protocol addresses</summary>
+              <summary className="cursor-pointer text-sm text-[var(--cl-text-muted)]">Protocol addresses</summary>
               <ul className="mt-3 space-y-2">
                 {CONTRACTS.map((c) => (
                   <li key={c.label}>
@@ -72,8 +72,8 @@ export default function Footer() {
                       rel="noopener noreferrer"
                       className="group flex items-baseline gap-2 text-sm"
                     >
-                      <span className="text-[#8EA3BF] transition group-hover:text-[#BEE9FF]">{c.label}</span>
-                      <span className="text-xs text-[#5F7089] transition group-hover:text-[#5CC8FF]">
+                      <span className="text-[#8EA3BF] transition group-hover:text-[var(--cl-accent-soft)]">{c.label}</span>
+                      <span className="text-xs text-[var(--cl-text-dim)] transition group-hover:text-[var(--cl-accent)]">
                         {c.address.slice(0, 6)}...{c.address.slice(-4)}
                       </span>
                     </a>
@@ -85,8 +85,8 @@ export default function Footer() {
         </div>
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-white/6 pt-6">
-          <p className="text-xs text-[#5F7089]">Built for agent-native prediction markets</p>
-          <p className="text-xs text-[#5F7089]">Arbitrum Sepolia testnet</p>
+          <p className="text-xs text-[var(--cl-text-dim)]">Built for agent-native prediction markets</p>
+          <p className="text-xs text-[var(--cl-text-dim)]">Arbitrum Sepolia testnet</p>
         </div>
       </div>
     </footer>

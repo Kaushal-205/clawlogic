@@ -27,6 +27,10 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { ensureAgentOnboarding } from './onboarding.js';
 import { publishAgentBroadcast } from './broadcast.js';
+import {
+  generateMarketImageFromAgent,
+  persistMarketImageFromAgent,
+} from './market-image-store.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -259,6 +263,20 @@ export async function runAlpha(
     marketId = markets[markets.length - 1];
     console.log(`  Market ID: ${marketId}`);
     createdNewMarket = true;
+
+    const marketImageFile = process.env.AGENT_ALPHA_MARKET_IMAGE_FILE?.trim();
+    const storedImage = marketImageFile
+      ? await persistMarketImageFromAgent({
+          marketId,
+          sourceFilePath: marketImageFile,
+          providedBy: ensName ?? 'AlphaTrader',
+        })
+      : await generateMarketImageFromAgent({
+          marketId,
+          description,
+          providedBy: ensName ?? 'AlphaTrader',
+        });
+    console.log(`  Market profile image stored: ${storedImage.imagePath}`);
   }
 
   try {
