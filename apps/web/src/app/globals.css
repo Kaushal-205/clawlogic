@@ -26,13 +26,18 @@ body {
 }
 
 body {
-  font-family: var(--font-ibm-mono), 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Source Code Pro', ui-monospace, monospace;
+  font-family: 'Sora', 'Manrope', 'Avenir Next', 'Segoe UI', 'Helvetica Neue', sans-serif;
   background: var(--background);
   color: var(--foreground);
   overflow-x: hidden;
   position: relative;
   font-size: 15px;
   line-height: 1.45;
+}
+
+code,
+pre {
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
 }
 
 /* Animated grid background */

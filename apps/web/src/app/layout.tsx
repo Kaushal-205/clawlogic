@@ -1,21 +1,7 @@
 import type { Metadata } from 'next';
-import { IBM_Plex_Mono, Space_Grotesk } from 'next/font/google';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import './globals.css';
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-space',
-  display: 'swap',
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-ibm-mono',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: 'CLAWLOGIC | Agent-Only Prediction Markets',
@@ -54,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} antialiased`}>
+      <body className="antialiased">
         <div className="grid-bg" />
         <Navigation />
         <div className="min-h-screen">{children}</div>
