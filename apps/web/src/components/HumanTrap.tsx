@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { ClawlogicConfig } from '@clawlogic/sdk';
+import { DEFAULT_CONFIG, NETWORK_LABEL } from '@/lib/client';
 
 interface HumanTrapProps {
   config: ClawlogicConfig;
@@ -24,7 +25,7 @@ const CONNECT_LINES = [
   { text: '> Initializing wallet connection...', delay: 300 },
   { text: '> Requesting eth_requestAccounts...', delay: 600 },
   { text: `> Wallet connected: ${FAKE_ADDRESS}`, delay: 400 },
-  { text: '> Chain ID: 421614 (Arbitrum Sepolia)', delay: 200 },
+  { text: `> Chain ID: ${DEFAULT_CONFIG.chainId} (${NETWORK_LABEL})`, delay: 200 },
 ];
 
 const CHECK_LINES = [

@@ -6,10 +6,11 @@ import type { ClawlogicConfig } from '../types.js';
 import { createConfig } from '../config.js';
 import { ClawlogicClient } from '../client.js';
 import {
-  DEFAULT_CHAIN_ID,
-  DEFAULT_CONTRACTS,
-  DEFAULT_RPC_URL,
+  DEFAULT_NETWORK,
   DEFAULT_STATE_PATH,
+  NETWORKS,
+  ZERO_ADDRESS,
+  type NetworkName,
 } from './constants.js';
 
 interface PersistedState {
@@ -17,6 +18,8 @@ interface PersistedState {
   privateKey: `0x${string}`;
   address: `0x${string}`;
   createdAt: string;
+  /** Network the saved rpcUrl/contracts belong to (absent = arbitrum-sepolia). */
+  network?: NetworkName;
   rpcUrl?: string;
   contracts?: Partial<ClawlogicConfig['contracts']>;
 }
@@ -55,6 +58,7 @@ export async function createRuntime(
       privateKey: generated,
       address,
       createdAt: new Date().toISOString(),
+      network: state?.network,
       rpcUrl: state?.rpcUrl,
       contracts: state?.contracts,
     };
@@ -83,29 +87,52 @@ export async function createRuntime(
   };
 }
 
+export function resolveNetwork(value = process.env.CLAWLOGIC_NETWORK): NetworkName {
+  const name = value?.trim().toLowerCase() || DEFAULT_NETWORK;
+  if (!(name in NETWORKS)) {
+    throw new Error(
+      `Unknown CLAWLOGIC_NETWORK "${value}". Expected one of: ${Object.keys(NETWORKS).join(', ')}.`,
+    );
+  }
+  return name as NetworkName;
+}
+
 function resolveConfig(state: PersistedState | null): ClawlogicConfig {
+  const networkName = resolveNetwork();
+  const network = NETWORKS[networkName];
+  // State saved by older CLI versions has no network and was always testnet.
+  const stateMatches = (state?.network ?? DEFAULT_NETWORK) === networkName;
+  const saved = stateMatches ? state : null;
+
   const rpcUrl =
-    process.env.ARBITRUM_SEPOLIA_RPC_URL ??
+    process.env[network.rpcEnvVar] ??
     process.env.CLAWLOGIC_RPC_URL ??
-    state?.rpcUrl ??
-    DEFAULT_RPC_URL;
+    saved?.rpcUrl ??
+    network.rpcUrl;
 
   const agentRegistry =
     process.env.AGENT_REGISTRY ??
-    state?.contracts?.agentRegistry ??
-    DEFAULT_CONTRACTS.agentRegistry;
+    saved?.contracts?.agentRegistry ??
+    network.contracts.agentRegistry;
   const predictionMarketHook =
     process.env.PREDICTION_MARKET_HOOK ??
-    state?.contracts?.predictionMarketHook ??
-    DEFAULT_CONTRACTS.predictionMarketHook;
+    saved?.contracts?.predictionMarketHook ??
+    network.contracts.predictionMarketHook;
   const poolManager =
     process.env.V4_POOL_MANAGER ??
-    state?.contracts?.poolManager ??
-    DEFAULT_CONTRACTS.poolManager;
+    saved?.contracts?.poolManager ??
+    network.contracts.poolManager;
   const optimisticOracleV3 =
     process.env.UMA_OOV3 ??
-    state?.contracts?.optimisticOracleV3 ??
-    DEFAULT_CONTRACTS.optimisticOracleV3;
+    saved?.contracts?.optimisticOracleV3 ??
+    network.contracts.optimisticOracleV3;
+
+  if (agentRegistry === ZERO_ADDRESS || predictionMarketHook === ZERO_ADDRESS) {
+    throw new Error(
+      `CLAWLOGIC is not configured for ${network.label} yet. ` +
+        'Set AGENT_REGISTRY and PREDICTION_MARKET_HOOK to the deployed addresses.',
+    );
+  }
 
   return createConfig(
     {
@@ -114,7 +141,7 @@ function resolveConfig(state: PersistedState | null): ClawlogicConfig {
       poolManager: poolManager as `0x${string}`,
       optimisticOracleV3: optimisticOracleV3 as `0x${string}`,
     },
-    DEFAULT_CHAIN_ID,
+    network.chainId,
     rpcUrl,
   );
 }

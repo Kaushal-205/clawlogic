@@ -53,9 +53,15 @@ import {AgentReputationRegistry} from "../src/erc8004/AgentReputationRegistry.so
 ///
 ///      Required environment variables:
 ///        PRIVATE_KEY               -- EOA that broadcasts the transactions
+///                                     (DEPLOYER_PRIVATE_KEY is accepted as a fallback)
 ///        V4_POOL_MANAGER           -- Uniswap V4 PoolManager address
 ///
-///      Optional (auto-deploys mocks if missing):
+///      Production chains (Arbitrum One, or PRODUCTION=true) never deploy mocks:
+///        UMA_OOV3 and UMA_BOND_CURRENCY are required, DEFAULT_LIVENESS must be
+///        >= 7200 (the default there), and an unset ENS_REGISTRY / PHALA_VERIFIER
+///        disables that feature instead of deploying a permissive mock.
+///
+///      Optional on testnets (auto-deploys mocks if missing):
 ///        UMA_OOV3                  -- UMA Optimistic Oracle V3 address
 ///        UMA_BOND_CURRENCY         -- ERC-20 bond currency address
 ///        ENS_REGISTRY              -- ENS Registry address
@@ -79,15 +85,32 @@ contract DeployScript is Script {
     /// @dev Default liveness window for UMA assertions (seconds). 120 s = 2 minutes for demo.
     uint64 constant DEFAULT_LIVENESS = 120;
 
+    /// @dev Default and minimum liveness on production chains (UMA's standard 2 hours).
+    ///      A short window gives disputers no realistic chance to react.
+    uint64 constant PRODUCTION_LIVENESS = 7200;
+
+    /// @dev Arbitrum One chain ID.
+    uint256 constant ARBITRUM_ONE_CHAIN_ID = 42_161;
+
     // -------------------------------------------------------------------------
     // Script entry point
     // -------------------------------------------------------------------------
 
     function run() external {
         // ── 1. Read environment variables ───────────────────────────────────
-        uint256 deployerPk = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPk =
+            vm.envExists("PRIVATE_KEY") ? vm.envUint("PRIVATE_KEY") : vm.envUint("DEPLOYER_PRIVATE_KEY");
         address poolManager = vm.envAddress("V4_POOL_MANAGER");
-        uint64 liveness = uint64(vm.envOr("DEFAULT_LIVENESS", uint256(DEFAULT_LIVENESS)));
+
+        // On production chains mocks are never deployed: a mock oracle lets anyone settle
+        // markets and the mock TEE verifier accepts every attestation.
+        bool production = block.chainid == ARBITRUM_ONE_CHAIN_ID || vm.envOr("PRODUCTION", false);
+        uint64 liveness = uint64(
+            vm.envOr("DEFAULT_LIVENESS", uint256(production ? PRODUCTION_LIVENESS : DEFAULT_LIVENESS))
+        );
+        if (production) {
+            require(liveness >= PRODUCTION_LIVENESS, "Deploy: DEFAULT_LIVENESS below 7200s on a production chain");
+        }
 
         address deployer = vm.addr(deployerPk);
 
@@ -97,6 +120,7 @@ contract DeployScript is Script {
         console2.log("Deployer:        ", deployer);
         console2.log("PoolManager:     ", poolManager);
         console2.log("Liveness (s):    ", uint256(liveness));
+        console2.log("Production:      ", production);
         console2.log("");
 
         // ── 2. Deploy infrastructure mocks (if not provided) ─────────────
@@ -105,6 +129,7 @@ contract DeployScript is Script {
         // 2a. UMA OOV3
         address umaOov3 = vm.envOr("UMA_OOV3", address(0));
         if (umaOov3 == address(0)) {
+            require(!production, "Deploy: UMA_OOV3 is required on production chains");
             DeployableMockOOV3 mockOO = new DeployableMockOOV3();
             umaOov3 = address(mockOO);
             console2.log("[mock] MockOOV3:          ", umaOov3);
@@ -115,6 +140,7 @@ contract DeployScript is Script {
         // 2b. Bond currency
         address bondCurrency = vm.envOr("UMA_BOND_CURRENCY", address(0));
         if (bondCurrency == address(0)) {
+            require(!production, "Deploy: UMA_BOND_CURRENCY is required on production chains");
             MockERC20 mockCurrency = new MockERC20("Mock Bond WETH", "mbWETH");
             bondCurrency = address(mockCurrency);
             console2.log("[mock] BondCurrency:      ", bondCurrency);
@@ -123,8 +149,11 @@ contract DeployScript is Script {
         }
 
         // 2c. ENS Registry
+        // On production chains an unset ENS_REGISTRY disables ENS linkage (address(0)).
         address ensRegistryAddr = vm.envOr("ENS_REGISTRY", address(0));
-        if (ensRegistryAddr == address(0)) {
+        if (production) {
+            console2.log("[ext]  ENSRegistry:       ", ensRegistryAddr);
+        } else if (ensRegistryAddr == address(0)) {
             MockENSRegistry mockENS = new MockENSRegistry();
             ensRegistryAddr = address(mockENS);
             console2.log("[mock] ENSRegistry:       ", ensRegistryAddr);
@@ -133,8 +162,12 @@ contract DeployScript is Script {
         }
 
         // 2d. Phala TEE Verifier
+        // On production chains an unset PHALA_VERIFIER leaves TEE validation disabled
+        // (every verification reverts) instead of accepting everything.
         address phalaVerifierAddr = vm.envOr("PHALA_VERIFIER", address(0));
-        if (phalaVerifierAddr == address(0)) {
+        if (production) {
+            console2.log("[ext]  PhalaVerifier:     ", phalaVerifierAddr);
+        } else if (phalaVerifierAddr == address(0)) {
             // Deploy mock with defaultReturn=true (all attestations pass for demo)
             MockPhalaVerifier mockVerifier = new MockPhalaVerifier(true);
             phalaVerifierAddr = address(mockVerifier);
@@ -306,6 +339,8 @@ contract DeployScript is Script {
         string memory fileName;
         if (block.chainid == 421_614) {
             fileName = "arbitrum-sepolia.json";
+        } else if (block.chainid == ARBITRUM_ONE_CHAIN_ID) {
+            fileName = "arbitrum-one.json";
         } else {
             fileName = string.concat("chain-", vm.toString(block.chainid), ".json");
         }

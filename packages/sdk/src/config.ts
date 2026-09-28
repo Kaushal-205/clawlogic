@@ -32,6 +32,40 @@ export const ARBITRUM_SEPOLIA_CONFIG: ClawlogicConfig = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Arbitrum One (mainnet)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Arbitrum One chain ID.
+ */
+export const ARBITRUM_ONE_CHAIN_ID = 42161;
+
+/**
+ * Default RPC URL for Arbitrum One. Rate limited -- use a dedicated provider
+ * (Alchemy, Infura, QuickNode, ...) in production.
+ */
+export const ARBITRUM_ONE_RPC_URL = 'https://arb1.arbitrum.io/rpc';
+
+/**
+ * Default configuration for Arbitrum One mainnet.
+ *
+ * `poolManager` (Uniswap v4) and `optimisticOracleV3` (UMA) are the canonical
+ * Arbitrum One deployments. The CLAWLOGIC contract addresses are placeholders
+ * until the protocol is deployed to mainnet; pass the real ones via
+ * `createConfig()` / `loadConfigFromDeployment()` or the CLI env vars.
+ */
+export const ARBITRUM_ONE_CONFIG: ClawlogicConfig = {
+  chainId: ARBITRUM_ONE_CHAIN_ID,
+  rpcUrl: ARBITRUM_ONE_RPC_URL,
+  contracts: {
+    agentRegistry: '0x0000000000000000000000000000000000000000',
+    predictionMarketHook: '0x0000000000000000000000000000000000000000',
+    poolManager: '0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32',
+    optimisticOracleV3: '0xa6147867264374F324524E30C02C331cF28aa879',
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Circle Arc Testnet
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -96,6 +130,7 @@ export const ARC_TESTNET_CONFIG: ClawlogicConfig = {
  *
  * @param deployment - The parsed deployment info object.
  * @param rpcUrl - Optional RPC URL override. Defaults based on chain ID:
+ *                 - Arbitrum One (42161) -> Arbitrum One public RPC
  *                 - Arc testnet (5042002) -> Arc testnet RPC
  *                 - All others -> Arbitrum Sepolia public RPC
  * @returns A ClawlogicConfig ready for use with the ClawlogicClient.
@@ -105,9 +140,11 @@ export function loadConfigFromDeployment(
   rpcUrl?: string,
 ): ClawlogicConfig {
   const defaultRpc =
-    deployment.chainId === ARC_TESTNET_CHAIN_ID
-      ? ARC_TESTNET_RPC_URL
-      : ARBITRUM_SEPOLIA_RPC_URL;
+    deployment.chainId === ARBITRUM_ONE_CHAIN_ID
+      ? ARBITRUM_ONE_RPC_URL
+      : deployment.chainId === ARC_TESTNET_CHAIN_ID
+        ? ARC_TESTNET_RPC_URL
+        : ARBITRUM_SEPOLIA_RPC_URL;
 
   const zero = '0x0000000000000000000000000000000000000000' as `0x${string}`;
 

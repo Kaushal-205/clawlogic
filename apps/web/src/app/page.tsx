@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ARBITRUM_SEPOLIA_RPC_URL, createConfig, type AgentInfo } from '@clawlogic/sdk';
+import { type AgentInfo } from '@clawlogic/sdk';
 import Link from 'next/link';
 import AgentFeed from '@/components/AgentFeed';
 import MarketList from '@/components/MarketList';
 import {
+  DEFAULT_CONFIG,
   DEMO_AGENTS,
   getAgentBroadcasts,
   getAgentDisplayIdentity,
@@ -13,16 +14,7 @@ import {
 } from '@/lib/client';
 import { getAgentLabel } from '@/lib/market-view';
 
-const DEPLOYED_CONFIG = createConfig(
-  {
-    agentRegistry: '0xd0B1864A1da6407A7DE5a08e5f82352b5e230cd3',
-    predictionMarketHook: '0xB3C4a85906493f3Cf0d59e891770Bb2e77FA8880',
-    poolManager: '0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317',
-    optimisticOracleV3: '0x9023B0bB4E082CDcEdFA2b3671371646f4C5FBFb',
-  },
-  421614,
-  ARBITRUM_SEPOLIA_RPC_URL,
-);
+const DEPLOYED_CONFIG = DEFAULT_CONFIG;
 
 const ASCII_LOGO = `
  ██████╗██╗      █████╗ ██╗    ██╗██╗      ██████╗  ██████╗ ██╗ ██████╗
@@ -292,7 +284,7 @@ function AgentHighlights() {
 }
 
 export default function Home() {
-  const [rpcUrl] = useState(ARBITRUM_SEPOLIA_RPC_URL);
+  const [rpcUrl] = useState(DEFAULT_CONFIG.rpcUrl);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const config = useMemo(() => {

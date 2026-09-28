@@ -2,10 +2,10 @@
 
 import { spawn } from 'node:child_process';
 import { formatEther, parseEther } from 'viem';
-import { createRuntime } from './runtime.js';
+import { createRuntime, resolveNetwork } from './runtime.js';
 import { getBoolFlag, getFlag, parseArgs } from './args.js';
 import { outputError, outputSuccess, ensure, shortAddress } from './output.js';
-import { NPM_UPGRADE_COMMAND } from './constants.js';
+import { NETWORKS, NPM_UPGRADE_COMMAND } from './constants.js';
 
 type BroadcastType =
   | 'MarketBroadcast'
@@ -50,7 +50,7 @@ async function commandInit(): Promise<void> {
     next:
       balance > 0n
         ? 'Wallet funded. You can register with `clawlogic-agent register --name <ens-or-name>`.'
-        : `Fund ${address} on Arbitrum Sepolia, then run \`clawlogic-agent doctor\`.`,
+        : `Fund ${address} on ${NETWORKS[resolveNetwork()].label}, then run \`clawlogic-agent doctor\`.`,
   });
 }
 
@@ -564,6 +564,8 @@ function printHelp(): void {
       'run',
       'upgrade-sdk',
     ],
+    networks: Object.keys(NETWORKS),
+    networkEnv: 'CLAWLOGIC_NETWORK (default: arbitrum-sepolia)',
   });
 }
 

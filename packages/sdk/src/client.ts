@@ -44,6 +44,18 @@ const arbitrumSepolia: Chain = {
   testnet: true,
 };
 
+const arbitrumOne: Chain = {
+  id: 42161,
+  name: 'Arbitrum One',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://arb1.arbitrum.io/rpc'] },
+  },
+  blockExplorers: {
+    default: { name: 'Arbiscan', url: 'https://arbiscan.io' },
+  },
+};
+
 const ZERO_BYTES32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
 const ZERO_ADDRESS =
@@ -65,9 +77,10 @@ function resolveEnsNode(ensNodeOrName: `0x${string}` | string): `0x${string}` {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildChain(config: ClawlogicConfig): Chain {
-  if (config.chainId === 421614) {
+  const known = [arbitrumSepolia, arbitrumOne].find((chain) => chain.id === config.chainId);
+  if (known) {
     return {
-      ...arbitrumSepolia,
+      ...known,
       rpcUrls: {
         default: { http: [config.rpcUrl] },
       },
