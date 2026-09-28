@@ -1,85 +1,45 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ClawlogicConfig, MarketInfo, MarketProbability } from '@clawlogic/sdk';
-import { ClawlogicClient } from '@clawlogic/sdk';
+import { useMemo, useState } from 'react';
+import type { MarketInfo, MarketProbability } from '@clawlogic/sdk';
 import MarketCard from './MarketCard';
-import { DEMO_MARKETS, getAgentBroadcasts, type AgentBroadcast } from '@/lib/client';
-import { getLatestMarketEvents } from '@/lib/market-view';
+import { Switch } from './ui';
+import type { AgentBroadcast } from '@/lib/client';
+import type { ChainStatus } from '@/lib/use-clawlogic-data';
+import { getLatestMarketEvents, getMarketStatus, type MarketStatus } from '@/lib/market-view';
 
 interface MarketListProps {
-  config: ClawlogicConfig;
-  showAdvanced?: boolean;
+  markets: MarketInfo[];
+  probabilities: Record<string, MarketProbability>;
+  broadcasts: AgentBroadcast[];
+  chainStatus: ChainStatus;
+  usingSample: boolean;
+  showAdvanced: boolean;
+  onShowAdvancedChange: (next: boolean) => void;
 }
+
+type Filter = 'all' | MarketStatus;
+
+const FILTERS: Array<{ key: Filter; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'open', label: 'Open' },
+  { key: 'resolving', label: 'Resolving' },
+  { key: 'resolved', label: 'Resolved' },
+];
 
 const CLOB_ENABLED = process.env.NEXT_PUBLIC_CLOB_MATCH === 'true';
 
-export default function MarketList({ config, showAdvanced = false }: MarketListProps) {
-  const [markets, setMarkets] = useState<MarketInfo[]>([]);
-  const [probabilities, setProbabilities] = useState<Record<string, MarketProbability>>({});
-  const [broadcasts, setBroadcasts] = useState<AgentBroadcast[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [usingDemo, setUsingDemo] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+export default function MarketList({
+  markets,
+  probabilities,
+  broadcasts,
+  chainStatus,
+  usingSample,
+  showAdvanced,
+  onShowAdvancedChange,
+}: MarketListProps) {
+  const [filter, setFilter] = useState<Filter>('all');
 
-  const fetchMarkets = useCallback(async () => {
-    try {
-      const client = new ClawlogicClient(config);
-      const [allMarkets, allBroadcasts] = await Promise.all([
-        client.getAllMarkets(),
-        getAgentBroadcasts(),
-      ]);
-
-      setMarkets(allMarkets.length > 0 ? allMarkets : DEMO_MARKETS);
-      setUsingDemo(allMarkets.length === 0);
-      setBroadcasts(allBroadcasts);
-
-      const targetMarkets = allMarkets.length > 0 ? allMarkets : DEMO_MARKETS;
-      const nextProbabilities: Record<string, MarketProbability> = {};
-      await Promise.all(
-        targetMarkets.map(async (market) => {
-          try {
-            nextProbabilities[market.marketId] = await client.getMarketProbability(market.marketId);
-          } catch {
-            nextProbabilities[market.marketId] = {
-              outcome1Probability: 50,
-              outcome2Probability: 50,
-            };
-          }
-        }),
-      );
-
-      setProbabilities(nextProbabilities);
-      setLastRefresh(new Date());
-    } catch {
-      setMarkets(DEMO_MARKETS);
-      setUsingDemo(true);
-      setLastRefresh(new Date());
-      setProbabilities({});
-      try {
-        setBroadcasts(await getAgentBroadcasts());
-      } catch {
-        setBroadcasts([]);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [config]);
-
-  useEffect(() => {
-    void fetchMarkets();
-    const interval = setInterval(() => {
-      void fetchMarkets();
-    }, 12000);
-    return () => clearInterval(interval);
-  }, [fetchMarkets]);
-
-  const marketCount = markets.length;
-  const liveCount = markets.filter((item) => !item.resolved).length;
-  const totalIdeas = broadcasts.filter((event) => event.type === 'MarketBroadcast').length;
-  const totalBets = broadcasts.filter(
-    (event) => event.type === 'TradeRationale' || event.type === 'NegotiationIntent',
-  ).length;
   const sortedMarkets = useMemo(() => {
     const firstSeenByMarket = new Map<string, number>();
 
@@ -115,60 +75,91 @@ export default function MarketList({ config, showAdvanced = false }: MarketListP
       .map(({ market }) => market);
   }, [broadcasts, markets]);
 
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        <div className="h-32 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
-        <div className="h-32 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
-      </div>
-    );
-  }
+  const counts = useMemo(() => {
+    const result: Record<Filter, number> = { all: markets.length, open: 0, resolving: 0, resolved: 0 };
+    for (const market of markets) {
+      result[getMarketStatus(market)] += 1;
+    }
+    return result;
+  }, [markets]);
+
+  const visible =
+    filter === 'all' ? sortedMarkets : sortedMarkets.filter((market) => getMarketStatus(market) === filter);
 
   return (
-    <div className="space-y-4">
-      <div className="animate-card-in rounded-2xl border border-white/10 bg-gradient-to-r from-[#111111] via-[#0f0f0f] to-[#111111] p-3.5 text-sm sm:p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-1.5 sm:gap-2">
-            <span className="rounded-full border border-[#39e66a]/30 bg-[#39e66a]/12 px-2.5 py-1 text-xs font-semibold text-[#39e66a] sm:px-3 sm:text-sm">
-              {liveCount} open questions
-            </span>
-            <span className="rounded-full border border-[#39e66a]/30 bg-[#39e66a]/12 px-2.5 py-1 text-xs font-semibold text-[#39e66a] sm:px-3 sm:text-sm">
-              {totalBets} bets shared
-            </span>
-            <span className="rounded-full border border-[#ffb800]/30 bg-[#ffb800]/12 px-2.5 py-1 text-xs font-semibold text-[#ffb800] sm:px-3 sm:text-sm">
-              {totalIdeas} ideas posted
-            </span>
-            {usingDemo && (
-              <span className="rounded-full border border-white/20 bg-white/8 px-2.5 py-1 text-xs font-semibold text-[#bcc8bc] sm:px-3 sm:text-sm">
-                demo data
-              </span>
-            )}
-          </div>
-          <div className="text-xs text-[#bcc8bc] sm:text-sm">
-            {marketCount} total markets | updated {lastRefresh.toLocaleTimeString()}
-          </div>
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div>
+          <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">Markets</h2>
+          <p className="mt-1 text-sm text-muted">
+            Questions agents are betting on, with the market&apos;s current odds.
+          </p>
         </div>
+        <Switch checked={showAdvanced} onChange={onShowAdvancedChange} label="On-chain details" />
       </div>
 
-      {sortedMarkets.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/15 bg-[#111111]/80 px-6 py-10 text-center text-base text-[#bcc8bc]">
-          Waiting for agents to post the first market call.
+      <div
+        role="group"
+        aria-label="Filter markets by status"
+        className="mt-5 flex gap-1 overflow-x-auto rounded-full border border-line bg-surface p-1 sm:inline-flex"
+      >
+        {FILTERS.map((item) => {
+          const active = filter === item.key;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setFilter(item.key)}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm transition ${
+                active ? 'bg-surface-3 text-fg shadow-sm' : 'text-muted hover:text-fg'
+              }`}
+            >
+              {item.label}
+              <span className={`tabular text-xs ${active ? 'text-muted' : 'text-subtle'}`}>{counts[item.key]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {usingSample && chainStatus !== 'connecting' && (
+        <div className="mt-5 flex gap-3 rounded-xl border border-pending/25 bg-pending/[0.06] px-4 py-3 text-sm">
+          <span aria-hidden="true" className="mt-0.5 text-pending">●</span>
+          <p className="text-muted">
+            <span className="font-medium text-fg">Showing sample markets.</span>{' '}
+            {chainStatus === 'offline'
+              ? "We couldn't reach Arbitrum Sepolia, so these examples show what agents trade. The live feed is still real."
+              : 'No markets exist on-chain yet. These examples show what agents will trade.'}
+          </p>
         </div>
-      ) : (
-        <div className="space-y-3.5 sm:space-y-4">
-          {sortedMarkets.map((market, index) => (
+      )}
+
+      <div className="mt-5 space-y-4">
+        {chainStatus === 'connecting' ? (
+          <>
+            <div className="h-72 animate-pulse rounded-2xl border border-line bg-surface" />
+            <div className="h-72 animate-pulse rounded-2xl border border-line bg-surface" />
+          </>
+        ) : visible.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-line-strong px-6 py-14 text-center text-muted">
+            {markets.length === 0
+              ? 'Waiting for agents to open the first market.'
+              : `No ${filter} markets right now.`}
+          </div>
+        ) : (
+          visible.map((market, index) => (
             <MarketCard
               key={market.marketId}
               market={market}
-              index={index + 1}
+              index={index}
               probability={probabilities[market.marketId]}
               events={getLatestMarketEvents(market.marketId, broadcasts)}
               clobEnabled={CLOB_ENABLED}
               showAdvanced={showAdvanced}
             />
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 }

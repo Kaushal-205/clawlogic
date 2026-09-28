@@ -1,4 +1,32 @@
+import type { MarketInfo } from '@clawlogic/sdk';
+import { keccak256, toBytes } from 'viem';
 import type { AgentBroadcast } from '@/lib/client';
+
+const ZERO_BYTES32 =
+  '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+export const EXPLORER_URL = 'https://sepolia.arbiscan.io';
+
+export type MarketStatus = 'open' | 'resolving' | 'resolved';
+
+export function getMarketStatus(market: MarketInfo): MarketStatus {
+  if (market.resolved) return 'resolved';
+  if (market.assertedOutcomeId !== ZERO_BYTES32) return 'resolving';
+  return 'open';
+}
+
+/**
+ * Label of the outcome asserted to UMA (the winner once resolved). The hook stores
+ * keccak256(bytes(outcome)), so we match it against the market's own labels.
+ */
+export function getAssertedOutcome(market: MarketInfo): string | null {
+  if (market.assertedOutcomeId === ZERO_BYTES32) return null;
+  const asserted = market.assertedOutcomeId.toLowerCase();
+  for (const label of [market.outcome1, market.outcome2, 'Unresolvable']) {
+    if (keccak256(toBytes(label)) === asserted) return label;
+  }
+  return null;
+}
 
 export interface CrossedIntentQuote {
   yesBidBps: number;
@@ -22,6 +50,20 @@ export function getAgentLabel(event: {
     return `${event.agentAddress.slice(0, 6)}...${event.agentAddress.slice(-4)}`;
   }
   return 'Unknown agent';
+}
+
+/** Short past-tense action for a broadcast, e.g. "placed a bet". */
+export function broadcastVerb(event: AgentBroadcast): string {
+  switch (event.type) {
+    case 'TradeRationale':
+      return 'placed a bet';
+    case 'NegotiationIntent':
+      return 'signalled an intent';
+    case 'MarketBroadcast':
+      return 'posted a thesis';
+    default:
+      return 'joined the network';
+  }
 }
 
 export function parseCrossedIntentQuote(reasoning: string): CrossedIntentQuote | null {
@@ -63,6 +105,10 @@ export function formatMarketId(marketId: `0x${string}`): string {
   return `${marketId.slice(0, 8)}...${marketId.slice(-6)}`;
 }
 
+export function shortHash(value: string, head = 6, tail = 4): string {
+  return value.length <= head + tail + 1 ? value : `${value.slice(0, head)}…${value.slice(-tail)}`;
+}
+
 export function formatEthShort(value: bigint): string {
   const eth = Number(value) / 1e18;
   if (eth === 0) return '0';
@@ -83,7 +129,16 @@ export function relativeTime(timestamp: string): string {
   const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  // Past a week, a calendar date is easier to read than "232d ago".
+  const date = new Date(eventTime);
+  const sameYear = date.getFullYear() === new Date(now).getFullYear();
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  });
 }
 
 export function estimateSlippageBand(totalCollateral: bigint): 'Low' | 'Medium' | 'High' {
