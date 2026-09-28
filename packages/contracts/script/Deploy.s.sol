@@ -69,9 +69,12 @@ import {AgentReputationRegistry} from "../src/erc8004/AgentReputationRegistry.so
 ///        VALIDATION_REGISTRY       -- Pre-deployed AgentValidationRegistry
 ///        DEFAULT_LIVENESS          -- UMA liveness in seconds (default: 120)
 ///
-///      Usage:
+///      Revenue/admin (optional): PROTOCOL_OWNER, TREASURY, PROTOCOL_FEE_BPS, LP_FEE_BPS,
+///        MARKET_CREATION_FEE_WEI, ERC8004_IDENTITY_REGISTRY -- see `_configureHook`.
+///
+///      Usage (verification uses the Etherscan API v2 config in foundry.toml):
 ///        source .env && forge script script/Deploy.s.sol \
-///          --rpc-url $ARBITRUM_SEPOLIA_RPC_URL \
+///          --rpc-url arbitrum_one \
 ///          --broadcast --verify \
 ///          -vvvv
 contract DeployScript is Script {
@@ -228,7 +231,8 @@ contract DeployScript is Script {
             IAgentRegistry(address(registry)),
             OptimisticOracleV3Interface(umaOov3),
             IERC20(bondCurrency),
-            liveness
+            liveness,
+            deployer // initial owner + treasury; handed over below
         );
 
         console2.log("Mining CREATE2 salt for hook address flags...");
@@ -251,7 +255,8 @@ contract DeployScript is Script {
             IAgentRegistry(address(registry)),
             OptimisticOracleV3Interface(umaOov3),
             IERC20(bondCurrency),
-            liveness
+            liveness,
+            deployer // initial owner + treasury; handed over below
         );
 
         // 6b. Deploy AgentReputationRegistry (needs hook address as recorder)
@@ -261,6 +266,22 @@ contract DeployScript is Script {
             address(hook) // PredictionMarketHook is the authorized recorder
         );
         console2.log("ReputationRegistry:      ", address(reputationRegistry));
+
+        // 6c. Revenue + eligibility configuration (all optional).
+        _configureHook(hook);
+
+        // 6d. Hand admin rights to the final owner (e.g. a Safe). The hook uses
+        //     Ownable2Step, so the new owner must call acceptOwnership() afterwards.
+        address finalOwner = vm.envOr("PROTOCOL_OWNER", deployer);
+        if (finalOwner != deployer) {
+            hook.transferOwnership(finalOwner);
+            identityRegistry.transferOwnership(finalOwner);
+            reputationRegistry.transferOwnership(finalOwner);
+            if (address(validationRegistry) != address(0)) {
+                validationRegistry.transferOwnership(finalOwner);
+            }
+            console2.log("Ownership -> (hook: pending acceptOwnership)", finalOwner);
+        }
 
         vm.stopBroadcast();
 
@@ -293,6 +314,33 @@ contract DeployScript is Script {
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
+
+    /// @dev Applies optional env configuration to a freshly deployed hook (deployer is owner).
+    ///      TREASURY                  -- protocol fee recipient (default: deployer)
+    ///      PROTOCOL_FEE_BPS          -- protocol share of each trade (default: 100 = 1%)
+    ///      LP_FEE_BPS                -- LP share of each trade (default: 100 = 1%)
+    ///      MARKET_CREATION_FEE_WEI   -- flat fee per market (default: 0, max 0.1 ETH)
+    ///      ERC8004_IDENTITY_REGISTRY -- canonical ERC-8004 IdentityRegistry; holders may trade
+    function _configureHook(PredictionMarketHook hook) internal {
+        address treasury = vm.envOr("TREASURY", address(0));
+        if (treasury != address(0)) hook.setTreasury(treasury);
+
+        uint256 protocolFeeBps = vm.envOr("PROTOCOL_FEE_BPS", hook.s_protocolFeeBps());
+        uint256 lpFeeBps = vm.envOr("LP_FEE_BPS", hook.s_lpFeeBps());
+        hook.setFees(protocolFeeBps, lpFeeBps);
+
+        uint256 creationFee = vm.envOr("MARKET_CREATION_FEE_WEI", uint256(0));
+        if (creationFee > 0) hook.setMarketCreationFee(creationFee);
+
+        address erc8004 = vm.envOr("ERC8004_IDENTITY_REGISTRY", address(0));
+        if (erc8004 != address(0)) hook.setErc8004IdentityRegistry(erc8004);
+
+        console2.log("Treasury:                ", hook.s_treasury());
+        console2.log("Protocol fee (bps):      ", protocolFeeBps);
+        console2.log("LP fee (bps):            ", lpFeeBps);
+        console2.log("Creation fee (wei):      ", creationFee);
+        console2.log("ERC-8004 identity:       ", erc8004);
+    }
 
     /// @dev Serializes all deployment addresses to JSON.
     function _writeDeploymentJson(

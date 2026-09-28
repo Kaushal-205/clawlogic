@@ -41,6 +41,30 @@ interface IPredictionMarketHook {
         bytes32 indexed marketId, address indexed buyer, bool isOutcome1, uint256 ethIn, uint256 tokensOut
     );
 
+    /// @notice Emitted alongside MarketInitialized with the market's extra configuration.
+    event MarketConfigured(
+        bytes32 indexed marketId, address indexed creator, uint64 closeTime, bytes32 marketKey, uint256 creationFee
+    );
+
+    /// @notice Emitted when outcome token pairs are burned back into ETH before resolution.
+    event TokensMerged(bytes32 indexed marketId, address indexed agent, uint256 amount);
+
+    /// @notice Emitted when an agent sells outcome tokens back to the built-in CPMM.
+    event OutcomeTokenSold(
+        bytes32 indexed marketId, address indexed seller, bool isOutcome1, uint256 tokensIn, uint256 ethOut
+    );
+
+    /// @notice Emitted on every AMM trade with the fees it paid.
+    event TradeFeesCharged(bytes32 indexed marketId, uint256 protocolFee, uint256 lpFee);
+
+    /// @notice Emitted when liquidity is added to a market's AMM.
+    event LiquidityAdded(bytes32 indexed marketId, address indexed provider, uint256 amount, uint256 shares);
+
+    /// @notice Emitted when liquidity is withdrawn from a market's AMM.
+    event LiquidityRemoved(
+        bytes32 indexed marketId, address indexed provider, uint256 shares, uint256 amount1, uint256 amount2
+    );
+
     // ─────────────────────────────────────────────────────────────────────────
     // Errors
     // ─────────────────────────────────────────────────────────────────────────
@@ -78,6 +102,33 @@ interface IPredictionMarketHook {
     /// @notice Thrown when the output tokens from a buy are below the caller's minimum.
     error InsufficientOutput();
 
+    /// @notice Thrown when an equivalent market is still unresolved.
+    error DuplicateMarket(bytes32 existingMarketId);
+
+    /// @notice Thrown when the description is empty or the outcomes are empty/identical.
+    error InvalidMarketParams();
+
+    /// @notice Thrown when a close time is in the past.
+    error InvalidCloseTime();
+
+    /// @notice Thrown when trading after the market's close time.
+    error TradingClosed();
+
+    /// @notice Thrown when trading while an assertion is awaiting resolution.
+    error AssertionPending();
+
+    /// @notice Thrown when creation or trading is attempted while paused.
+    error ProtocolPaused();
+
+    /// @notice Thrown when msg.value does not cover the market creation fee.
+    error InsufficientCreationFee();
+
+    /// @notice Thrown when trading against a market with no AMM liquidity.
+    error NoLiquidity();
+
+    /// @notice Thrown when removing more LP shares than owned.
+    error InsufficientShares();
+
     // ─────────────────────────────────────────────────────────────────────────
     // Functions
     // ─────────────────────────────────────────────────────────────────────────
@@ -96,6 +147,66 @@ interface IPredictionMarketHook {
         uint256 reward,
         uint256 requiredBond
     ) external payable returns (bytes32 marketId);
+
+    /// @notice Create a new prediction market with an optional trading close time.
+    /// @dev msg.value pays the creation fee; the rest seeds AMM liquidity (creator gets LP shares).
+    function createMarket(
+        string calldata outcome1,
+        string calldata outcome2,
+        string calldata description,
+        uint256 reward,
+        uint256 requiredBond,
+        uint64 closeTime
+    ) external payable returns (bytes32 marketId);
+
+    /// @notice Burn `amount` of both outcome tokens for `amount` ETH before resolution.
+    function mergeOutcomeTokens(bytes32 marketId, uint256 amount) external;
+
+    /// @notice Sell outcome tokens back to the CPMM for ETH.
+    function sellOutcomeToken(bytes32 marketId, bool isOutcome1, uint256 tokensIn, uint256 minEthOut) external;
+
+    /// @notice Add ETH liquidity to a market's AMM.
+    function addLiquidity(bytes32 marketId) external payable returns (uint256 shares);
+
+    /// @notice Withdraw LP shares as outcome tokens.
+    function removeLiquidity(bytes32 marketId, uint256 shares) external returns (uint256 amount1, uint256 amount2);
+
+    /// @notice Quote a buy: tokens out and the fees paid.
+    function quoteBuy(bytes32 marketId, bool isOutcome1, uint256 ethIn)
+        external
+        view
+        returns (uint256 tokensOut, uint256 protocolFee, uint256 lpFee);
+
+    /// @notice Quote a sell: ETH out and the fees paid.
+    function quoteSell(bytes32 marketId, bool isOutcome1, uint256 tokensIn)
+        external
+        view
+        returns (uint256 ethOut, uint256 protocolFee, uint256 lpFee);
+
+    /// @notice Bond an asserter must approve for this market.
+    function getAssertionBond(bytes32 marketId) external view returns (uint256);
+
+    /// @notice Whether `account` may create markets and trade.
+    function isEligibleAgent(address account) external view returns (bool);
+
+    /// @notice The unresolved market asking this question, or zero.
+    function getMarketIdByQuestion(string calldata description, string calldata outcome1, string calldata outcome2)
+        external
+        view
+        returns (bytes32);
+
+    /// @notice Creator, close time, active assertion, LP shares, question key, trading status.
+    function getMarketInfo(bytes32 marketId)
+        external
+        view
+        returns (
+            address creator,
+            uint64 closeTime,
+            bytes32 activeAssertionId,
+            uint256 totalLpShares,
+            bytes32 marketKey,
+            bool tradingOpen
+        );
 
     /// @notice Deposit ETH collateral to mint equal amounts of both outcome tokens.
     /// @param marketId The market to mint tokens for.

@@ -17,6 +17,12 @@ arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"
 arbitrum_one = "${ARBITRUM_ONE_RPC_URL}"
 arc_testnet = "${ARC_TESTNET_RPC_URL}"
 
+# Contract verification via the Etherscan API v2 (one ETHERSCAN_API_KEY works for
+# every Etherscan-supported chain, including Arbitrum One and Arbitrum Sepolia).
+[etherscan]
+arbitrum_one = { key = "${ETHERSCAN_API_KEY}", chain = 42161, url = "https://api.etherscan.io/v2/api?chainid=42161" }
+arbitrum_sepolia = { key = "${ETHERSCAN_API_KEY}", chain = 421614, url = "https://api.etherscan.io/v2/api?chainid=421614" }
+
 [fmt]
 bracket_spacing = false
 int_types = "long"

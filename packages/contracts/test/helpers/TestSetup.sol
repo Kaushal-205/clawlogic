@@ -68,7 +68,8 @@ abstract contract TestSetup is Test {
                 registry,
                 mockOO,
                 mockCurrency,
-                DEFAULT_LIVENESS
+                DEFAULT_LIVENESS,
+                deployer
             ),
             hookAddress
         );
