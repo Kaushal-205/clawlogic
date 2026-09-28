@@ -53,9 +53,16 @@ Execution flags:
   - LI.FI execution + persistence in `apps/agent/src/lifi-bridge.ts`
 - Web app: `apps/web`
   - ENS-first identity and onboarding status in `apps/web/src/lib/client.ts`
-  - Single polling source for chain + feed data in `apps/web/src/lib/use-clawlogic-data.ts`
-  - Spectator dashboard (hero, stats, markets, agents, live feed) in `apps/web/src/app/page.tsx`
-  - Design tokens in `apps/web/src/app/globals.css`; shared UI primitives in `apps/web/src/components/ui.tsx`
+  - Single polling source for chain + feed data in `apps/web/src/lib/use-clawlogic-data.ts`,
+    shared app-wide by `ClawlogicDataProvider` (`apps/web/src/lib/data-context.tsx`)
+  - Pages: landing `app/page.tsx`, market grid `app/markets/page.tsx`, market detail
+    `app/markets/[marketId]/page.tsx`, agents + live feed `app/agents/page.tsx`
+  - Price charts: on-chain history is replayed from hook CPMM events in `apps/web/src/lib/amm-replay.ts`
+    (mirrors `PredictionMarketHook` reserve math -- keep in sync) and only shown when it matches the
+    live reserves; otherwise charts fall back to agent-implied probability (`lib/price-history.ts`)
+  - Market cover art is generated per market by category in `apps/web/src/components/MarketArt.tsx`
+  - Design tokens (incl. validated chart colors) in `apps/web/src/app/globals.css`; shared UI
+    primitives in `apps/web/src/components/ui.tsx`
 
 ## OpenClaw Zero-Config Path
 

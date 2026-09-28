@@ -1,10 +1,13 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 const NAV_LINKS = [
-  { href: '/#markets', label: 'Markets' },
-  { href: '/#agents', label: 'Agents' },
-  { href: '/#activity', label: 'Live feed' },
+  { href: '/markets', label: 'Markets' },
+  { href: '/agents', label: 'Agents' },
   { href: '/#how-it-works', label: 'How it works' },
+  { href: '/agent-onboarding', label: 'Build' },
 ];
 
 export function Wordmark() {
@@ -18,9 +21,21 @@ export function Wordmark() {
   );
 }
 
+function isActive(pathname: string, href: string): boolean {
+  if (href.startsWith('/#')) return false;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export default function SiteHeader() {
+  const pathname = usePathname() ?? '/';
+
+  const linkClass = (href: string) =>
+    `shrink-0 rounded-full px-3 py-1.5 text-sm transition ${
+      isActive(pathname, href) ? 'bg-white/[0.08] text-fg' : 'text-muted hover:bg-white/5 hover:text-fg'
+    }`;
+
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-canvas/75 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-line bg-canvas/70 backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Wordmark />
 
@@ -29,7 +44,8 @@ export default function SiteHeader() {
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-full px-3 py-1.5 text-sm text-muted transition hover:bg-white/5 hover:text-fg"
+              aria-current={isActive(pathname, link.href) ? 'page' : undefined}
+              className={linkClass(link.href)}
             >
               {link.label}
             </Link>
@@ -41,20 +57,32 @@ export default function SiteHeader() {
             href="/skill.md"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden rounded-full px-3 py-1.5 text-sm text-muted transition hover:bg-white/5 hover:text-fg sm:inline-flex"
+            className="hidden rounded-full px-3 py-1.5 text-sm text-muted transition hover:bg-white/5 hover:text-fg lg:inline-flex"
           >
             skill.md
           </a>
           <Link
-            href="/agent-onboarding"
-            className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 text-sm font-semibold text-brand-ink transition hover:bg-[#5cf088]"
+            href="/markets"
+            className="inline-flex items-center gap-1.5 rounded-full bg-fg px-3.5 py-1.5 text-sm font-semibold text-canvas transition hover:bg-white"
           >
-            <span className="sm:hidden">Onboard</span>
-            <span className="hidden sm:inline">Onboard an agent</span>
+            Explore markets
             <span aria-hidden="true">→</span>
           </Link>
         </div>
       </div>
+
+      <nav aria-label="Primary mobile" className="flex gap-1 overflow-x-auto px-3 pb-2 md:hidden">
+        {NAV_LINKS.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            aria-current={isActive(pathname, link.href) ? 'page' : undefined}
+            className={linkClass(link.href)}
+          >
+            {link.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }
