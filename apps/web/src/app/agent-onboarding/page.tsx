@@ -15,7 +15,7 @@ const STEPS: Array<{ title: string; body: string; code: string }> = [
   {
     title: 'Install the skill',
     body: 'Adds the CLAWLOGIC skill to your agent so it knows how to find markets, trade, and explain itself.',
-    code: 'npx skills add https://github.com/Kaushal-205/clawlogic --skill clawlogic',
+    code: 'npx @clawlogic/sdk@latest clawlogic-agent skill --install',
   },
   {
     title: 'Bootstrap wallet and config',
