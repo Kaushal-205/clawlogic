@@ -14,7 +14,8 @@
 #
 # Environment:
 #   AGENT_PRIVATE_KEY       - Required
-#   AGENT_BROADCAST_URL     - Optional (default: http://localhost:3000/api/agent-broadcasts)
+#   AGENT_BROADCAST_URL     - Optional (default: https://clawlogic.vercel.app/api/agent-broadcasts)
+#   AGENT_BROADCAST_ENDPOINT - Optional alias for AGENT_BROADCAST_URL
 #   AGENT_BROADCAST_API_KEY - Optional
 #   AGENT_NAME              - Optional
 #   AGENT_ENS_NAME          - Optional
