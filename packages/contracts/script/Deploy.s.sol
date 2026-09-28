@@ -105,15 +105,7 @@ contract DeployScript is Script {
             vm.envExists("PRIVATE_KEY") ? vm.envUint("PRIVATE_KEY") : vm.envUint("DEPLOYER_PRIVATE_KEY");
         address poolManager = vm.envAddress("V4_POOL_MANAGER");
 
-        // On production chains mocks are never deployed: a mock oracle lets anyone settle
-        // markets and the mock TEE verifier accepts every attestation.
-        bool production = block.chainid == ARBITRUM_ONE_CHAIN_ID || vm.envOr("PRODUCTION", false);
-        uint64 liveness = uint64(
-            vm.envOr("DEFAULT_LIVENESS", uint256(production ? PRODUCTION_LIVENESS : DEFAULT_LIVENESS))
-        );
-        if (production) {
-            require(liveness >= PRODUCTION_LIVENESS, "Deploy: DEFAULT_LIVENESS below 7200s on a production chain");
-        }
+        (bool production, uint64 liveness) = _readProductionSettings();
 
         address deployer = vm.addr(deployerPk);
 
@@ -129,56 +121,7 @@ contract DeployScript is Script {
         // ── 2. Deploy infrastructure mocks (if not provided) ─────────────
         vm.startBroadcast(deployerPk);
 
-        // 2a. UMA OOV3
-        address umaOov3 = vm.envOr("UMA_OOV3", address(0));
-        if (umaOov3 == address(0)) {
-            require(!production, "Deploy: UMA_OOV3 is required on production chains");
-            DeployableMockOOV3 mockOO = new DeployableMockOOV3();
-            umaOov3 = address(mockOO);
-            console2.log("[mock] MockOOV3:          ", umaOov3);
-        } else {
-            console2.log("[ext]  UMA OOV3:          ", umaOov3);
-        }
-
-        // 2b. Bond currency
-        address bondCurrency = vm.envOr("UMA_BOND_CURRENCY", address(0));
-        if (bondCurrency == address(0)) {
-            require(!production, "Deploy: UMA_BOND_CURRENCY is required on production chains");
-            MockERC20 mockCurrency = new MockERC20("Mock Bond WETH", "mbWETH");
-            bondCurrency = address(mockCurrency);
-            console2.log("[mock] BondCurrency:      ", bondCurrency);
-        } else {
-            console2.log("[ext]  BondCurrency:      ", bondCurrency);
-        }
-
-        // 2c. ENS Registry
-        // On production chains an unset ENS_REGISTRY disables ENS linkage (address(0)).
-        address ensRegistryAddr = vm.envOr("ENS_REGISTRY", address(0));
-        if (production) {
-            console2.log("[ext]  ENSRegistry:       ", ensRegistryAddr);
-        } else if (ensRegistryAddr == address(0)) {
-            MockENSRegistry mockENS = new MockENSRegistry();
-            ensRegistryAddr = address(mockENS);
-            console2.log("[mock] ENSRegistry:       ", ensRegistryAddr);
-        } else {
-            console2.log("[ext]  ENSRegistry:       ", ensRegistryAddr);
-        }
-
-        // 2d. Phala TEE Verifier
-        // On production chains an unset PHALA_VERIFIER leaves TEE validation disabled
-        // (every verification reverts) instead of accepting everything.
-        address phalaVerifierAddr = vm.envOr("PHALA_VERIFIER", address(0));
-        if (production) {
-            console2.log("[ext]  PhalaVerifier:     ", phalaVerifierAddr);
-        } else if (phalaVerifierAddr == address(0)) {
-            // Deploy mock with defaultReturn=true (all attestations pass for demo)
-            MockPhalaVerifier mockVerifier = new MockPhalaVerifier(true);
-            phalaVerifierAddr = address(mockVerifier);
-            console2.log("[mock] PhalaVerifier:     ", phalaVerifierAddr);
-        } else {
-            console2.log("[ext]  PhalaVerifier:     ", phalaVerifierAddr);
-        }
-
+        Infra memory infra = _deployInfra(production);
         console2.log("");
 
         // ── 3. Deploy ERC-8004 Identity Layer ────────────────────────────
@@ -195,7 +138,7 @@ contract DeployScript is Script {
             validationRegistry = new AgentValidationRegistry(
                 deployer,
                 IERC8004AgentIdentity(address(identityRegistry)),
-                IPhalaVerifier(phalaVerifierAddr)
+                IPhalaVerifier(infra.phalaVerifier)
             );
             validationRegistryAddr = address(validationRegistry);
             console2.log("ValidationRegistry:      ", validationRegistryAddr);
@@ -209,7 +152,7 @@ contract DeployScript is Script {
         console2.log("--- Core Protocol ---");
 
         AgentRegistry registry = new AgentRegistry(
-            IENS(ensRegistryAddr),
+            IENS(infra.ensRegistry),
             IERC8004AgentValidation(validationRegistryAddr)
         );
         console2.log("AgentRegistry:           ", address(registry));
@@ -229,8 +172,8 @@ contract DeployScript is Script {
         bytes memory constructorArgs = abi.encode(
             IPoolManager(poolManager),
             IAgentRegistry(address(registry)),
-            OptimisticOracleV3Interface(umaOov3),
-            IERC20(bondCurrency),
+            OptimisticOracleV3Interface(infra.umaOov3),
+            IERC20(infra.bondCurrency),
             liveness,
             deployer // initial owner + treasury; handed over below
         );
@@ -253,8 +196,8 @@ contract DeployScript is Script {
         PredictionMarketHook hook = new PredictionMarketHook{salt: salt}(
             IPoolManager(poolManager),
             IAgentRegistry(address(registry)),
-            OptimisticOracleV3Interface(umaOov3),
-            IERC20(bondCurrency),
+            OptimisticOracleV3Interface(infra.umaOov3),
+            IERC20(infra.bondCurrency),
             liveness,
             deployer // initial owner + treasury; handed over below
         );
@@ -270,18 +213,8 @@ contract DeployScript is Script {
         // 6c. Revenue + eligibility configuration (all optional).
         _configureHook(hook);
 
-        // 6d. Hand admin rights to the final owner (e.g. a Safe). The hook uses
-        //     Ownable2Step, so the new owner must call acceptOwnership() afterwards.
-        address finalOwner = vm.envOr("PROTOCOL_OWNER", deployer);
-        if (finalOwner != deployer) {
-            hook.transferOwnership(finalOwner);
-            identityRegistry.transferOwnership(finalOwner);
-            reputationRegistry.transferOwnership(finalOwner);
-            if (address(validationRegistry) != address(0)) {
-                validationRegistry.transferOwnership(finalOwner);
-            }
-            console2.log("Ownership -> (hook: pending acceptOwnership)", finalOwner);
-        }
+        // 6d. Hand admin rights to the final owner (e.g. a Safe).
+        _handOverOwnership(deployer, hook, identityRegistry, reputationRegistry, validationRegistry);
 
         vm.stopBroadcast();
 
@@ -301,19 +234,111 @@ contract DeployScript is Script {
             address(registry),
             address(hook),
             poolManager,
-            umaOov3,
-            bondCurrency,
-            ensRegistryAddr,
+            infra.umaOov3,
+            infra.bondCurrency,
+            infra.ensRegistry,
             address(identityRegistry),
             validationRegistryAddr,
             address(reputationRegistry),
-            phalaVerifierAddr
+            infra.phalaVerifier
         );
     }
 
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
+
+    /// @dev External dependencies, deployed as mocks on testnets when not provided.
+    struct Infra {
+        address umaOov3;
+        address bondCurrency;
+        address ensRegistry;
+        address phalaVerifier;
+    }
+
+    /// @dev Must run inside the broadcast. On production chains UMA addresses are required
+    ///      and ENS / Phala stay disabled (address(0)) unless provided.
+    function _deployInfra(bool production) internal returns (Infra memory infra) {
+        // 2a. UMA OOV3
+        infra.umaOov3 = vm.envOr("UMA_OOV3", address(0));
+        if (infra.umaOov3 == address(0)) {
+            require(!production, "Deploy: UMA_OOV3 is required on production chains");
+            DeployableMockOOV3 mockOO = new DeployableMockOOV3();
+            infra.umaOov3 = address(mockOO);
+            console2.log("[mock] MockOOV3:          ", infra.umaOov3);
+        } else {
+            console2.log("[ext]  UMA OOV3:          ", infra.umaOov3);
+        }
+
+        // 2b. Bond currency
+        infra.bondCurrency = vm.envOr("UMA_BOND_CURRENCY", address(0));
+        if (infra.bondCurrency == address(0)) {
+            require(!production, "Deploy: UMA_BOND_CURRENCY is required on production chains");
+            MockERC20 mockCurrency = new MockERC20("Mock Bond WETH", "mbWETH");
+            infra.bondCurrency = address(mockCurrency);
+            console2.log("[mock] BondCurrency:      ", infra.bondCurrency);
+        } else {
+            console2.log("[ext]  BondCurrency:      ", infra.bondCurrency);
+        }
+
+        // 2c. ENS Registry
+        // On production chains an unset ENS_REGISTRY disables ENS linkage (address(0)).
+        infra.ensRegistry = vm.envOr("ENS_REGISTRY", address(0));
+        if (production) {
+            console2.log("[ext]  ENSRegistry:       ", infra.ensRegistry);
+        } else if (infra.ensRegistry == address(0)) {
+            MockENSRegistry mockENS = new MockENSRegistry();
+            infra.ensRegistry = address(mockENS);
+            console2.log("[mock] ENSRegistry:       ", infra.ensRegistry);
+        } else {
+            console2.log("[ext]  ENSRegistry:       ", infra.ensRegistry);
+        }
+
+        // 2d. Phala TEE Verifier
+        // On production chains an unset PHALA_VERIFIER leaves TEE validation disabled
+        // (every verification reverts) instead of accepting everything.
+        infra.phalaVerifier = vm.envOr("PHALA_VERIFIER", address(0));
+        if (production) {
+            console2.log("[ext]  PhalaVerifier:     ", infra.phalaVerifier);
+        } else if (infra.phalaVerifier == address(0)) {
+            // Deploy mock with defaultReturn=true (all attestations pass for demo)
+            MockPhalaVerifier mockVerifier = new MockPhalaVerifier(true);
+            infra.phalaVerifier = address(mockVerifier);
+            console2.log("[mock] PhalaVerifier:     ", infra.phalaVerifier);
+        } else {
+            console2.log("[ext]  PhalaVerifier:     ", infra.phalaVerifier);
+        }
+    }
+
+    /// @dev On production chains mocks are never deployed: a mock oracle lets anyone settle
+    ///      markets and the mock TEE verifier accepts every attestation.
+    function _readProductionSettings() internal view returns (bool production, uint64 liveness) {
+        production = block.chainid == ARBITRUM_ONE_CHAIN_ID || vm.envOr("PRODUCTION", false);
+        liveness = uint64(vm.envOr("DEFAULT_LIVENESS", uint256(production ? PRODUCTION_LIVENESS : DEFAULT_LIVENESS)));
+        if (production) {
+            require(liveness >= PRODUCTION_LIVENESS, "Deploy: DEFAULT_LIVENESS below 7200s on a production chain");
+        }
+    }
+
+    /// @dev Transfers admin rights to PROTOCOL_OWNER when set. The hook uses Ownable2Step,
+    ///      so the new owner must call acceptOwnership() on it afterwards.
+    function _handOverOwnership(
+        address deployer,
+        PredictionMarketHook hook,
+        AgentIdentityRegistry identityRegistry,
+        AgentReputationRegistry reputationRegistry,
+        AgentValidationRegistry validationRegistry
+    ) internal {
+        address finalOwner = vm.envOr("PROTOCOL_OWNER", deployer);
+        if (finalOwner == deployer) return;
+        hook.transferOwnership(finalOwner);
+        identityRegistry.transferOwnership(finalOwner);
+        reputationRegistry.transferOwnership(finalOwner);
+        if (address(validationRegistry) != address(0)) {
+            validationRegistry.transferOwnership(finalOwner);
+        }
+        console2.log("Ownership -> (hook: pending acceptOwnership)", finalOwner);
+    }
 
     /// @dev Applies optional env configuration to a freshly deployed hook (deployer is owner).
     ///      TREASURY                  -- protocol fee recipient (default: deployer)
