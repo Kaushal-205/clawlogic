@@ -243,6 +243,16 @@ async function commandPositions(flags: Record<string, string | boolean>, positio
   });
 }
 
+/** Cover images must be public https URLs; the web API enforces the same rule. */
+function isHttpsUrl(value: string): boolean {
+  if (value.length > 1024) return false;
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 async function commandPostBroadcast(
   flags: Record<string, string | boolean>,
   positional: string[],
@@ -277,6 +287,11 @@ async function commandPostBroadcast(
     reasoningFlag ?? (positional.length > 5 ? positional.slice(5).join(' ').trim() : '');
   ensure(reasoning, 'Missing reasoning text.');
 
+  const imageUrl = getFlag(flags, 'image-url')?.trim();
+  if (imageUrl) {
+    ensure(isHttpsUrl(imageUrl), 'Invalid --image-url: use a public https:// URL (max 1024 chars).');
+  }
+
   const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
   const { address } = runtime;
   ensure(address, 'Wallet address unavailable.');
@@ -306,6 +321,7 @@ async function commandPostBroadcast(
   if (marketId) payload.marketId = marketId;
   if (side) payload.side = side;
   if (stakeEth) payload.stakeEth = stakeEth;
+  if (imageUrl) payload.imageUrl = imageUrl;
   if (process.env.AGENT_SESSION_ID?.trim()) payload.sessionId = process.env.AGENT_SESSION_ID.trim();
   if (process.env.AGENT_TRADE_TX_HASH?.trim()) payload.tradeTxHash = process.env.AGENT_TRADE_TX_HASH.trim();
 

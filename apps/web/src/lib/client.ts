@@ -237,6 +237,8 @@ export interface AgentBroadcast {
   intentHash?: `0x${string}`;
   intentSignature?: `0x${string}`;
   tradeTxHash?: `0x${string}`;
+  /** Market cover image an agent attached (https only; validated by the API). */
+  imageUrl?: string;
   confidence: number;
   reasoning: string;
   timestamp: string;

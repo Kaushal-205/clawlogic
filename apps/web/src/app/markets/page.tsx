@@ -6,7 +6,7 @@ import MarketTile from '@/components/MarketTile';
 import SiteFooter from '@/components/SiteFooter';
 import SiteHeader from '@/components/SiteHeader';
 import { useClawlogic } from '@/lib/data-context';
-import { getMarketStatus, type MarketStatus } from '@/lib/market-view';
+import { getMarketImageUrl, getMarketStatus, type MarketStatus } from '@/lib/market-view';
 
 type StatusFilter = 'all' | MarketStatus;
 type SortKey = 'trending' | 'newest' | 'pooled';
@@ -220,6 +220,7 @@ export default function MarketsPage() {
                   probability={probabilities[market.marketId]}
                   history={histories[market.marketId.toLowerCase()]}
                   callCount={activity.calls.get(market.marketId.toLowerCase()) ?? 0}
+                  imageUrl={getMarketImageUrl(market.marketId, broadcasts)}
                 />
               ))
             )}

@@ -13,14 +13,15 @@ interface Category {
   icon: ReactNode;
 }
 
-const W = 'white';
+// Icons are drawn in a soft grey and dimmed as a group so covers stay calm on the dark UI.
+const W = '#d9dde2';
 
 const CATEGORIES: Category[] = [
   {
     key: 'ethereum',
     label: 'Ethereum',
     match: /\b(eth|ether|ethereum|vitalik)\b/i,
-    colors: ['#2a2380', '#7c6cff'],
+    colors: ['#1c1a38', '#6a64a8'],
     icon: (
       <>
         <path d="M50 4 L80 52 L50 69 L20 52 Z" fill={W} fillOpacity={0.92} />
@@ -34,7 +35,7 @@ const CATEGORIES: Category[] = [
     key: 'bitcoin',
     label: 'Bitcoin',
     match: /\b(btc|bitcoin|satoshi|sats)\b/i,
-    colors: ['#6b3203', '#f7931a'],
+    colors: ['#2e2012', '#a37848'],
     icon: (
       <>
         <circle cx="50" cy="50" r="44" fill="none" stroke={W} strokeWidth="6" strokeOpacity={0.9} />
@@ -55,7 +56,7 @@ const CATEGORIES: Category[] = [
     key: 'solana',
     label: 'Solana',
     match: /\b(sol|solana)\b/i,
-    colors: ['#3b0f6b', '#14f1b2'],
+    colors: ['#1d1630', '#4f9488'],
     icon: (
       <g fill={W} fillOpacity={0.9}>
         <path d="M28 20 H88 L74 34 H14 Z" />
@@ -68,7 +69,7 @@ const CATEGORIES: Category[] = [
     key: 'l2',
     label: 'L2 & gas',
     match: /\b(arbitrum|arb|optimism|rollups?|l2|gas|gwei)\b/i,
-    colors: ['#0a3160', '#2ea7f7'],
+    colors: ['#122234', '#4f7ea3'],
     icon: (
       <g fill="none" stroke={W} strokeLinecap="round" strokeOpacity={0.92}>
         <path d="M12 72 A38 38 0 1 1 88 72" strokeWidth="7" />
@@ -82,12 +83,12 @@ const CATEGORIES: Category[] = [
     key: 'oracle',
     label: 'Oracle',
     match: /\b(uma|oracle|oov3|assert\w*|resolve\w*|dispute\w*|liveness)\b/i,
-    colors: ['#053f3b', '#1dd3bd'],
+    colors: ['#10272a', '#4b8c86'],
     icon: (
       <>
         <path d="M6 50 Q50 6 94 50 Q50 94 6 50 Z" fill="none" stroke={W} strokeWidth="6" strokeOpacity={0.9} strokeLinejoin="round" />
         <circle cx="50" cy="50" r="17" fill={W} fillOpacity={0.92} />
-        <circle cx="50" cy="50" r="7" fill="#053f3b" />
+        <circle cx="50" cy="50" r="7" fill="#10272a" />
       </>
     ),
   },
@@ -95,7 +96,7 @@ const CATEGORIES: Category[] = [
     key: 'ai',
     label: 'AI',
     match: /\b(ai|agents?|llm|gpt|claude|gemini|openai|anthropic|model)\b/i,
-    colors: ['#57124c', '#f25fc6'],
+    colors: ['#29162a', '#946086'],
     icon: (
       <g fill={W} fillOpacity={0.92}>
         <path d="M46 10 C50 38 58 46 86 50 C58 54 50 62 46 90 C42 62 34 54 6 50 C34 46 42 38 46 10 Z" />
@@ -107,7 +108,7 @@ const CATEGORIES: Category[] = [
     key: 'politics',
     label: 'Politics',
     match: /\b(election|president\w*|vote|voting|senate|congress|parliament|poll|minister|governor)\b/i,
-    colors: ['#3b0b1f', '#e5485f'],
+    colors: ['#2a151b', '#9c5a66'],
     icon: (
       <g fill={W} fillOpacity={0.9}>
         <path d="M8 34 L50 10 L92 34 Z" />
@@ -123,7 +124,7 @@ const CATEGORIES: Category[] = [
     key: 'sports',
     label: 'Sports',
     match: /\b(wins?|match|game|nba|nfl|fifa|world cup|championship|league|tournament|playoffs?|super bowl|nhl|mlb|ufc|f1|grand prix|olympic\w*)\b/i,
-    colors: ['#553104', '#f5b544'],
+    colors: ['#2c2314', '#a08452'],
     icon: (
       <g fill={W} fillOpacity={0.92}>
         <path d="M28 10 H72 V38 C72 55 62 63 50 63 C38 63 28 55 28 38 Z" />
@@ -138,7 +139,7 @@ const CATEGORIES: Category[] = [
     key: 'weather',
     label: 'Weather',
     match: /\b(weather|temperature|rain\w*|snow\w*|heat|storm|hurricane|celsius|fahrenheit)\b/i,
-    colors: ['#0b3552', '#7dd3fc'],
+    colors: ['#132636', '#6a93ad'],
     icon: (
       <g stroke={W} strokeOpacity={0.92} strokeLinecap="round" strokeWidth="6">
         <circle cx="50" cy="50" r="18" fill={W} fillOpacity={0.92} stroke="none" />
@@ -150,7 +151,7 @@ const CATEGORIES: Category[] = [
     key: 'macro',
     label: 'Markets',
     match: /\b(fed|rates?|inflation|cpi|gdp|s&p|nasdaq|dow|stocks?|shares|recession|price|market cap)\b|\$\s?\d/i,
-    colors: ['#0b3a28', '#2fd88a'],
+    colors: ['#12261f', '#4f8f72'],
     icon: (
       <g fill={W} fillOpacity={0.92}>
         <rect x="14" y="44" width="16" height="30" rx="3" />
@@ -168,7 +169,7 @@ const DEFAULT_CATEGORY: Category = {
   key: 'general',
   label: 'General',
   match: /$^/,
-  colors: ['#0d2b18', '#39e66a'],
+  colors: ['#13241a', '#528f68'],
   icon: (
     <g fill="none" stroke={W} strokeOpacity={0.92} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round">
       <path d="M8 78 L34 50 L54 62 L90 22" />
@@ -244,22 +245,22 @@ export default function MarketArt({
       <defs>
         <linearGradient id={`bg${uid}`} gradientTransform={`rotate(${angle} 0.5 0.5)`}>
           <stop offset="0" stopColor={deep} />
-          <stop offset="1" stopColor="#07080a" />
+          <stop offset="1" stopColor="#0a0b0d" />
         </linearGradient>
         <radialGradient id={`ba${uid}`}>
-          <stop offset="0" stopColor={bright} stopOpacity="0.75" />
+          <stop offset="0" stopColor={bright} stopOpacity="0.28" />
           <stop offset="1" stopColor={bright} stopOpacity="0" />
         </radialGradient>
         <radialGradient id={`bb${uid}`}>
-          <stop offset="0" stopColor={bright} stopOpacity="0.4" />
+          <stop offset="0" stopColor={bright} stopOpacity="0.14" />
           <stop offset="1" stopColor={bright} stopOpacity="0" />
         </radialGradient>
-        <radialGradient id={`halo${uid}`}>
-          <stop offset="0" stopColor="#fff" stopOpacity="0.28" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0" />
+        <radialGradient id={`vig${uid}`} cx="0.5" cy="0.45" r="0.75">
+          <stop offset="0.55" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.55" />
         </radialGradient>
         <pattern id={`grid${uid}`} width="20" height="20" patternUnits="userSpaceOnUse">
-          <path d="M20 0 H0 V20" fill="none" stroke="#fff" strokeOpacity="0.07" strokeWidth="1" />
+          <path d="M20 0 H0 V20" fill="none" stroke="#fff" strokeOpacity="0.035" strokeWidth="1" />
         </pattern>
       </defs>
 
@@ -268,12 +269,13 @@ export default function MarketArt({
       <circle cx={blobB.x} cy={blobB.y} r={blobB.r} fill={`url(#bb${uid})`} />
       <rect width="400" height="225" fill={`url(#grid${uid})`} />
 
-      <circle cx={iconX + iconSize / 2} cy={iconY + iconSize / 2} r={iconSize * 0.85} fill={`url(#halo${uid})`} />
       <g
+        opacity={square ? 0.62 : 0.4}
         transform={`translate(${iconX} ${iconY}) rotate(${tilt} ${iconSize / 2} ${iconSize / 2}) scale(${iconSize / 100})`}
       >
         {category.icon}
       </g>
+      <rect width="400" height="225" fill={`url(#vig${uid})`} />
     </svg>
   );
 }

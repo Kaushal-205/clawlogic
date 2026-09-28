@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import type { MarketInfo, MarketProbability } from '@clawlogic/sdk';
 import PriceChart from '../charts/PriceChart';
-import MarketArt, { getMarketCategory } from '../MarketArt';
+import { getMarketCategory } from '../MarketArt';
+import MarketCover from '../MarketCover';
 import { marketOdds, statusDetail } from '../MarketTile';
 import { AgentAvatar, SidePill, StatusBadge } from '../ui';
 import type { AgentBroadcast } from '@/lib/client';
-import { broadcastVerb, getAgentLabel, getMarketStatus, relativeTime } from '@/lib/market-view';
+import { broadcastVerb, getAgentLabel, getMarketImageUrl, getMarketStatus, relativeTime } from '@/lib/market-view';
 import { callMarkersFor, type MarketHistory } from '@/lib/price-history';
 
 export default function FeaturedMarket({
@@ -37,7 +38,12 @@ export default function FeaturedMarket({
         <div className="min-w-0">
           <div className="flex items-start gap-4">
             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl ring-1 ring-line-strong">
-              <MarketArt marketId={market.marketId} description={market.description} variant="square" />
+              <MarketCover
+                marketId={market.marketId}
+                description={market.description}
+                imageUrl={getMarketImageUrl(market.marketId, broadcasts)}
+                variant="square"
+              />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">

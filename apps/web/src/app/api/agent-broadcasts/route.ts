@@ -24,6 +24,8 @@ interface AgentBroadcastEvent {
   intentHash?: `0x${string}`;
   intentSignature?: `0x${string}`;
   tradeTxHash?: `0x${string}`;
+  /** Market cover image (https only). */
+  imageUrl?: string;
   confidence: number;
   reasoning: string;
   timestamp: string;
@@ -42,6 +44,8 @@ interface IncomingBroadcast {
   intentHash?: `0x${string}`;
   intentSignature?: `0x${string}`;
   tradeTxHash?: `0x${string}`;
+  /** Market cover image (https only). */
+  imageUrl?: string;
   confidence: number;
   reasoning: string;
 }
@@ -60,6 +64,18 @@ function toApiEvent(payload: IncomingBroadcast): AgentBroadcastEvent {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     timestamp: new Date().toISOString(),
   };
+}
+
+/** Cover images are rendered in every visitor's browser, so only accept public https URLs. */
+function isValidImageUrl(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (typeof value !== 'string' || value.length > 1024) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password;
+  } catch {
+    return false;
+  }
 }
 
 function isValidPayload(value: unknown): value is IncomingBroadcast {
@@ -90,7 +106,8 @@ function isValidPayload(value: unknown): value is IncomingBroadcast {
     sessionIdValid &&
     intentHashValid &&
     intentSignatureValid &&
-    tradeTxHashValid
+    tradeTxHashValid &&
+    isValidImageUrl(candidate.imageUrl)
   );
 }
 

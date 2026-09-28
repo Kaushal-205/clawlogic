@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import type { MarketInfo, MarketProbability } from '@clawlogic/sdk';
-import MarketArt, { getMarketCategory } from './MarketArt';
+import { getMarketCategory } from './MarketArt';
+import MarketCover from './MarketCover';
 import Sparkline from './charts/Sparkline';
 import { StatusBadge } from './ui';
 import type { MarketHistory } from '@/lib/price-history';
@@ -29,12 +30,15 @@ export default function MarketTile({
   probability,
   history,
   callCount,
+  imageUrl,
   index = 0,
 }: {
   market: MarketInfo;
   probability?: MarketProbability;
   history?: MarketHistory;
   callCount: number;
+  /** Cover image an agent attached to the market, if any. */
+  imageUrl?: string;
   index?: number;
 }) {
   const odds = marketOdds(probability);
@@ -54,9 +58,10 @@ export default function MarketTile({
       style={{ animationDelay: `${Math.min(index * 60, 360)}ms` }}
     >
       <div className="relative aspect-[16/8] overflow-hidden">
-        <MarketArt
+        <MarketCover
           marketId={market.marketId}
           description={market.description}
+          imageUrl={imageUrl}
           className="transition-transform duration-700 ease-out group-hover:scale-[1.05]"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/5 to-transparent" />

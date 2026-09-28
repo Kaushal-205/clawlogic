@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo, useState, type ReactNode } from 'react';
 import PriceChart, { RangeTabs, seriesLabel, type ChartRange } from '@/components/charts/PriceChart';
-import MarketArt, { getMarketCategory } from '@/components/MarketArt';
+import { getMarketCategory } from '@/components/MarketArt';
+import MarketCover from '@/components/MarketCover';
 import { marketOdds, statusDetail } from '@/components/MarketTile';
 import SiteFooter from '@/components/SiteFooter';
 import SiteHeader from '@/components/SiteHeader';
@@ -17,6 +18,7 @@ import {
   formatEthShort,
   getAgentLabel,
   getAssertedOutcome,
+  getMarketImageUrl,
   getMarketStatus,
   relativeTime,
   shortHash,
@@ -99,6 +101,7 @@ export default function MarketDetailPage() {
   const asserted = getAssertedOutcome(market);
   const winner = status === 'resolved' ? asserted : null;
   const category = getMarketCategory(market.description);
+  const imageUrl = getMarketImageUrl(market.marketId, broadcasts);
   const outcomeLabel = market.outcome1.toUpperCase();
   // Only a price series can be compared with the current price; agent consensus is a different measure.
   const first = history.source === 'agents' ? undefined : history.points[0]?.p;
@@ -120,8 +123,8 @@ export default function MarketDetailPage() {
       <main className="relative isolate">
         {/* Page tint from the market's own artwork */}
         <div className="backdrop h-[34rem]" aria-hidden="true">
-          <div className="absolute inset-x-0 -top-32 h-[36rem] scale-110 opacity-35 blur-3xl">
-            <MarketArt marketId={market.marketId} description={market.description} />
+          <div className="absolute inset-x-0 -top-32 h-[36rem] scale-110 opacity-20 blur-3xl">
+            <MarketCover marketId={market.marketId} description={market.description} imageUrl={imageUrl} />
           </div>
           <div className="absolute inset-0 bg-gradient-to-b from-canvas/30 via-canvas/70 to-canvas" />
           <div className="grain" />
@@ -138,7 +141,12 @@ export default function MarketDetailPage() {
 
           <header className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-start">
             <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl shadow-2xl shadow-black/50 ring-1 ring-line-strong sm:h-24 sm:w-24">
-              <MarketArt marketId={market.marketId} description={market.description} variant="square" />
+              <MarketCover
+                marketId={market.marketId}
+                description={market.description}
+                imageUrl={imageUrl}
+                variant="square"
+              />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">

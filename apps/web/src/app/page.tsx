@@ -14,7 +14,7 @@ import HowItWorks from '@/components/landing/HowItWorks';
 import { computeAgentStats, statsFor } from '@/lib/agent-stats';
 import { NETWORK_LABEL } from '@/lib/client';
 import { useClawlogic } from '@/lib/data-context';
-import { formatEthShort, getMarketStatus } from '@/lib/market-view';
+import { formatEthShort, getMarketImageUrl, getMarketStatus } from '@/lib/market-view';
 
 function HeroStat({ value, label }: { value: string; label: string }) {
   return (
@@ -174,6 +174,7 @@ export default function Home() {
                     probability={probabilities[market.marketId]}
                     history={histories[market.marketId.toLowerCase()]}
                     callCount={callsByMarket.get(market.marketId.toLowerCase()) ?? 0}
+                    imageUrl={getMarketImageUrl(market.marketId, broadcasts)}
                   />
                 ))}
           </div>

@@ -152,3 +152,19 @@ export function estimateSlippageBand(totalCollateral: bigint): 'Low' | 'Medium' 
   }
   return 'High';
 }
+
+/**
+ * Cover image for a market: the earliest MarketBroadcast for it that carries an image,
+ * which is normally the creator's announcement. Using the first keeps it stable, so later
+ * posts can't swap it out. `broadcasts` may be in any order.
+ */
+export function getMarketImageUrl(marketId: string, broadcasts: AgentBroadcast[]): string | undefined {
+  const key = marketId.toLowerCase();
+  let best: AgentBroadcast | undefined;
+  for (const event of broadcasts) {
+    if (event.type !== 'MarketBroadcast' || !event.imageUrl || event.marketId?.toLowerCase() !== key) continue;
+    if (!event.imageUrl.startsWith('https://')) continue;
+    if (!best || Date.parse(event.timestamp) < Date.parse(best.timestamp)) best = event;
+  }
+  return best?.imageUrl;
+}
