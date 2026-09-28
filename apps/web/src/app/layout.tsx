@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Mono, Inter, Space_Grotesk } from 'next/font/google';
+import { ClawlogicDataProvider } from '@/lib/data-context';
 import './globals.css';
 
 const inter = Inter({
@@ -49,7 +50,9 @@ export default function RootLayout({
   return (
     // Font variables live on <html> so the `@theme` tokens in globals.css can resolve them.
     <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${ibmPlexMono.variable}`}>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <ClawlogicDataProvider>{children}</ClawlogicDataProvider>
+      </body>
     </html>
   );
 }

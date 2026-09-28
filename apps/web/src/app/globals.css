@@ -22,6 +22,12 @@
   --color-no: #ff6b7d;
   --color-pending: #f5b544;
 
+  /* Chart marks: stepped into the dark-mode band (OKLCH L 0.48-0.67), validated for CVD
+     separation (deutan ΔE 13.1) and >= 3:1 contrast on the surface. Text never uses these. */
+  --color-yes-mark: #2db061;
+  --color-no-mark: #b8324f;
+  --color-grid: #1f2226;
+
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: var(--font-space), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-ibm-mono), ui-monospace, 'SFMono-Regular', Menlo, monospace;
@@ -31,7 +37,7 @@ html {
   color-scheme: dark;
   background: var(--color-canvas);
   scroll-behavior: smooth;
-  scroll-padding-top: 5rem;
+  scroll-padding-top: 7rem;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -93,12 +99,167 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Soft dotted grid used behind the hero. */
-.hero-grid {
-  background-image: radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px);
-  background-size: 22px 22px;
-  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
+/* ---------------------------------------------------------------------------
+ * Landing backdrop: drifting aurora, masked line grid, film grain, horizon glow
+ * ------------------------------------------------------------------------- */
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  will-change: transform;
+}
+
+.aurora-blob--a {
+  width: 44rem;
+  height: 30rem;
+  left: -10rem;
+  top: -12rem;
+  background: radial-gradient(closest-side, rgb(57 230 106 / 0.42), transparent);
+  animation: auroraA 24s ease-in-out infinite alternate;
+}
+
+.aurora-blob--b {
+  width: 40rem;
+  height: 30rem;
+  right: -12rem;
+  top: -8rem;
+  background: radial-gradient(closest-side, rgb(124 108 255 / 0.38), transparent);
+  animation: auroraB 28s ease-in-out infinite alternate;
+}
+
+.aurora-blob--c {
+  width: 34rem;
+  height: 24rem;
+  left: 38%;
+  top: 10rem;
+  background: radial-gradient(closest-side, rgb(255 107 125 / 0.2), transparent);
+  animation: auroraC 32s ease-in-out infinite alternate;
+}
+
+.grid-lines {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 55% at 50% 0%, #000 30%, transparent 78%);
+  mask-image: radial-gradient(ellipse 75% 55% at 50% 0%, #000 30%, transparent 78%);
+}
+
+.grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* A huge dark disc whose top edge glows: the "planet horizon" the preview sits on. */
+.horizon {
+  position: absolute;
+  left: 50%;
+  width: 2400px;
+  height: 2400px;
+  margin-left: -1200px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--color-canvas) 98.5%, transparent);
+  box-shadow:
+    0 -1px 0 rgb(57 230 106 / 0.45),
+    0 -24px 90px rgb(57 230 106 / 0.16),
+    0 -80px 220px rgb(124 108 255 / 0.1);
+}
+
+.text-gradient {
+  background: linear-gradient(100deg, #39e66a 0%, #b9f8cc 35%, #9d8cff 70%, #39e66a 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 9s linear infinite;
+}
+
+.glass {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.015));
+  border: 1px solid rgb(255 255 255 / 0.1);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow:
+    0 40px 100px -30px rgb(0 0 0 / 0.7),
+    inset 0 1px 0 rgb(255 255 255 / 0.07);
+}
+
+/* Gradient hairline border for highlighted cards. */
+.ring-gradient {
+  position: relative;
+}
+
+.ring-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgb(57 230 106 / 0.6), rgb(255 255 255 / 0.06) 40%, rgb(124 108 255 / 0.5));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.marquee {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 70s linear infinite;
+}
+
+.marquee:hover .marquee-track,
+.marquee:focus-within .marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes auroraA {
+  to {
+    transform: translate(9rem, 5rem) scale(1.15);
+  }
+}
+
+@keyframes auroraB {
+  to {
+    transform: translate(-8rem, 7rem) scale(1.1);
+  }
+}
+
+@keyframes auroraC {
+  to {
+    transform: translate(-10rem, -3rem) scale(1.25);
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: 220% center;
+  }
+}
+
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 @keyframes fadeUpSoft {

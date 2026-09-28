@@ -1,11 +1,12 @@
 import type { MarketInfo } from '@clawlogic/sdk';
 import { keccak256, toBytes } from 'viem';
-import type { AgentBroadcast } from '@/lib/client';
+import { DEFAULT_CONFIG, type AgentBroadcast } from '@/lib/client';
 
 const ZERO_BYTES32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-export const EXPLORER_URL = 'https://sepolia.arbiscan.io';
+export const EXPLORER_URL =
+  DEFAULT_CONFIG.chainId === 42161 ? 'https://arbiscan.io' : 'https://sepolia.arbiscan.io';
 
 export type MarketStatus = 'open' | 'resolving' | 'resolved';
 

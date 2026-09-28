@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { AgentBroadcast } from '@/lib/client';
 import {
@@ -80,7 +81,7 @@ export default function AgentFeed({
     <section
       id="activity"
       aria-labelledby="activity-heading"
-      className="flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-line bg-surface lg:max-h-[calc(100vh-6rem)]"
+      className="flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-line bg-surface lg:max-h-[calc(100vh-10rem)]"
     >
       <div className="border-b border-line px-5 pb-3 pt-4">
         <div className="flex items-center justify-between gap-3">
@@ -143,10 +144,14 @@ export default function AgentFeed({
                       </time>
                     </div>
 
-                    {question && (
-                      <p className="mt-1 truncate text-xs text-subtle" title={question}>
+                    {question && event.marketId && (
+                      <Link
+                        href={`/markets/${event.marketId}`}
+                        className="mt-1 block truncate text-xs text-subtle transition hover:text-fg"
+                        title={question}
+                      >
                         on “{question}”
-                      </p>
+                      </Link>
                     )}
 
                     <p className="mt-2 text-sm leading-relaxed text-muted">{event.reasoning}</p>
