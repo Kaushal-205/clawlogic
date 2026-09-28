@@ -1,91 +1,136 @@
 @import "tailwindcss";
 
-:root {
-  --foreground: #39e66a;
-  --background: #0a0a0a;
-  --accent: #ffb800;
-  --error: #ff0040;
-  --muted: #bcc8bc;
-  --surface: #111111;
-  --border: rgba(57, 230, 106, 0.2);
-  --glow-green: 0 0 10px rgba(57, 230, 106, 0.35);
-  --glow-amber: 0 0 10px rgba(255, 184, 0, 0.3);
-  --glow-red: 0 0 10px rgba(255, 0, 64, 0.3);
+/*
+ * Design tokens. Tailwind v4 turns these into utilities, e.g. `bg-surface`,
+ * `text-muted`, `border-line`, `text-yes`, `font-display`.
+ */
+@theme {
+  --color-canvas: #08090a;
+  --color-surface: #101113;
+  --color-surface-2: #16181b;
+  --color-surface-3: #1d2024;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-line-strong: rgb(255 255 255 / 0.16);
+
+  --color-fg: #eceef0;
+  --color-muted: #a6acb4;
+  --color-subtle: #7f858e;
+
+  --color-brand: #39e66a;
+  --color-brand-ink: #062110;
+  --color-yes: #39e66a;
+  --color-no: #ff6b7d;
+  --color-pending: #f5b544;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: var(--font-space), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-ibm-mono), ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+
+html {
+  color-scheme: dark;
+  background: var(--color-canvas);
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--color-fg);
+  background-color: var(--color-canvas);
+  background-image:
+    radial-gradient(1100px 520px at 50% -180px, rgb(57 230 106 / 0.09), transparent 70%),
+    radial-gradient(700px 400px at 100% 0%, rgb(255 107 125 / 0.04), transparent 70%);
+  background-repeat: no-repeat;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgb(57 230 106 / 0.28);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 * {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-  padding: 0;
-  min-height: 100%;
-}
-
-body {
-  font-family: var(--font-ibm-mono), 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Source Code Pro', ui-monospace, monospace;
-  background: var(--background);
-  color: var(--foreground);
-  overflow-x: hidden;
-  position: relative;
-  font-size: 15px;
-  line-height: 1.45;
-}
-
-/* Scanline overlay effect */
-body::after {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: -1;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0.03) 0px,
-    rgba(0, 0, 0, 0.03) 1px,
-    transparent 1px,
-    transparent 2px
-  );
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.14) transparent;
 }
 
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(57, 230, 106, 0.35);
-  border-radius: 2px;
+  background: rgb(255 255 255 / 0.12);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(57, 230, 106, 0.55);
+  background: rgb(255 255 255 / 0.22);
+  background-clip: padding-box;
 }
 
-@keyframes blink {
-  0%, 100% {
-    opacity: 1;
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Soft dotted grid used behind the hero. */
+.hero-grid {
+  background-image: radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
+}
+
+@keyframes fadeUpSoft {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
-  50% {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes livePing {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  80%,
+  100% {
+    transform: scale(2.4);
     opacity: 0;
   }
 }
 
-@keyframes glow-pulse {
-  0%, 100% {
-    box-shadow: var(--glow-green);
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
   }
   50% {
-    box-shadow: 0 0 20px rgba(57, 230, 106, 0.55);
+    opacity: 0;
   }
 }
 
@@ -101,62 +146,42 @@ body::after {
 }
 
 @keyframes alert-pulse {
-  0%, 100% {
-    border-color: rgba(255, 0, 64, 0.3);
+  0%,
+  100% {
+    border-color: rgb(255 0 64 / 0.3);
     box-shadow: none;
   }
   50% {
-    border-color: rgba(255, 0, 64, 0.8);
-    box-shadow: 0 0 30px rgba(255, 0, 64, 0.2), inset 0 0 30px rgba(255, 0, 64, 0.05);
+    border-color: rgb(255 0 64 / 0.8);
+    box-shadow: 0 0 30px rgb(255 0 64 / 0.2), inset 0 0 30px rgb(255 0 64 / 0.05);
   }
 }
 
-@keyframes fade-down {
-  0% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(20px);
-  }
+.animate-card-in {
+  animation: fadeUpSoft 360ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
-@keyframes typewriter {
-  from {
-    width: 0;
-  }
-  to {
-    width: 100%;
-  }
+.live-dot {
+  position: relative;
+  display: inline-flex;
+  height: 8px;
+  width: 8px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
-@keyframes fadeUpSoft {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.995);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  animation: livePing 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
-@keyframes confidenceSweep {
-  0% {
-    transform: translateX(-120%);
-  }
-  100% {
-    transform: translateX(120%);
-  }
-}
-
+/* Used by the HumanTrap terminal demo. */
 .cursor-blink {
   animation: blink 1s step-end infinite;
-}
-
-.glow-pulse {
-  animation: glow-pulse 2s ease-in-out infinite;
 }
 
 .animate-slide-in {
@@ -167,67 +192,16 @@ body::after {
   animation: alert-pulse 1.5s ease-in-out infinite;
 }
 
-.typewriter {
-  overflow: hidden;
-  white-space: nowrap;
-  animation: typewriter 2s steps(40, end);
-}
-
-.status-pulse,
-.pulse-dot {
-  animation: blink 1.5s ease-in-out infinite;
-}
-
-.animate-card-in {
-  animation: fadeUpSoft 320ms ease-out both;
-}
-
-.card-lift {
-  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
-}
-
-.card-lift:hover {
-  transform: translateY(-2px);
-}
-
-.confidence-rail {
-  position: relative;
-  overflow: hidden;
-}
-
-.confidence-rail::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(57, 230, 106, 0.24), transparent);
-  animation: confidenceSweep 2.4s linear infinite;
-  pointer-events: none;
-}
-
-.reasoning-compact {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-@media (min-width: 640px) {
-  .reasoning-compact {
-    -webkit-line-clamp: unset;
-    display: block;
-    overflow: visible;
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
-}
 
-.brand-logo {
-  color: #39e66a;
-  text-shadow:
-    0 0 12px rgba(57, 230, 106, 0.35),
-    0 0 24px rgba(57, 230, 106, 0.24);
-}
-
-.brand-logo-image {
-  filter:
-    drop-shadow(0 0 8px rgba(57, 230, 106, 0.22))
-    drop-shadow(0 0 18px rgba(57, 230, 106, 0.12));
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

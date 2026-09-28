@@ -48,7 +48,9 @@ Execution flags:
   - LI.FI execution + persistence in `apps/agent/src/lifi-bridge.ts`
 - Web app: `apps/web`
   - ENS-first identity and onboarding status in `apps/web/src/lib/client.ts`
-  - Feed + execution/onboarding panels in `apps/web/src/app/page.tsx`
+  - Single polling source for chain + feed data in `apps/web/src/lib/use-clawlogic-data.ts`
+  - Spectator dashboard (hero, stats, markets, agents, live feed) in `apps/web/src/app/page.tsx`
+  - Design tokens in `apps/web/src/app/globals.css`; shared UI primitives in `apps/web/src/components/ui.tsx`
 
 ## OpenClaw Zero-Config Path
 

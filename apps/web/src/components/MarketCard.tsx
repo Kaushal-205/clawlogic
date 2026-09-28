@@ -1,47 +1,38 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import type { AgentBroadcast } from '@/lib/client';
 import type { MarketInfo, MarketProbability } from '@clawlogic/sdk';
 import {
+  EXPLORER_URL,
+  broadcastVerb,
   estimateSlippageBand,
   formatEthShort,
-  formatMarketId,
   getAgentLabel,
+  getAssertedOutcome,
+  getMarketStatus,
   parseCrossedIntentQuote,
   relativeTime,
+  shortHash,
 } from '@/lib/market-view';
+import { AgentAvatar, ConfidenceMeter, SidePill, StatusBadge } from './ui';
 
 interface MarketCardProps {
   market: MarketInfo;
   index: number;
   probability?: MarketProbability;
+  /** Broadcasts for this market, newest first. */
   events: AgentBroadcast[];
   clobEnabled: boolean;
   showAdvanced?: boolean;
 }
 
-const ZERO_BYTES32 =
-  '0x0000000000000000000000000000000000000000000000000000000000000000';
-
-function getStatusLabel(market: MarketInfo): string {
-  if (market.resolved) return 'Resolved';
-  if (market.assertedOutcomeId !== ZERO_BYTES32) return 'Awaiting final result';
-  return 'Open for bets';
-}
-
-function getStatusTone(market: MarketInfo): string {
-  if (market.resolved) return 'text-[#39e66a] bg-[#39e66a]/12 border-[#39e66a]/35';
-  if (market.assertedOutcomeId !== ZERO_BYTES32) {
-    return 'text-[#ffb800] bg-[#ffb800]/12 border-[#ffb800]/35';
-  }
-  return 'text-[#39e66a] bg-[#39e66a]/12 border-[#39e66a]/35';
-}
-
-function getLatestByType(
-  events: AgentBroadcast[],
-  type: AgentBroadcast['type'],
-): AgentBroadcast | null {
-  return events.find((event) => event.type === type) ?? null;
+function isAgentCall(event: AgentBroadcast): boolean {
+  return (
+    event.type === 'TradeRationale' ||
+    event.type === 'NegotiationIntent' ||
+    event.type === 'MarketBroadcast'
+  );
 }
 
 function getLatestNarrative(events: AgentBroadcast[]): AgentBroadcast | null {
@@ -53,24 +44,42 @@ function getLatestNarrative(events: AgentBroadcast[]): AgentBroadcast | null {
   );
 }
 
-function describeEvent(event: AgentBroadcast): string {
-  if (event.type === 'TradeRationale') {
-    return `${getAgentLabel(event)} placed a ${event.side?.toUpperCase() ?? 'new'} bet`;
-  }
-  if (event.type === 'NegotiationIntent') {
-    return `${getAgentLabel(event)} shared a ${event.side?.toUpperCase() ?? 'new'} intent`;
-  }
-  return `${getAgentLabel(event)} posted a market view`;
+function OutcomeFigure({
+  label,
+  pct,
+  tone,
+  align,
+  state,
+}: {
+  label: string;
+  pct: number | null;
+  tone: 'yes' | 'no';
+  align: 'left' | 'right';
+  state: 'neutral' | 'won' | 'lost';
+}) {
+  const color = tone === 'yes' ? 'text-yes' : 'text-no';
+  return (
+    <div className={`${align === 'right' ? 'text-right' : ''} ${state === 'lost' ? 'opacity-45' : ''}`}>
+      <div className={`flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider ${color} ${align === 'right' ? 'justify-end' : ''}`}>
+        {label}
+        {state === 'won' && (
+          <span className="rounded bg-white/10 px-1 py-px text-[10px] tracking-normal text-fg normal-case">Won</span>
+        )}
+      </div>
+      <div className="tabular mt-0.5 font-display text-3xl font-semibold leading-none text-fg sm:text-4xl">
+        {pct === null ? '—' : `${pct}%`}
+      </div>
+    </div>
+  );
 }
 
-function sideTagTone(side?: string): string {
-  if (side === 'no') {
-    return 'border-[#ff6b7d]/35 bg-[#ff6b7d]/12 text-[#ff9fad]';
-  }
-  if (side === 'yes') {
-    return 'border-[#39e66a]/35 bg-[#39e66a]/12 text-[#8ef3ab]';
-  }
-  return 'border-white/20 bg-white/5 text-[#bcc8bc]';
+function DetailRow({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
+  return (
+    <div className={`min-w-0 ${wide ? 'sm:col-span-2' : ''}`}>
+      <dt className="text-subtle">{label}</dt>
+      <dd className="mt-0.5 break-all font-mono text-muted">{children}</dd>
+    </div>
+  );
 }
 
 export default function MarketCard({
@@ -81,166 +90,179 @@ export default function MarketCard({
   clobEnabled,
   showAdvanced = false,
 }: MarketCardProps) {
-  const latestNarrative = getLatestNarrative(events);
-  const latestTrade = getLatestByType(events, 'TradeRationale');
+  const status = getMarketStatus(market);
+  const assertedOutcome = getAssertedOutcome(market);
+  const winner = status === 'resolved' ? assertedOutcome : null;
+
+  const p1 = probability?.outcome1Probability ?? 0;
+  const p2 = probability?.outcome2Probability ?? 0;
+  const priced = p1 + p2 > 0;
+  const yesPct = priced ? Math.round((p1 / (p1 + p2)) * 100) : null;
+  const noPct = yesPct === null ? null : 100 - yesPct;
+
+  const calls = events.filter(isAgentCall);
+  const latest = getLatestNarrative(events);
+  const earlier = calls.filter((event) => event !== latest).slice(0, 2);
+
+  const latestTrade = events.find((event) => event.type === 'TradeRationale') ?? null;
   const latestIntentYes =
     events.find((event) => event.type === 'NegotiationIntent' && event.side === 'yes') ?? null;
   const latestIntentNo =
     events.find((event) => event.type === 'NegotiationIntent' && event.side === 'no') ?? null;
-
   const quoteFromTrade = latestTrade ? parseCrossedIntentQuote(latestTrade.reasoning) : null;
   const yesBid = latestIntentYes ? Math.round(latestIntentYes.confidence * 100) : null;
   const noAsk = latestIntentNo ? Math.round(latestIntentNo.confidence * 100) : null;
-  const inferredYesAsk = noAsk === null ? null : 10_000 - noAsk;
   const inferredEdge =
-    yesBid !== null && inferredYesAsk !== null ? yesBid - inferredYesAsk : null;
+    yesBid !== null && noAsk !== null ? yesBid - (10_000 - noAsk) : null;
 
-  const rawYesProbability = probability ? probability.outcome1Probability : 50;
-  const rawNoProbability = probability ? probability.outcome2Probability : 50;
-  const totalProbability = rawYesProbability + rawNoProbability || 100;
-  const yesWeight = Math.max(0, Math.min(100, (rawYesProbability / totalProbability) * 100));
-  const noWeight = Math.max(0, Math.min(100, (rawNoProbability / totalProbability) * 100));
-  const yesProbability = Math.round(yesWeight);
-  const noProbability = Math.round(noWeight);
-
-  const confidence = latestNarrative ? Math.round(latestNarrative.confidence) : null;
-  const stakeEth = latestNarrative?.stakeEth;
-  const slippageBand = estimateSlippageBand(market.totalCollateral);
-  const latestSideTone = sideTagTone(latestNarrative?.side);
-
-  const recentNarratives = events.filter((event) => (
-    event.type === 'TradeRationale' ||
-    event.type === 'NegotiationIntent' ||
-    event.type === 'MarketBroadcast'
-  )).slice(0, 3);
+  const statusDetail =
+    status === 'resolving' && assertedOutcome
+      ? `${assertedOutcome.toUpperCase()} proposed`
+      : status === 'resolved' && winner
+        ? `${winner.toUpperCase()} won`
+        : undefined;
 
   return (
     <article
-      className="group card-lift animate-card-in overflow-hidden rounded-2xl border border-white/10 bg-[#111111]/90 shadow-[0_20px_60px_rgba(0,0,0,0.34)] backdrop-blur-md"
-      style={{ animationDelay: `${Math.min((index - 1) * 50, 220)}ms` }}
+      className="animate-card-in rounded-2xl border border-line bg-surface p-5 transition-colors hover:border-line-strong sm:p-6"
+      style={{ animationDelay: `${Math.min(index * 60, 300)}ms` }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/8 bg-gradient-to-r from-[#111111] via-[#111111] to-[#111111] px-3 py-2.5 sm:px-4 sm:py-3">
-        <div className="flex items-center gap-2 text-xs text-[#bcc8bc] sm:text-sm">
-          <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-semibold">
-            Market {String(index).padStart(2, '0')}
-          </span>
-          <span>{formatMarketId(market.marketId)}</span>
+      <StatusBadge status={status} detail={statusDetail} />
+
+      <h3 className="mt-4 text-balance font-display text-xl font-semibold leading-snug text-fg sm:text-[22px]">
+        {market.description}
+      </h3>
+
+      {/* Odds */}
+      <div className="mt-5">
+        <div className="flex items-end justify-between gap-4">
+          <OutcomeFigure
+            label={market.outcome1}
+            pct={yesPct}
+            tone="yes"
+            align="left"
+            state={winner ? (winner === market.outcome1 ? 'won' : 'lost') : 'neutral'}
+          />
+          <OutcomeFigure
+            label={market.outcome2}
+            pct={noPct}
+            tone="no"
+            align="right"
+            state={winner ? (winner === market.outcome2 ? 'won' : 'lost') : 'neutral'}
+          />
         </div>
-        <span
-          className={`rounded-full border px-2 py-0.5 text-xs font-semibold sm:text-sm ${getStatusTone(market)}`}
+        <div
+          className="mt-3 flex h-2 gap-1 overflow-hidden rounded-full"
+          role="img"
+          aria-label={
+            yesPct === null
+              ? 'Not priced yet'
+              : `${market.outcome1} ${yesPct} percent, ${market.outcome2} ${noPct} percent`
+          }
         >
-          {getStatusLabel(market)}
-        </span>
-      </div>
-
-      <div className="px-3 py-3.5 sm:px-4 sm:py-4">
-        <h3 className="text-lg font-semibold leading-snug text-[#39e66a] sm:text-xl">
-          {market.description}
-        </h3>
-
-        <div className="mt-3 rounded-xl border border-white/8 bg-[#111111] p-2.5 sm:mt-4 sm:p-3">
-          <div className="mb-1.5 flex items-center justify-between text-xs sm:mb-2 sm:text-sm">
-            <span className="text-[#bcc8bc]">Current lean</span>
-            <span className="text-[#bcc8bc]">Based on market pricing</span>
-          </div>
-          <div className="h-3 overflow-hidden rounded-full border border-white/20 bg-[#0c0c0c]">
-            <div className="flex h-full w-full">
-              <div
-                className="h-full bg-gradient-to-r from-[#2ea857] via-[#39e66a] to-[#44ef74] transition-all duration-500"
-                style={{ width: `${yesWeight}%` }}
-              />
-              <div
-                className="h-full border-l border-[#160b0f] bg-gradient-to-r from-[#a03144] via-[#d4455d] to-[#ff6b7d] transition-all duration-500"
-                style={{ width: `${noWeight}%` }}
-              />
-            </div>
-          </div>
-          <div className="mt-1.5 flex items-center justify-between text-xs font-semibold sm:mt-2 sm:text-sm">
-            <span className="rounded-full border border-[#39e66a]/40 bg-[#39e66a]/12 px-2 py-0.5 text-[#8ef3ab]">
-              {market.outcome1.toUpperCase()} {yesProbability}%
-            </span>
-            <span className="rounded-full border border-[#ff6b7d]/40 bg-[#ff6b7d]/12 px-2 py-0.5 text-[#ff9fad]">
-              {market.outcome2.toUpperCase()} {noProbability}%
-            </span>
-          </div>
-        </div>
-
-        <div className="mt-3 rounded-xl border border-[#39e66a]/25 bg-[#111111] p-2.5 sm:mt-4 sm:p-3">
-          <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-[#39e66a]">Latest agent call</span>
-            <span className="text-xs text-[#bcc8bc] sm:text-sm">
-              {latestNarrative ? relativeTime(latestNarrative.timestamp) : 'No call yet'}
-            </span>
-          </div>
-
-          {latestNarrative ? (
-            <>
-              <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-                <span className={`rounded-full border px-2 py-0.5 font-semibold ${latestSideTone}`}>
-                  {latestNarrative.side ? latestNarrative.side.toUpperCase() : 'WATCHING'}
-                </span>
-                {stakeEth && (
-                  <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#bcc8bc]">
-                    stake {stakeEth} ETH
-                  </span>
-                )}
-                {confidence !== null && (
-                  <span className="rounded-full border border-[#39e66a]/35 bg-[#39e66a]/12 px-2 py-0.5 text-[#8ef3ab]">
-                    confidence {confidence}%
-                  </span>
-                )}
-              </div>
-
-              <p className="reasoning-compact mt-2 text-sm leading-relaxed text-[#bcc8bc] sm:text-[15px]">
-                {latestNarrative.reasoning}
-              </p>
-
-              <div className="mt-1.5 text-xs text-[#bcc8bc] sm:text-sm">
-                {describeEvent(latestNarrative)}
-              </div>
-            </>
+          {yesPct === null ? (
+            <div className="h-full w-full rounded-full bg-surface-3" />
           ) : (
-            <p className="text-sm text-[#bcc8bc]">
-              Waiting for the first bet explanation from agents.
-            </p>
+            <>
+              {yesPct > 0 && (
+                <div className="h-full rounded-full bg-yes transition-all duration-700" style={{ flex: `${yesPct} 1 0%` }} />
+              )}
+              {(noPct ?? 0) > 0 && (
+                <div className="h-full rounded-full bg-no transition-all duration-700" style={{ flex: `${noPct} 1 0%` }} />
+              )}
+            </>
           )}
         </div>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-subtle">
+          <span>
+            <span className="tabular text-muted">{formatEthShort(market.totalCollateral)} ETH</span> pooled
+          </span>
+          <span>
+            <span className="tabular text-muted">{calls.length}</span> agent{' '}
+            {calls.length === 1 ? 'call' : 'calls'}
+          </span>
+          {yesPct === null && <span>Not priced yet</span>}
+        </div>
+      </div>
 
-        {recentNarratives.length > 0 && (
-          <div className="mt-3 rounded-xl border border-white/8 bg-[#111111] p-2.5 sm:p-3">
-            <div className="mb-2 text-sm font-semibold text-[#bcc8bc]">Recent activity</div>
-            <div className="space-y-1.5">
-              {recentNarratives.map((event) => (
-                <div key={event.id} className="flex items-start justify-between gap-2 text-xs sm:text-sm">
-                  <span className="text-[#bcc8bc]">{describeEvent(event)}</span>
-                  <span className="shrink-0 text-[#bcc8bc]">{relativeTime(event.timestamp)}</span>
+      {/* Latest reasoning */}
+      <div className="mt-5 rounded-xl border border-line bg-surface-2/70 p-4">
+        {latest ? (
+          <>
+            <div className="flex items-center gap-3">
+              <AgentAvatar address={latest.agentAddress} name={getAgentLabel(latest)} size="md" />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="truncate font-medium text-fg">{getAgentLabel(latest)}</span>
+                  {latest.side && <SidePill side={latest.side} />}
                 </div>
-              ))}
+                <div className="text-xs text-subtle">
+                  {broadcastVerb(latest)} · {relativeTime(latest.timestamp)}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
 
-        {showAdvanced && (
-          <div className="mt-3 rounded-xl border border-white/10 bg-[#111111] p-2.5 sm:p-3">
-            <div className="mb-2 text-sm font-semibold text-[#bcc8bc]">Technical details</div>
-            <div className="space-y-1 text-xs text-[#bcc8bc] sm:text-sm">
-              <div>Market ID: {market.marketId}</div>
-              <div>Total liquidity: {formatEthShort(market.totalCollateral)} ETH</div>
-              <div>CLOB matching enabled: {clobEnabled ? 'yes' : 'no'}</div>
-              {quoteFromTrade ? (
-                <div>
-                  Crossed quote edge: {(quoteFromTrade.edgeBps / 100).toFixed(2)}%
-                </div>
-              ) : inferredEdge !== null ? (
-                <div>Indicative intent edge: {(inferredEdge / 100).toFixed(2)}%</div>
-              ) : (
-                <div>Fallback slippage profile: {slippageBand}</div>
+            <p className="mt-3 text-[15px] leading-relaxed text-muted">{latest.reasoning}</p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+              <ConfidenceMeter value={latest.confidence} />
+              {latest.stakeEth && (
+                <span className="text-muted">
+                  Stake <span className="tabular font-medium text-fg">{latest.stakeEth} ETH</span>
+                </span>
               )}
-              {latestTrade?.tradeTxHash && <div>Latest trade tx: {latestTrade.tradeTxHash}</div>}
             </div>
-          </div>
+
+            {earlier.length > 0 && (
+              <ul className="mt-4 space-y-2 border-t border-line pt-3">
+                {earlier.map((event) => (
+                  <li key={event.id} className="flex min-w-0 items-center gap-2 text-sm">
+                    <AgentAvatar address={event.agentAddress} name={getAgentLabel(event)} size="xs" />
+                    <span className="truncate text-fg/90">{getAgentLabel(event)}</span>
+                    <span className="hidden shrink-0 text-subtle sm:inline">{broadcastVerb(event)}</span>
+                    {event.side && <SidePill side={event.side} size="sm" />}
+                    <span className="ml-auto shrink-0 text-xs text-subtle">{relativeTime(event.timestamp)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-subtle">No agent has explained a position on this market yet.</p>
         )}
       </div>
+
+      {showAdvanced && (
+        <dl className="mt-4 grid gap-x-6 gap-y-3 rounded-xl border border-dashed border-line-strong p-4 text-xs sm:grid-cols-2">
+          <DetailRow label="Market ID" wide>
+            {market.marketId}
+          </DetailRow>
+          <DetailRow label="Pool collateral">{formatEthShort(market.totalCollateral)} ETH</DetailRow>
+          <DetailRow label="UMA bond / reward">
+            {formatEthShort(market.requiredBond)} / {formatEthShort(market.reward)} ETH
+          </DetailRow>
+          <DetailRow label="CLOB matching">{clobEnabled ? 'enabled' : 'disabled'}</DetailRow>
+          {quoteFromTrade ? (
+            <DetailRow label="Crossed quote edge">{(quoteFromTrade.edgeBps / 100).toFixed(2)}%</DetailRow>
+          ) : inferredEdge !== null ? (
+            <DetailRow label="Indicative intent edge">{(inferredEdge / 100).toFixed(2)}%</DetailRow>
+          ) : (
+            <DetailRow label="Slippage profile">{estimateSlippageBand(market.totalCollateral)}</DetailRow>
+          )}
+          {latestTrade?.tradeTxHash && (
+            <DetailRow label="Latest trade tx" wide>
+              <a
+                href={`${EXPLORER_URL}/tx/${latestTrade.tradeTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand hover:underline"
+              >
+                {shortHash(latestTrade.tradeTxHash, 10, 8)} ↗
+              </a>
+            </DetailRow>
+          )}
+        </dl>
+      )}
     </article>
   );
 }

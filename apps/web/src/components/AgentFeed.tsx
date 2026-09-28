@@ -1,46 +1,32 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import type { ClawlogicConfig } from '@clawlogic/sdk';
-import { getAgentBroadcasts, type AgentBroadcast } from '@/lib/client';
-import { formatMarketId, getAgentLabel, relativeTime } from '@/lib/market-view';
+import { useMemo, useState } from 'react';
+import type { AgentBroadcast } from '@/lib/client';
+import {
+  EXPLORER_URL,
+  broadcastVerb,
+  getAgentLabel,
+  relativeTime,
+  shortHash,
+} from '@/lib/market-view';
+import { AgentAvatar, ConfidenceMeter, SidePill } from './ui';
 
 interface AgentFeedProps {
-  config: ClawlogicConfig;
+  /** All broadcasts, newest first. */
+  events: AgentBroadcast[];
+  loaded: boolean;
   showAdvanced?: boolean;
+  /** marketId (lowercase) -> question, used to say which market an event is about. */
+  marketQuestions: Map<string, string>;
 }
 
-type FeedFilter = 'bets' | 'why' | 'all';
+type FeedFilter = 'all' | 'bets' | 'why';
 
 const FILTERS: Array<{ key: FeedFilter; label: string }> = [
-  { key: 'bets', label: 'Bets' },
-  { key: 'why', label: 'Why' },
   { key: 'all', label: 'All' },
+  { key: 'bets', label: 'Bets' },
+  { key: 'why', label: 'Reasoning' },
 ];
-
-function sideTagTone(side?: string): string {
-  if (side === 'no') {
-    return 'border-[#ff6b7d]/35 bg-[#ff6b7d]/12 text-[#ff9fad]';
-  }
-  if (side === 'yes') {
-    return 'border-[#39e66a]/35 bg-[#39e66a]/12 text-[#8ef3ab]';
-  }
-  return 'border-white/20 bg-white/5 text-[#bcc8bc]';
-}
-
-function eventHeadline(event: AgentBroadcast): string {
-  const side = event.side ? event.side.toUpperCase() : 'NEW';
-  if (event.type === 'TradeRationale') {
-    return `${getAgentLabel(event)} placed a ${side} bet`;
-  }
-  if (event.type === 'NegotiationIntent') {
-    return `${getAgentLabel(event)} is leaning ${side}`;
-  }
-  if (event.type === 'MarketBroadcast') {
-    return `${getAgentLabel(event)} shared a market thesis`;
-  }
-  return `${getAgentLabel(event)} posted an update`;
-}
 
 function shouldShow(event: AgentBroadcast, filter: FeedFilter, showAdvanced: boolean): boolean {
   if (!showAdvanced && event.type === 'Onboarding') {
@@ -61,155 +47,141 @@ function shouldShow(event: AgentBroadcast, filter: FeedFilter, showAdvanced: boo
   );
 }
 
+function TechChip({ label, value, href }: { label: string; value: string; href?: string }) {
+  const content = (
+    <>
+      <span className="text-subtle">{label}</span> {value}
+    </>
+  );
+  const className = 'rounded-md bg-surface-3 px-1.5 py-0.5 font-mono text-[11px] text-muted';
+  return href ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={`${className} hover:text-brand`}>
+      {content}
+    </a>
+  ) : (
+    <span className={className}>{content}</span>
+  );
+}
+
 export default function AgentFeed({
-  config: _config,
+  events,
+  loaded,
   showAdvanced = false,
+  marketQuestions,
 }: AgentFeedProps) {
-  const [events, setEvents] = useState<AgentBroadcast[]>([]);
-  const [filter, setFilter] = useState<FeedFilter>('bets');
-  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<FeedFilter>('all');
 
-  useEffect(() => {
-    let mounted = true;
-
-    const sync = async () => {
-      try {
-        const all = await getAgentBroadcasts();
-        const sorted = [...all].sort(
-          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-        );
-        if (mounted) {
-          setEvents(sorted);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void sync();
-    const interval = setInterval(() => {
-      void sync();
-    }, 7000);
-
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
-  }, []);
-
-  const filtered = useMemo(() => {
-    return events.filter((event) => shouldShow(event, filter, showAdvanced));
-  }, [events, filter, showAdvanced]);
-
-  const totalAgents = useMemo(() => {
-    return new Set(events.map((item) => item.agentAddress.toLowerCase())).size;
-  }, [events]);
+  const filtered = useMemo(
+    () => events.filter((event) => shouldShow(event, filter, showAdvanced)),
+    [events, filter, showAdvanced],
+  );
 
   return (
-    <div className="card-lift rounded-2xl border border-white/10 bg-[#111111]/90 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
-      <div className="border-b border-white/10 px-3 py-2.5 sm:px-4 sm:py-3">
+    <section
+      id="activity"
+      aria-labelledby="activity-heading"
+      className="flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-line bg-surface lg:max-h-[calc(100vh-6rem)]"
+    >
+      <div className="border-b border-line px-5 pb-3 pt-4">
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-base font-semibold text-[#39e66a]">Why agents are betting</h3>
-            <p className="text-sm text-[#bcc8bc]">Latest calls and reasoning from active agents</p>
-          </div>
-          <div className="hidden text-right text-sm text-[#bcc8bc] sm:block">
-            <div>{totalAgents} active agents</div>
-            <div>{filtered.length} updates shown</div>
-          </div>
+          <h2 id="activity-heading" className="flex items-center gap-2.5 font-display text-lg font-semibold text-fg">
+            <span className="live-dot text-yes" aria-hidden="true" />
+            Live feed
+          </h2>
+          <span className="text-xs text-subtle">{filtered.length} updates</span>
         </div>
+        <p className="mt-1 text-sm text-muted">What agents are betting, and why.</p>
 
-        <div className="mt-2.5 flex gap-2 overflow-x-auto pb-1 sm:mt-3">
-          {FILTERS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setFilter(item.key)}
-              className={`shrink-0 rounded-full border px-2.5 py-1 text-xs transition sm:text-sm ${
-                filter === item.key
-                  ? 'border-[#39e66a]/45 bg-[#39e66a]/15 text-[#39e66a]'
-                  : 'border-white/15 bg-white/5 text-[#bcc8bc] hover:text-[#39e66a]'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
+        <div role="group" aria-label="Filter feed" className="mt-3 flex gap-1">
+          {FILTERS.map((item) => {
+            const active = filter === item.key;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setFilter(item.key)}
+                className={`rounded-full px-3 py-1 text-sm transition ${
+                  active ? 'bg-surface-3 text-fg' : 'text-muted hover:text-fg'
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div className="max-h-[700px] overflow-y-auto p-2.5 sm:max-h-[720px] sm:p-3">
-        {loading ? (
-          <div className="space-y-2">
-            <div className="h-24 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]" />
-            <div className="h-24 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]" />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {!loaded ? (
+          <div className="space-y-3 p-5">
+            <div className="h-20 animate-pulse rounded-xl bg-surface-2" />
+            <div className="h-20 animate-pulse rounded-xl bg-surface-2" />
+            <div className="h-20 animate-pulse rounded-xl bg-surface-2" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/15 px-4 py-8 text-center text-base text-[#bcc8bc]">
-            No shared agent calls yet.
-          </div>
+          <p className="px-5 py-12 text-center text-sm text-subtle">No agent updates yet.</p>
         ) : (
-          <div className="space-y-2.5 sm:space-y-3">
-            {filtered.slice(0, 120).map((event, index) => (
-              <article
-                key={event.id}
-                className="animate-card-in card-lift rounded-xl border border-white/10 bg-[#111111] p-2.5 sm:p-3"
-                style={{ animationDelay: `${Math.min(index * 30, 180)}ms` }}
-              >
-                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 sm:mb-2">
-                  <div className="text-sm font-semibold text-[#39e66a] sm:text-base">
-                    {eventHeadline(event)}
+          <ol className="divide-y divide-line">
+            {filtered.slice(0, 120).map((event) => {
+              const label = getAgentLabel(event);
+              const question = event.marketId
+                ? marketQuestions.get(event.marketId.toLowerCase())
+                : undefined;
+              return (
+                <li key={event.id} className="flex gap-3 px-5 py-4">
+                  <AgentAvatar address={event.agentAddress} name={label} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="min-w-0 text-sm leading-snug">
+                        <span className="font-medium text-fg">{label}</span>{' '}
+                        <span className="text-muted">{broadcastVerb(event)}</span>{' '}
+                        {event.side && <SidePill side={event.side} size="sm" />}
+                      </p>
+                      <time dateTime={event.timestamp} className="shrink-0 text-xs text-subtle">
+                        {relativeTime(event.timestamp)}
+                      </time>
+                    </div>
+
+                    {question && (
+                      <p className="mt-1 truncate text-xs text-subtle" title={question}>
+                        on “{question}”
+                      </p>
+                    )}
+
+                    <p className="mt-2 text-sm leading-relaxed text-muted">{event.reasoning}</p>
+
+                    {(event.type !== 'Onboarding' || event.stakeEth) && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+                        {event.type !== 'Onboarding' && <ConfidenceMeter value={event.confidence} />}
+                        {event.stakeEth && (
+                          <span className="text-muted">
+                            Stake <span className="tabular font-medium text-fg">{event.stakeEth} ETH</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {showAdvanced && (event.marketId || event.sessionId || event.tradeTxHash) && (
+                      <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        {event.marketId && <TechChip label="market" value={shortHash(event.marketId, 8, 4)} />}
+                        {event.sessionId && <TechChip label="session" value={shortHash(event.sessionId, 8, 4)} />}
+                        {event.tradeTxHash && (
+                          <TechChip
+                            label="tx"
+                            value={shortHash(event.tradeTxHash, 8, 4)}
+                            href={`${EXPLORER_URL}/tx/${event.tradeTxHash}`}
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <span className="text-xs text-[#bcc8bc] sm:text-sm">
-                    {relativeTime(event.timestamp)}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 text-xs sm:gap-2 sm:text-sm">
-                  {event.side && (
-                    <span className={`rounded-full border px-2 py-0.5 ${sideTagTone(event.side)}`}>
-                      {event.side.toUpperCase()}
-                    </span>
-                  )}
-                  {event.stakeEth && (
-                    <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[#bcc8bc]">
-                      {event.stakeEth} ETH
-                    </span>
-                  )}
-                  <span className="rounded-full border border-[#39e66a]/35 bg-[#39e66a]/12 px-2 py-0.5 text-[#8ef3ab]">
-                    confidence {Math.round(event.confidence)}%
-                  </span>
-                </div>
-
-                <p className="reasoning-compact mt-2 text-sm leading-relaxed text-[#bcc8bc] sm:mt-3 sm:text-[15px]">
-                  {event.reasoning}
-                </p>
-
-                {showAdvanced && (
-                  <div className="mt-2.5 flex flex-wrap gap-1.5 text-xs text-[#bcc8bc] sm:mt-3 sm:gap-2 sm:text-sm">
-                    {event.marketId && (
-                      <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
-                        market {formatMarketId(event.marketId)}
-                      </span>
-                    )}
-                    {event.sessionId && (
-                      <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
-                        session {event.sessionId.slice(0, 10)}...
-                      </span>
-                    )}
-                    {event.tradeTxHash && (
-                      <span className="rounded-md border border-white/12 bg-white/5 px-2 py-0.5">
-                        tx {event.tradeTxHash.slice(0, 10)}...
-                      </span>
-                    )}
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
+                </li>
+              );
+            })}
+          </ol>
         )}
       </div>
-    </div>
+    </section>
   );
 }
