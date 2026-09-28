@@ -251,6 +251,15 @@ contract PredictionMarketRevenueTest is TestSetup {
         assertEq(hook.getMarketIdByQuestion("WILL ETH CLOSE ABOVE 4000 ON 2026 12 31", "yes", "no"), first);
     }
 
+    /// @dev Same vector as packages/sdk/test/market-dedupe.test.ts -- keeps the SDK's
+    ///      off-chain key identical to the contract's.
+    function test_MarketKey_MatchesSdkVector() public view {
+        assertEq(
+            hook.computeMarketKey("Will ETH close above $4,000 on 2026-12-31?", "yes", "no"),
+            0xbdddf6b4df6ce72b8abde955df810addccc93dcfad89fd8e424e5ddf508c21bc
+        );
+    }
+
     function test_Duplicate_AllowedAfterResolution() public {
         bytes32 first = _createMarket(agentAlpha, "Recurring question", 0, 0);
         _resolve(first, "yes");

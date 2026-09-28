@@ -215,7 +215,11 @@ export interface MarketEvent {
     | 'AssertionFailed'
     | 'AssertionDisputed'
     | 'TokensSettled'
-    | 'OutcomeTokenBought';
+    | 'OutcomeTokenBought'
+    | 'OutcomeTokenSold'
+    | 'TokensMerged'
+    | 'LiquidityAdded'
+    | 'LiquidityRemoved';
   marketId: `0x${string}`;
   blockNumber: bigint;
   transactionHash: `0x${string}`;
@@ -226,3 +230,57 @@ export interface MarketEvent {
  * Callback type for watching market events.
  */
 export type MarketEventCallback = (event: MarketEvent) => void;
+
+/**
+ * Mainnet market fields returned by PredictionMarketHook.getMarketInfo().
+ */
+export interface MarketDetails {
+  /** Address that created the market */
+  creator: `0x${string}`;
+  /** Unix timestamp when trading stops (0 = no close time) */
+  closeTime: bigint;
+  /** Current UMA assertion id (zero if none) -- dispute it on UMA OOV3 */
+  activeAssertionId: `0x${string}`;
+  /** Outstanding LP shares */
+  totalLpShares: bigint;
+  /** Normalized question key used for duplicate detection */
+  marketKey: `0x${string}`;
+  /** Whether buy/sell/addLiquidity would currently succeed */
+  tradingOpen: boolean;
+}
+
+/**
+ * Result of quoteBuy / quoteSell. `amountOut` is outcome tokens for a buy and
+ * wei for a sell.
+ */
+export interface TradeQuote {
+  amountOut: bigint;
+  protocolFee: bigint;
+  lpFee: bigint;
+}
+
+/**
+ * Protocol-wide revenue settings.
+ */
+export interface FeeConfig {
+  protocolFeeBps: bigint;
+  lpFeeBps: bigint;
+  marketCreationFee: bigint;
+  treasury: `0x${string}`;
+  paused: boolean;
+}
+
+/**
+ * The parts of a UMA OOV3 assertion an agent needs to dispute or settle it.
+ */
+export interface AssertionInfo {
+  assertionId: `0x${string}`;
+  asserter: `0x${string}`;
+  disputer: `0x${string}`;
+  currency: `0x${string}`;
+  bond: bigint;
+  assertionTime: bigint;
+  expirationTime: bigint;
+  settled: boolean;
+  settlementResolution: boolean;
+}

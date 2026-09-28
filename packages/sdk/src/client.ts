@@ -11,6 +11,7 @@ import {
   type GetContractReturnType,
   type Log,
   type WatchContractEventReturnType,
+  erc20Abi,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { namehash } from 'viem/ens';
@@ -22,7 +23,12 @@ import type {
   MarketEventCallback,
   MarketProbability,
   MarketReserves,
+  MarketDetails,
+  TradeQuote,
+  FeeConfig,
+  AssertionInfo,
 } from './types.js';
+import { optimisticOracleV3Abi } from './abis/optimisticOracleV3Abi.js';
 import { agentRegistryAbi } from './abis/agentRegistryAbi.js';
 import { predictionMarketHookAbi } from './abis/predictionMarketHookAbi.js';
 import { outcomeTokenAbi } from './abis/outcomeTokenAbi.js';
@@ -425,18 +431,24 @@ export class ClawlogicClient {
    *
    * The caller must be a registered agent. The asserted outcome must exactly
    * match `outcome1`, `outcome2`, or the literal string "Unresolvable".
-   * The caller must have approved the required bond amount of `i_currency`
-   * to the PredictionMarketHook contract.
+   * The bond (max(requiredBond, UMA minimum) of `i_currency`) is approved
+   * automatically unless `autoApproveBond` is false. Trading on the market
+   * halts until the assertion resolves.
    *
    * @param marketId - The market to assert (bytes32).
    * @param assertedOutcome - The outcome string being asserted.
+   * @param autoApproveBond - Approve the bond first if needed (default true).
    * @returns Transaction hash of the assertion.
    */
   async assertMarket(
     marketId: `0x${string}`,
     assertedOutcome: string,
+    autoApproveBond = true,
   ): Promise<`0x${string}`> {
     const wallet = this.requireWallet();
+    if (autoApproveBond) {
+      await this.approveAssertionBond(marketId);
+    }
 
     const hash = await wallet.writeContract({
       address: this.config.contracts.predictionMarketHook,
@@ -502,9 +514,334 @@ export class ClawlogicClient {
     return this.waitForTx(hash);
   }
 
+  /**
+   * Create a market with an optional trading close time.
+   *
+   * `value` pays the market creation fee first; the remainder seeds AMM
+   * liquidity and the caller receives the LP shares. Use `getFeeConfig()` to
+   * read the current creation fee and `findActiveMarket()` to avoid a
+   * `DuplicateMarket` revert.
+   *
+   * @param closeTime - Unix seconds after which trading stops (0n = none).
+   * @param value - ETH sent (creation fee + initial liquidity), in wei.
+   */
+  async createMarket(
+    outcome1: string,
+    outcome2: string,
+    description: string,
+    reward: bigint,
+    requiredBond: bigint,
+    closeTime: bigint = 0n,
+    value: bigint = 0n,
+  ): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'createMarket',
+      args: [outcome1, outcome2, description, reward, requiredBond, closeTime],
+      value,
+    });
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Sell outcome tokens back to the CPMM for ETH. No token approval needed.
+   *
+   * @param tokensIn - Outcome tokens to sell (18 decimals).
+   * @param minEthOut - Minimum wei to receive (slippage protection).
+   */
+  async sellOutcomeToken(
+    marketId: `0x${string}`,
+    isOutcome1: boolean,
+    tokensIn: bigint,
+    minEthOut: bigint = 0n,
+  ): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'sellOutcomeToken',
+      args: [marketId, isOutcome1, tokensIn, minEthOut],
+    });
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Burn `amount` of BOTH outcome tokens for `amount` wei (fee-free, before
+   * resolution).
+   */
+  async mergeOutcomeTokens(marketId: `0x${string}`, amount: bigint): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'mergeOutcomeTokens',
+      args: [marketId, amount],
+    });
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Add ETH liquidity to a market's AMM. LPs earn the LP share of every trade.
+   */
+  async addLiquidity(marketId: `0x${string}`, ethAmount: bigint): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'addLiquidity',
+      args: [marketId],
+      value: ethAmount,
+    });
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Withdraw LP shares as outcome tokens (settle them after resolution).
+   */
+  async removeLiquidity(marketId: `0x${string}`, shares: bigint): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'removeLiquidity',
+      args: [marketId, shares],
+    });
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Make sure `spender` may pull `amount` of `token` from this wallet.
+   * Returns the approval tx hash, or null when the allowance already suffices.
+   * Throws a readable error when the wallet does not hold enough of the token.
+   */
+  async ensureErc20Allowance(
+    token: `0x${string}`,
+    spender: `0x${string}`,
+    amount: bigint,
+  ): Promise<`0x${string}` | null> {
+    const wallet = this.requireWallet();
+    if (amount === 0n) return null;
+    const owner = wallet.account.address;
+    const [balance, allowance, symbol] = await Promise.all([
+      this.publicClient.readContract({ address: token, abi: erc20Abi, functionName: 'balanceOf', args: [owner] }),
+      this.publicClient.readContract({
+        address: token,
+        abi: erc20Abi,
+        functionName: 'allowance',
+        args: [owner, spender],
+      }),
+      this.publicClient
+        .readContract({ address: token, abi: erc20Abi, functionName: 'symbol' })
+        .catch(() => 'bond token'),
+    ]);
+    if (balance < amount) {
+      throw new Error(
+        `Insufficient ${symbol} (${token}): need ${amount} base units, wallet holds ${balance}.`,
+      );
+    }
+    if (allowance >= amount) return null;
+    const hash = await wallet.writeContract({
+      address: token,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [spender, amount],
+    });
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Approve the bond `assertMarket` will pull (max(requiredBond, UMA minimum)).
+   */
+  async approveAssertionBond(marketId: `0x${string}`): Promise<`0x${string}` | null> {
+    const [bond, currency] = await Promise.all([
+      this.getAssertionBond(marketId),
+      this.getBondCurrency(),
+    ]);
+    return this.ensureErc20Allowance(currency, this.config.contracts.predictionMarketHook, bond);
+  }
+
+  /**
+   * Dispute the market's active assertion on UMA OOV3. Approves the matching
+   * bond first. If the dispute wins at UMA's DVM, the disputer earns the
+   * asserter's bond.
+   */
+  async disputeAssertion(marketId: `0x${string}`): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const assertion = await this.getActiveAssertion(marketId);
+    if (!assertion) throw new Error('Market has no active assertion to dispute.');
+    const oracle = await this.getOracleAddress();
+    await this.ensureErc20Allowance(assertion.currency, oracle, assertion.bond);
+    const hash = await wallet.writeContract({
+      address: oracle,
+      abi: optimisticOracleV3Abi,
+      functionName: 'disputeAssertion',
+      args: [assertion.assertionId, wallet.account.address],
+    });
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Settle the market's active assertion on UMA OOV3 once its liveness window
+   * has passed. This is what triggers the callback that resolves the market --
+   * UMA never settles on its own.
+   */
+  async settleAssertion(marketId: `0x${string}`): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const assertion = await this.getActiveAssertion(marketId);
+    if (!assertion) throw new Error('Market has no active assertion to settle.');
+    const hash = await wallet.writeContract({
+      address: await this.getOracleAddress(),
+      abi: optimisticOracleV3Abi,
+      functionName: 'settleAssertion',
+      args: [assertion.assertionId],
+    });
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Send accrued protocol fees to the treasury (callable by anyone).
+   */
+  async withdrawProtocolFees(): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'withdrawProtocolFees',
+    });
+    return this.waitForTx(hash);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // Prediction Market Methods (Read)
   // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Creator, close time, active assertion, LP shares, question key and
+   * whether trading is open.
+   */
+  async getMarketInfo(marketId: `0x${string}`): Promise<MarketDetails> {
+    const [creator, closeTime, activeAssertionId, totalLpShares, marketKey, tradingOpen] =
+      await this.publicClient.readContract({
+        address: this.config.contracts.predictionMarketHook,
+        abi: predictionMarketHookAbi,
+        functionName: 'getMarketInfo',
+        args: [marketId],
+      });
+    return { creator, closeTime, activeAssertionId, totalLpShares, marketKey, tradingOpen };
+  }
+
+  /** Quote a buy of `ethIn` wei: tokens out and fees. */
+  async quoteBuy(marketId: `0x${string}`, isOutcome1: boolean, ethIn: bigint): Promise<TradeQuote> {
+    const [amountOut, protocolFee, lpFee] = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'quoteBuy',
+      args: [marketId, isOutcome1, ethIn],
+    });
+    return { amountOut, protocolFee, lpFee };
+  }
+
+  /** Quote a sell of `tokensIn`: wei out and fees. */
+  async quoteSell(marketId: `0x${string}`, isOutcome1: boolean, tokensIn: bigint): Promise<TradeQuote> {
+    const [amountOut, protocolFee, lpFee] = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'quoteSell',
+      args: [marketId, isOutcome1, tokensIn],
+    });
+    return { amountOut, protocolFee, lpFee };
+  }
+
+  /** Bond (in the bond currency) `assertMarket` will pull. */
+  async getAssertionBond(marketId: `0x${string}`): Promise<bigint> {
+    return this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'getAssertionBond',
+      args: [marketId],
+    });
+  }
+
+  /**
+   * Whether `address` may create markets and trade (AgentRegistry OR an
+   * ERC-8004 identity holder).
+   */
+  async isEligibleAgent(address: `0x${string}`): Promise<boolean> {
+    return this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'isEligibleAgent',
+      args: [address],
+    });
+  }
+
+  /**
+   * The unresolved market asking this question (case/spacing/punctuation and
+   * outcome order are ignored), or null.
+   */
+  async findActiveMarket(
+    description: string,
+    outcome1: string,
+    outcome2: string,
+  ): Promise<`0x${string}` | null> {
+    const id = await this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'getMarketIdByQuestion',
+      args: [description, outcome1, outcome2],
+    });
+    return id === ZERO_BYTES32 ? null : id;
+  }
+
+  /** LP shares `owner` holds in a market. */
+  async getLpShares(marketId: `0x${string}`, owner: `0x${string}`): Promise<bigint> {
+    return this.publicClient.readContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 's_lpShares',
+      args: [marketId, owner],
+    });
+  }
+
+  /** Current fees, treasury and pause flag. */
+  async getFeeConfig(): Promise<FeeConfig> {
+    const hook = this.config.contracts.predictionMarketHook;
+    const read = <T>(functionName: 's_protocolFeeBps' | 's_lpFeeBps' | 's_marketCreationFee' | 's_treasury' | 's_paused') =>
+      this.publicClient.readContract({ address: hook, abi: predictionMarketHookAbi, functionName }) as Promise<T>;
+    const [protocolFeeBps, lpFeeBps, marketCreationFee, treasury, paused] = await Promise.all([
+      read<bigint>('s_protocolFeeBps'),
+      read<bigint>('s_lpFeeBps'),
+      read<bigint>('s_marketCreationFee'),
+      read<`0x${string}`>('s_treasury'),
+      read<boolean>('s_paused'),
+    ]);
+    return { protocolFeeBps, lpFeeBps, marketCreationFee, treasury, paused };
+  }
+
+  /** The market's active UMA assertion, or null. */
+  async getActiveAssertion(marketId: `0x${string}`): Promise<AssertionInfo | null> {
+    const { activeAssertionId } = await this.getMarketInfo(marketId);
+    if (activeAssertionId === ZERO_BYTES32) return null;
+    const a = await this.publicClient.readContract({
+      address: await this.getOracleAddress(),
+      abi: optimisticOracleV3Abi,
+      functionName: 'getAssertion',
+      args: [activeAssertionId],
+    });
+    return {
+      assertionId: activeAssertionId,
+      asserter: a.asserter,
+      disputer: a.disputer,
+      currency: a.currency,
+      bond: a.bond,
+      assertionTime: BigInt(a.assertionTime),
+      expirationTime: BigInt(a.expirationTime),
+      settled: a.settled,
+      settlementResolution: a.settlementResolution,
+    };
+  }
 
   /**
    * Get full market details for a given marketId.
@@ -812,6 +1149,10 @@ export class ClawlogicClient {
     watchEvent('AssertionDisputed');
     watchEvent('TokensSettled');
     watchEvent('OutcomeTokenBought');
+    watchEvent('OutcomeTokenSold');
+    watchEvent('TokensMerged');
+    watchEvent('LiquidityAdded');
+    watchEvent('LiquidityRemoved');
 
     // Return a single unwatch function that stops all watchers
     return () => {

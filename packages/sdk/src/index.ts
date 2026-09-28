@@ -23,8 +23,21 @@ export type {
 export { IdentityClient } from './identity.js';
 export type { IdentityContracts } from './identity.js';
 
+// Duplicate-market helpers
+export {
+  computeMarketKey,
+  normalizeForKey,
+  questionSimilarity,
+  findSimilarMarkets,
+} from './market-dedupe.js';
+export type { SimilarMarket } from './market-dedupe.js';
+
 // Type definitions
 export type {
+  MarketDetails,
+  TradeQuote,
+  FeeConfig,
+  AssertionInfo,
   MarketInfo,
   AgentInfo,
   ClawlogicConfig,
@@ -60,6 +73,7 @@ export {
 export { agentRegistryAbi } from './abis/agentRegistryAbi.js';
 export { predictionMarketHookAbi } from './abis/predictionMarketHookAbi.js';
 export { outcomeTokenAbi } from './abis/outcomeTokenAbi.js';
+export { optimisticOracleV3Abi } from './abis/optimisticOracleV3Abi.js';
 
 // Phase 1: Identity ABIs
 export { agentIdentityRegistryAbi } from './abis/agentIdentityRegistryAbi.js';

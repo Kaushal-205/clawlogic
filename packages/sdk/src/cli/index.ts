@@ -1,11 +1,25 @@
 #!/usr/bin/env node
 
 import { spawn } from 'node:child_process';
-import { formatEther, parseEther } from 'viem';
+import { formatEther } from 'viem';
 import { createRuntime, resolveNetwork } from './runtime.js';
 import { getBoolFlag, getFlag, parseArgs } from './args.js';
 import { outputError, outputSuccess, ensure, shortAddress } from './output.js';
 import { NETWORKS, NPM_UPGRADE_COMMAND } from './constants.js';
+import {
+  commandAddLiquidity,
+  commandAnalyze,
+  commandAssert,
+  commandBuy,
+  commandCreateMarket,
+  commandDispute,
+  commandMarkets,
+  commandMerge,
+  commandQuote,
+  commandRemoveLiquidity,
+  commandSell,
+  commandSettle,
+} from './market-commands.js';
 
 type BroadcastType =
   | 'MarketBroadcast'
@@ -49,7 +63,7 @@ async function commandInit(): Promise<void> {
     funded: balance > 0n,
     next:
       balance > 0n
-        ? 'Wallet funded. You can register with `clawlogic-agent register --name <ens-or-name>`.'
+        ? 'Wallet funded. Run `clawlogic-agent doctor`, then `clawlogic-agent register --name <name>` if not yet eligible.'
         : `Fund ${address} on ${NETWORKS[resolveNetwork()].label}, then run \`clawlogic-agent doctor\`.`,
   });
 }
@@ -75,6 +89,11 @@ async function commandDoctor(): Promise<void> {
   } catch {
     registered = false;
   }
+  const [eligible, fees, bondCurrency] = await Promise.all([
+    client.isEligibleAgent(address),
+    client.getFeeConfig(),
+    client.getBondCurrency(),
+  ]);
 
   outputSuccess({
     command: 'doctor',
@@ -87,8 +106,20 @@ async function commandDoctor(): Promise<void> {
       contractsReadable: true,
       funded: balance > 0n,
       registered,
+      // Registered in the AgentRegistry OR holds an ERC-8004 agent identity.
+      eligible,
+      protocolPaused: fees.paused,
     },
-    status: balance > 0n && registered ? 'ready' : 'needs_setup',
+    status: balance > 0n && eligible && !fees.paused ? 'ready' : 'needs_setup',
+    fees: {
+      protocolFeeBps: fees.protocolFeeBps,
+      lpFeeBps: fees.lpFeeBps,
+      marketCreationFeeWei: fees.marketCreationFee,
+    },
+    bondCurrency,
+    next: !eligible
+      ? 'Run `clawlogic-agent register --name <name>` (not needed if you hold an ERC-8004 agent identity).'
+      : 'Ready. Find markets with `clawlogic-agent markets`.',
     chainId: config.chainId,
     rpcUrl: config.rpcUrl,
     blockNumber,
@@ -112,7 +143,7 @@ async function commandRegister(flags: Record<string, string | boolean>, position
   const balance = await client.getBalance();
   ensure(
     balance > 0n,
-    `Wallet ${address} has no ETH on Arbitrum Sepolia. Fund it before registration.`,
+    `Wallet ${address} has no ETH on ${NETWORKS[resolveNetwork()].label}. Fund it before registration.`,
   );
 
   let existing = false;
@@ -132,7 +163,10 @@ async function commandRegister(flags: Record<string, string | boolean>, position
     existing = false;
   }
 
-  const txHash = name.endsWith('.eth')
+  // ENS linkage is opt-in: it needs an ENS registry on this chain (none on Arbitrum One)
+  // and the wallet must own the name there.
+  const linkEns = getBoolFlag(flags, 'link-ens');
+  const txHash = linkEns
     ? await client.registerAgentWithENS(name, name, attestation)
     : await client.registerAgent(name, attestation);
 
@@ -143,152 +177,7 @@ async function commandRegister(flags: Record<string, string | boolean>, position
     alreadyRegistered: existing,
     walletAddress: address,
     name: agent.name,
-    ensLinked: name.endsWith('.eth'),
-  });
-}
-
-async function commandCreateMarket(flags: Record<string, string | boolean>, positional: string[]): Promise<void> {
-  const outcome1 = getFlag(flags, 'outcome1') ?? positional[0];
-  const outcome2 = getFlag(flags, 'outcome2') ?? positional[1];
-  const description = getFlag(flags, 'description') ?? positional.slice(2).join(' ');
-  ensure(outcome1, 'Missing outcome1. Use `--outcome1 yes`.');
-  ensure(outcome2, 'Missing outcome2. Use `--outcome2 no`.');
-  ensure(description, 'Missing description. Use `--description "..."`.');
-
-  const reward = parseWeiInput(getFlag(flags, 'reward-wei') ?? '0');
-  const bond = parseWeiInput(getFlag(flags, 'bond-wei') ?? '0');
-  const initialLiquidityEth = parseEthInput(getFlag(flags, 'initial-liquidity-eth') ?? '0');
-
-  const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
-  const { client } = runtime;
-
-  const beforeIds = await client.getMarketIds();
-  const txHash = await client.initializeMarket(
-    outcome1,
-    outcome2,
-    description,
-    reward,
-    bond,
-    initialLiquidityEth,
-  );
-  const afterIds = await client.getMarketIds();
-  const created = afterIds.find((id) => !beforeIds.includes(id));
-  const marketId = created ?? afterIds.at(-1) ?? null;
-
-  outputSuccess({
-    command: 'create-market',
-    txHash,
-    marketId,
-    outcome1,
-    outcome2,
-    description,
-    rewardWei: reward,
-    bondWei: bond,
-    initialLiquidityWei: initialLiquidityEth,
-  });
-}
-
-async function commandAnalyze(flags: Record<string, string | boolean>, positional: string[]): Promise<void> {
-  const marketId = (getFlag(flags, 'market-id') ?? positional[0]) as `0x${string}` | undefined;
-  ensure(marketId, 'Missing market id. Use `--market-id <0x...>`.');
-
-  const runtime = await createRuntime({ requireWallet: false });
-  const { client, address } = runtime;
-  const [market, probability, reserves] = await Promise.all([
-    client.getMarket(marketId),
-    client.getMarketProbability(marketId),
-    client.getMarketReserves(marketId),
-  ]);
-
-  const positions = address
-    ? await client.getPositions(marketId, address).catch(() => null)
-    : null;
-
-  outputSuccess({
-    command: 'analyze',
-    market,
-    probability,
-    reserves,
-    positions,
-    analysis: {
-      status: market.resolved
-        ? 'RESOLVED'
-        : market.assertedOutcomeId !==
-              '0x0000000000000000000000000000000000000000000000000000000000000000'
-          ? 'ASSERTION_PENDING'
-          : 'OPEN',
-      canTrade: !market.resolved,
-      canAssert:
-        !market.resolved &&
-        market.assertedOutcomeId ===
-          '0x0000000000000000000000000000000000000000000000000000000000000000',
-      canSettle: market.resolved,
-    },
-  });
-}
-
-async function commandBuy(flags: Record<string, string | boolean>, positional: string[]): Promise<void> {
-  const marketId = (getFlag(flags, 'market-id') ?? positional[0]) as `0x${string}` | undefined;
-  const side = (getFlag(flags, 'side') ?? 'both').toLowerCase();
-  const ethAmount = parseEthInput(getFlag(flags, 'eth') ?? positional[1]);
-  ensure(marketId, 'Missing market id. Use `--market-id <0x...>`.');
-  ensure(ethAmount > 0n, 'ETH amount must be > 0.');
-
-  const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
-  const { client } = runtime;
-
-  let txHash: `0x${string}`;
-  let action: string;
-  if (side === 'both') {
-    txHash = await client.mintOutcomeTokens(marketId, ethAmount);
-    action = 'mintOutcomeTokens';
-  } else if (side === 'yes' || side === 'no') {
-    const minOut = parseWeiInput(getFlag(flags, 'min-tokens-out') ?? '0');
-    txHash = await client.buyOutcomeToken(marketId, side === 'yes', ethAmount, minOut);
-    action = 'buyOutcomeToken';
-  } else {
-    throw new Error('Invalid side. Use `both`, `yes`, or `no`.');
-  }
-
-  outputSuccess({
-    command: 'buy',
-    txHash,
-    action,
-    marketId,
-    side,
-    ethAmountWei: ethAmount,
-    ethAmountEth: formatEther(ethAmount),
-  });
-}
-
-async function commandAssert(flags: Record<string, string | boolean>, positional: string[]): Promise<void> {
-  const marketId = (getFlag(flags, 'market-id') ?? positional[0]) as `0x${string}` | undefined;
-  const outcome = getFlag(flags, 'outcome') ?? positional[1];
-  ensure(marketId, 'Missing market id. Use `--market-id <0x...>`.');
-  ensure(outcome, 'Missing asserted outcome. Use `--outcome <yes|no|Unresolvable>`.');
-
-  const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
-  const txHash = await runtime.client.assertMarket(marketId, outcome);
-
-  outputSuccess({
-    command: 'assert',
-    txHash,
-    marketId,
-    assertedOutcome: outcome,
-  });
-}
-
-async function commandSettle(flags: Record<string, string | boolean>, positional: string[]): Promise<void> {
-  const marketId = (getFlag(flags, 'market-id') ?? positional[0]) as `0x${string}` | undefined;
-  ensure(marketId, 'Missing market id. Use `--market-id <0x...>`.');
-
-  const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
-  const txHash = await runtime.client.settleOutcomeTokens(marketId);
-
-  outputSuccess({
-    command: 'settle',
-    txHash,
-    marketId,
+    ensLinked: linkEns,
   });
 }
 
@@ -468,10 +357,9 @@ async function commandRun(flags: Record<string, string | boolean>): Promise<void
 
   const autoName = getFlag(flags, 'name');
   let registerTxHash: `0x${string}` | null = null;
-  if (!registered && autoName && balance > 0n) {
-    registerTxHash = autoName.endsWith('.eth')
-      ? await client.registerAgentWithENS(autoName, autoName, '0x')
-      : await client.registerAgent(autoName, '0x');
+  const eligibleViaIdentity = !registered && (await client.isEligibleAgent(address));
+  if (!registered && !eligibleViaIdentity && autoName && balance > 0n) {
+    registerTxHash = await client.registerAgent(autoName, '0x');
     const post = await client.getAgent(address);
     registered = post.exists;
     agentName = post.name;
@@ -486,7 +374,8 @@ async function commandRun(flags: Record<string, string | boolean>): Promise<void
     status: {
       funded: balance > 0n,
       registered,
-      ready: balance > 0n && registered,
+      eligible: registered || eligibleViaIdentity,
+      ready: balance > 0n && (registered || eligibleViaIdentity),
     },
     wallet: {
       balanceWei: balance,
@@ -497,9 +386,9 @@ async function commandRun(flags: Record<string, string | boolean>): Promise<void
       agentCount,
     },
     agentName,
-    next: !registered
-      ? 'Register with: clawlogic-agent register --name <ens-or-name>'
-      : 'Agent is ready. Create a market with: clawlogic-agent create-market --outcome1 yes --outcome2 no --description "..."',
+    next: !(registered || eligibleViaIdentity)
+      ? 'Register with: clawlogic-agent register --name <name>'
+      : 'Agent is ready. Browse with `clawlogic-agent markets` before creating a new one.',
   });
 }
 
@@ -516,20 +405,6 @@ async function commandUpgrade(flags: Record<string, string | boolean>): Promise<
     applied: apply,
     upgradeCommand: command,
   });
-}
-
-function parseEthInput(value: string | undefined): bigint {
-  ensure(value, 'Missing ETH amount.');
-  const parsed = parseEther(value);
-  return parsed;
-}
-
-function parseWeiInput(value: string | undefined): bigint {
-  ensure(value !== undefined, 'Missing wei value.');
-  if (value.includes('.')) {
-    return parseEther(value);
-  }
-  return BigInt(value);
 }
 
 async function runProcess(bin: string, args: string[]): Promise<void> {
@@ -554,10 +429,17 @@ function printHelp(): void {
       'init',
       'doctor',
       'register',
+      'markets',
       'create-market',
       'analyze',
+      'quote',
       'buy',
+      'sell',
+      'merge',
+      'add-liquidity',
+      'remove-liquidity',
       'assert',
+      'dispute',
       'settle',
       'positions',
       'post-broadcast',
@@ -588,8 +470,29 @@ async function main(): Promise<void> {
     case 'register':
       await commandRegister(flags, positional);
       return;
+    case 'markets':
+      await commandMarkets(flags);
+      return;
     case 'create-market':
       await commandCreateMarket(flags, positional);
+      return;
+    case 'quote':
+      await commandQuote(flags, positional);
+      return;
+    case 'sell':
+      await commandSell(flags, positional);
+      return;
+    case 'merge':
+      await commandMerge(flags, positional);
+      return;
+    case 'add-liquidity':
+      await commandAddLiquidity(flags, positional);
+      return;
+    case 'remove-liquidity':
+      await commandRemoveLiquidity(flags, positional);
+      return;
+    case 'dispute':
+      await commandDispute(flags, positional);
       return;
     case 'analyze':
       await commandAnalyze(flags, positional);
