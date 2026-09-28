@@ -1,8 +1,8 @@
 {
-    "name": "clawlogic",
-    "version": "0.0.1",
-    "private": true,
-    "type": "module",
+  "name": "clawlogic",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
@@ -17,8 +17,8 @@
     "skill:sync-published": "node scripts/sync-published-skill.mjs",
     "skill:check-published": "node scripts/sync-published-skill.mjs --check"
   },
-    "devDependencies": {
-        "@types/node": "^20.0.0",
-        "typescript": "^5.4.0"
-    }
+  "devDependencies": {
+    "@types/node": "^24.19.0",
+    "typescript": "^7.0.2"
+  }
 }

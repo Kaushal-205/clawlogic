@@ -12,7 +12,8 @@
  *   AGENT_NAME                - Optional, defaults to shortened address.
  *   AGENT_ENS_NAME            - Optional.
  *   AGENT_ENS_NODE            - Optional bytes32 string.
- *   AGENT_BROADCAST_URL       - Optional, defaults to http://localhost:3000/api/agent-broadcasts
+ *   AGENT_BROADCAST_URL       - Optional, defaults to https://clawlogic.vercel.app/api/agent-broadcasts
+ *   AGENT_BROADCAST_ENDPOINT  - Optional alias for AGENT_BROADCAST_URL
  *   AGENT_BROADCAST_API_KEY   - Optional, sent as x-agent-key header.
  *   AGENT_SESSION_ID          - Optional, included in payload.
  *   AGENT_TRADE_TX_HASH       - Optional, included in payload.
@@ -118,7 +119,8 @@ async function main(): Promise<void> {
 
   const endpoint =
     process.env.AGENT_BROADCAST_URL?.trim() ||
-    'http://localhost:3000/api/agent-broadcasts';
+    process.env.AGENT_BROADCAST_ENDPOINT?.trim() ||
+    'https://clawlogic.vercel.app/api/agent-broadcasts';
 
   const payload: Record<string, unknown> = {
     type,

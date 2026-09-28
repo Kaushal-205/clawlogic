@@ -14,16 +14,17 @@
  * it returns { success: true, inTee: false }.
  */
 
+import { privateKeyToAccount } from 'viem/accounts';
 import { outputSuccess, outputError, createClient } from './setup.js';
 
 async function main(): Promise<void> {
   const customData = process.argv[2] || undefined;
 
   // Attempt to load dstack SDK (only available inside Phala CVM)
-  let TappdClient: any;
+  let DstackClient: any;
   try {
     const dstack = await import('@phala/dstack-sdk');
-    TappdClient = dstack.TappdClient;
+    DstackClient = dstack.DstackClient;
   } catch {
     // Not in TEE — return gracefully
     outputSuccess({
@@ -37,18 +38,21 @@ async function main(): Promise<void> {
 
   try {
     const endpoint = process.env.DSTACK_SIMULATOR_ENDPOINT || undefined;
-    const client = new TappdClient(endpoint);
+    const client = new DstackClient(endpoint);
 
-    // Derive a deterministic key from TEE hardware
-    const deriveResult = await client.deriveKey('/clawlogic/agent/v1');
-    const publicKey = '0x' + Buffer.from(deriveResult.asUint8Array(64)).toString('hex');
+    // Derive a deterministic secp256k1 key from TEE hardware. The derived key
+    // is secret material -- only its public key is ever output.
+    const keyResult = await client.getKey('/clawlogic/agent/v1');
+    const derivedKey = ('0x' + Buffer.from(keyResult.key).toString('hex')) as `0x${string}`;
+    // Uncompressed public key without the 0x04 prefix (64 bytes).
+    const publicKey = '0x' + privateKeyToAccount(derivedKey).publicKey.slice(4);
 
-    // Use custom data or the derived public key as quote user data
+    // Use custom data or the derived public key as quote report data (max 64 bytes)
     const userData = customData || publicKey;
 
     // Generate TDX attestation quote
-    const quoteResult = await client.tdxQuote(userData);
-    const quote = '0x' + Buffer.from(quoteResult.quote).toString('hex');
+    const quoteResult = await client.getQuote(Buffer.from(userData.replace(/^0x/, ''), 'hex'));
+    const quote = '0x' + String(quoteResult.quote).replace(/^0x/, '');
 
     // Get agent address for reference
     let agentAddress: string | null = null;

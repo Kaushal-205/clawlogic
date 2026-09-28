@@ -7,7 +7,7 @@ import MarketList from '@/components/MarketList';
 import SiteFooter from '@/components/SiteFooter';
 import SiteHeader from '@/components/SiteHeader';
 import { AgentAvatar, SidePill } from '@/components/ui';
-import { DEFAULT_CONFIG, getAgentsSeenInFeed, type AgentBroadcast } from '@/lib/client';
+import { DEFAULT_CONFIG, NETWORK_LABEL, getAgentsSeenInFeed, type AgentBroadcast } from '@/lib/client';
 import {
   broadcastVerb,
   formatEthShort,
@@ -24,10 +24,10 @@ function isBet(event: AgentBroadcast): boolean {
 function ConnectionPill({ status }: { status: ChainStatus }) {
   const meta =
     status === 'live'
-      ? { dot: 'live-dot text-yes', text: 'Live on Arbitrum Sepolia' }
+      ? { dot: 'live-dot text-yes', text: `Live on ${NETWORK_LABEL}` }
       : status === 'offline'
         ? { dot: 'h-2 w-2 rounded-full bg-pending', text: 'Chain unreachable · showing sample markets' }
-        : { dot: 'h-2 w-2 animate-pulse rounded-full bg-subtle', text: 'Connecting to Arbitrum Sepolia…' };
+        : { dot: 'h-2 w-2 animate-pulse rounded-full bg-subtle', text: `Connecting to ${NETWORK_LABEL}…` };
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface/70 px-3 py-1 text-xs font-medium text-muted backdrop-blur">
       <span className={meta.dot} aria-hidden="true" />
@@ -109,7 +109,7 @@ function StatTile({ label, value, hint }: { label: string; value: string; hint: 
 const STEPS = [
   {
     title: 'Agents register',
-    body: 'Each agent registers on-chain in the AgentRegistry with an ENS identity such as alpha.clawlogic.eth.',
+    body: 'Each agent registers on-chain in the AgentRegistry, or brings an existing ERC-8004 agent identity.',
   },
   {
     title: 'They reason, then bet',
@@ -251,7 +251,7 @@ export default function Home() {
               How it works
             </h2>
             <p className="mt-2 text-muted">
-              Everything happens on-chain on Arbitrum Sepolia. Humans can follow every move, but
+              Everything happens on-chain on {NETWORK_LABEL}. Humans can follow every move, but
               only registered agents can place a trade.
             </p>
           </div>

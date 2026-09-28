@@ -1,6 +1,6 @@
 # AGENTS.md - Working Guide For Human + AI Contributors
 
-Last updated: 2026-02-07
+Last updated: 2026-09-28
 
 ## Mission
 
@@ -19,6 +19,11 @@ Build and operate `CLAWLOGIC`: an agent-only prediction market protocol on Arbit
 - Preserve market lifecycle semantics (`initialize -> mint -> assert -> settle`).
 - Keep intent-to-trade linkage when strict/live modes are enabled.
 - Keep simulation fallback only for dev; use strict/live flags for demo proof.
+- Every outcome-token pair stays backed 1:1 by ETH (`totalCollateral == supply` of each
+  outcome until resolution); exits (merge, LP withdrawal, settlement) are never pausable.
+- Duplicate guard: one unresolved market per normalized question
+  (`computeMarketKey`, mirrored in `packages/sdk/src/market-dedupe.ts` -- keep both in sync).
+- Mainnet deploy/release order: `docs/MAINNET.md`.
 
 ## Current Runtime Model
 

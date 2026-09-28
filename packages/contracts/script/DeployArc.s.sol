@@ -149,7 +149,8 @@ contract DeployArcScript is Script {
             IAgentRegistry(address(registry)),
             OptimisticOracleV3Interface(umaOov3),
             IERC20(bondCurrency),
-            liveness
+            liveness,
+            deployer // owner + treasury
         );
 
         console2.log("Mining CREATE2 salt for hook address flags...");
@@ -173,7 +174,8 @@ contract DeployArcScript is Script {
             IAgentRegistry(address(registry)),
             OptimisticOracleV3Interface(umaOov3),
             IERC20(bondCurrency),
-            liveness
+            liveness,
+            deployer // owner + treasury
         );
 
         vm.stopBroadcast();

@@ -48,18 +48,23 @@ async function getTeeAttestation(): Promise<{
 } | null> {
   try {
     // Dynamic import — @phala/dstack-sdk is only available inside Phala CVM
-    const { TappdClient } = await import('@phala/dstack-sdk');
+    const { DstackClient } = await import('@phala/dstack-sdk');
 
     const endpoint = process.env.DSTACK_SIMULATOR_ENDPOINT || undefined;
-    const client = new TappdClient(endpoint);
+    const client = new DstackClient(endpoint);
 
-    // Derive a deterministic key from the TEE hardware
-    const deriveResult = await client.deriveKey('/clawlogic/agent/v1');
-    const publicKey = ('0x' + Buffer.from(deriveResult.asUint8Array(64)).toString('hex')) as Hex;
+    // Derive a deterministic secp256k1 key from the TEE hardware. The derived
+    // key is secret material -- only its public key ever leaves the enclave.
+    const keyResult = await client.getKey('/clawlogic/agent/v1');
+    const derivedKey = ('0x' + Buffer.from(keyResult.key).toString('hex')) as Hex;
+    // Uncompressed public key without the 0x04 prefix: exactly 64 bytes, the
+    // maximum TDX report_data size, so the quote binds to this key.
+    const publicKey = ('0x' + privateKeyToAccount(derivedKey).publicKey.slice(4)) as Hex;
 
-    // Generate attestation quote with the public key as user data
-    const quoteResult = await client.tdxQuote(publicKey);
-    const quote = ('0x' + Buffer.from(quoteResult.quote).toString('hex')) as Hex;
+    // Generate attestation quote with the public key as report data
+    const quoteResult = await client.getQuote(Buffer.from(publicKey.slice(2), 'hex'));
+    // dstack returns the quote as a hex string; normalize to a 0x-prefixed Hex.
+    const quote = ('0x' + quoteResult.quote.replace(/^0x/, '')) as Hex;
 
     console.log('[tee-bootstrap] TEE attestation obtained successfully');
     console.log(`[tee-bootstrap]   Quote length: ${quote.length / 2 - 1} bytes`);

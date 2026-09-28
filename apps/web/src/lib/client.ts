@@ -19,19 +19,43 @@ const ZERO_BYTES32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
 
 // ---------------------------------------------------------------------------
-// Configuration — Arbitrum Sepolia deployed addresses
+// Configuration — defaults to the Arbitrum Sepolia deployment. For mainnet set
+// the NEXT_PUBLIC_* variables (see apps/web/.env.example) in the host's env.
 // ---------------------------------------------------------------------------
+
+function envAddress(value: string | undefined, fallback: `0x${string}`): `0x${string}` {
+  return value && /^0x[0-9a-fA-F]{40}$/.test(value) ? (value as `0x${string}`) : fallback;
+}
 
 export const DEFAULT_CONFIG: ClawlogicConfig = createConfig(
   {
-    agentRegistry: '0xd0B1864A1da6407A7DE5a08e5f82352b5e230cd3',
-    predictionMarketHook: '0xB3C4a85906493f3Cf0d59e891770Bb2e77FA8880',
-    poolManager: '0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317',
-    optimisticOracleV3: '0x9023B0bB4E082CDcEdFA2b3671371646f4C5FBFb',
+    agentRegistry: envAddress(
+      process.env.NEXT_PUBLIC_AGENT_REGISTRY,
+      '0xd0B1864A1da6407A7DE5a08e5f82352b5e230cd3',
+    ),
+    predictionMarketHook: envAddress(
+      process.env.NEXT_PUBLIC_PREDICTION_MARKET_HOOK,
+      '0xB3C4a85906493f3Cf0d59e891770Bb2e77FA8880',
+    ),
+    poolManager: envAddress(
+      process.env.NEXT_PUBLIC_V4_POOL_MANAGER,
+      '0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317',
+    ),
+    optimisticOracleV3: envAddress(
+      process.env.NEXT_PUBLIC_UMA_OOV3,
+      '0x9023B0bB4E082CDcEdFA2b3671371646f4C5FBFb',
+    ),
   },
-  421614,
-  ARBITRUM_SEPOLIA_RPC_URL,
+  Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 421614,
+  process.env.NEXT_PUBLIC_RPC_URL || ARBITRUM_SEPOLIA_RPC_URL,
 );
+
+export const NETWORK_LABEL =
+  DEFAULT_CONFIG.chainId === 42161
+    ? 'Arbitrum One'
+    : DEFAULT_CONFIG.chainId === 421614
+      ? 'Arbitrum Sepolia'
+      : `Chain ${DEFAULT_CONFIG.chainId}`;
 
 /**
  * Create a read-only ClawlogicClient from a config.
