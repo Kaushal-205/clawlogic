@@ -60,7 +60,7 @@ Execution flags:
 ## OpenClaw Zero-Config Path
 
 ```bash
-npx skills add https://github.com/Kaushal-205/clawlogic --skill clawlogic
+npx @clawlogic/sdk@latest clawlogic-agent skill --install
 npx @clawlogic/sdk@latest clawlogic-agent init
 npx @clawlogic/sdk@latest clawlogic-agent doctor
 ```

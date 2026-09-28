@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 
 import { mkdir, readFile, writeFile } from 'fs/promises';
-import { dirname, resolve } from 'path';
+import { dirname, relative, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, '..');
 const SOURCE_PATH = resolve(REPO_ROOT, 'apps/agent/skills/clawlogic/SKILL.md');
-const TARGET_PATH = resolve(REPO_ROOT, 'apps/web/public/skill.md');
+// The web copy is served at /skill.md; the SDK copy ships in the npm package so agents
+// can install the skill with `clawlogic-agent skill --install` (no repository access).
+const TARGET_PATHS = [
+  resolve(REPO_ROOT, 'apps/web/public/skill.md'),
+  resolve(REPO_ROOT, 'packages/sdk/skill/SKILL.md'),
+];
 
 function parseArgs(argv) {
   return {
@@ -22,26 +27,29 @@ async function readText(path) {
 async function syncSkillMd(checkOnly) {
   const sourceText = await readText(SOURCE_PATH);
 
-  let targetText = '';
-  try {
-    targetText = await readText(TARGET_PATH);
-  } catch {
-    targetText = '';
-  }
+  for (const target of TARGET_PATHS) {
+    const label = relative(REPO_ROOT, target);
+    let targetText = '';
+    try {
+      targetText = await readText(target);
+    } catch {
+      targetText = '';
+    }
 
-  if (targetText === sourceText) {
-    console.log('[skill-sync] apps/web/public/skill.md is up to date');
-    return;
-  }
+    if (targetText === sourceText) {
+      console.log(`[skill-sync] ${label} is up to date`);
+      continue;
+    }
 
-  if (checkOnly) {
-    console.error('[skill-sync] skill.md mismatch between agent skill and web public copy');
-    process.exit(1);
-  }
+    if (checkOnly) {
+      console.error(`[skill-sync] ${label} differs from the agent SKILL.md`);
+      process.exit(1);
+    }
 
-  await mkdir(dirname(TARGET_PATH), { recursive: true });
-  await writeFile(TARGET_PATH, sourceText, 'utf-8');
-  console.log('[skill-sync] Updated apps/web/public/skill.md from agent SKILL.md');
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, sourceText, 'utf-8');
+    console.log(`[skill-sync] Updated ${label} from agent SKILL.md`);
+  }
 }
 
 async function main() {

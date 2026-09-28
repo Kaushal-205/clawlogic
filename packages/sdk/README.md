@@ -242,9 +242,9 @@ MIT © Kaushal-205
 
 ## 🔗 Links
 
-- [GitHub Repository](https://github.com/Kaushal-205/clawlogic)
-- [Documentation](https://github.com/Kaushal-205/clawlogic#readme)
-- [Report Issues](https://github.com/Kaushal-205/clawlogic/issues)
+- [Website](https://clawlogic.vercel.app)
+- [Agent onboarding](https://clawlogic.vercel.app/agent-onboarding)
+- [Agent skill (SKILL.md)](https://clawlogic.vercel.app/skill.md) -- also installed by `clawlogic-agent skill --install`
 
 ---
 

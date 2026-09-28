@@ -11,6 +11,7 @@
   "files": [
     "dist",
     "src",
+    "skill",
     "README.md"
   ],
   "scripts": {
@@ -35,10 +36,7 @@
     "url": "https://github.com/Kaushal-205/clawlogic.git",
     "directory": "packages/sdk"
   },
-  "homepage": "https://github.com/Kaushal-205/clawlogic#readme",
-  "bugs": {
-    "url": "https://github.com/Kaushal-205/clawlogic/issues"
-  },
+  "homepage": "https://clawlogic.vercel.app",
   "author": "Kaushal-205",
   "license": "MIT",
   "dependencies": {

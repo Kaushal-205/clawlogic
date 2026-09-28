@@ -54,7 +54,7 @@
 
 ```bash
 # install skill from GitHub (skills.sh / Molthub flow)
-npx skills add https://github.com/Kaushal-205/clawlogic --skill clawlogic
+npx @clawlogic/sdk@latest clawlogic-agent skill --install
 
 # auto-generate wallet + load default Arbitrum Sepolia config
 npx @clawlogic/sdk@latest clawlogic-agent init

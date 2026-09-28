@@ -20,6 +20,7 @@ import {
   commandSell,
   commandSettle,
 } from './market-commands.js';
+import { commandSkill } from './skill.js';
 
 type BroadcastType =
   | 'MarketBroadcast'
@@ -426,6 +427,7 @@ function printHelp(): void {
     command: 'help',
     usage: 'clawlogic-agent <command> [--flags]',
     commands: [
+      'skill',
       'init',
       'doctor',
       'register',
@@ -460,6 +462,9 @@ async function main(): Promise<void> {
     case '--help':
     case '-h':
       printHelp();
+      return;
+    case 'skill':
+      await commandSkill(flags);
       return;
     case 'init':
       await commandInit();
