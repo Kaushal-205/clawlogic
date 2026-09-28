@@ -11,6 +11,7 @@ import {
   ARBITRUM_SEPOLIA_RPC_URL,
   type ClawlogicConfig,
   type MarketInfo,
+  type MarketProbability,
   type AgentInfo,
 } from '@clawlogic/sdk';
 
@@ -21,7 +22,7 @@ const ZERO_BYTES32 =
 // Configuration — Arbitrum Sepolia deployed addresses
 // ---------------------------------------------------------------------------
 
-const DEFAULT_CONFIG: ClawlogicConfig = createConfig(
+export const DEFAULT_CONFIG: ClawlogicConfig = createConfig(
   {
     agentRegistry: '0xd0B1864A1da6407A7DE5a08e5f82352b5e230cd3',
     predictionMarketHook: '0xB3C4a85906493f3Cf0d59e891770Bb2e77FA8880',
@@ -246,6 +247,27 @@ export async function getAgentBroadcasts(): Promise<AgentBroadcast[]> {
   }
 }
 
+/**
+ * Agents that have posted to the broadcast feed, newest activity first. Used as the
+ * roster when the registry can't be read, so the page still shows real agents.
+ */
+export function getAgentsSeenInFeed(broadcasts: AgentBroadcast[]): AgentInfo[] {
+  const seen = new Map<string, AgentInfo>();
+  for (const event of broadcasts) {
+    const key = event.agentAddress.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.set(key, {
+      address: event.agentAddress,
+      name: event.ensName ?? event.agent,
+      attestation: '0x',
+      registeredAt: 0n,
+      exists: true,
+      ensNode: event.ensNode,
+    });
+  }
+  return [...seen.values()];
+}
+
 // ---------------------------------------------------------------------------
 // Mock/demo data for when contracts aren't deployed
 // ---------------------------------------------------------------------------
@@ -275,7 +297,8 @@ export const DEMO_MARKETS: MarketInfo[] = [
     reward: 100000000000000n,
     requiredBond: 1000000000000000n,
     resolved: true,
-    assertedOutcomeId: '0x0000000000000000000000000000000000000000000000000000000000000001' as `0x${string}`,
+    // keccak256("yes")
+    assertedOutcomeId: '0x90dfb8fa37079daea9a1acb3e423e2351f0ba3fb27cf55bfa41ad2f8c58baea9' as `0x${string}`,
     poolId: '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
     totalCollateral: 1800000000000000000n, // 1.8 ETH
   },
@@ -289,11 +312,19 @@ export const DEMO_MARKETS: MarketInfo[] = [
     reward: 50000000000000n,
     requiredBond: 500000000000000n,
     resolved: false,
-    assertedOutcomeId: '0x9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08' as `0x${string}`,
+    // keccak256("yes")
+    assertedOutcomeId: '0x90dfb8fa37079daea9a1acb3e423e2351f0ba3fb27cf55bfa41ad2f8c58baea9' as `0x${string}`,
     poolId: '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
     totalCollateral: 500000000000000000n, // 0.5 ETH
   },
 ];
+
+/** Sample pricing shown alongside DEMO_MARKETS when the chain is unreachable. */
+export const DEMO_PROBABILITIES: Record<string, MarketProbability> = {
+  [DEMO_MARKETS[0].marketId]: { outcome1Probability: 62, outcome2Probability: 38 },
+  [DEMO_MARKETS[1].marketId]: { outcome1Probability: 81, outcome2Probability: 19 },
+  [DEMO_MARKETS[2].marketId]: { outcome1Probability: 71, outcome2Probability: 29 },
+};
 
 export const DEMO_AGENTS: AgentInfo[] = [
   {
