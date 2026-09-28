@@ -6,7 +6,7 @@
     "predev": "pnpm --filter @clawlogic/sdk build && node ../../scripts/sync-skill-md.mjs",
     "dev": "next dev",
     "prebuild": "pnpm --filter @clawlogic/sdk build && node ../../scripts/sync-skill-md.mjs",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start"
   },
   "dependencies": {
