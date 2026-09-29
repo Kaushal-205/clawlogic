@@ -8,7 +8,7 @@
 #
 # Environment:
 #   AGENT_PRIVATE_KEY          - Agent wallet private key (optional for read-only)
-#   ARBITRUM_SEPOLIA_RPC_URL   - RPC endpoint (optional, has default)
+#   ARBITRUM_ONE_RPC_URL       - RPC endpoint (optional, has default)
 #
 # Output: JSON to stdout with market details, positions, token metrics, and analysis hints.
 

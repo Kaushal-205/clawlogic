@@ -1,37 +1,6 @@
 import type { ClawlogicConfig, DeploymentInfo } from './types.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Arbitrum Sepolia
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Arbitrum Sepolia chain ID.
- */
-export const ARBITRUM_SEPOLIA_CHAIN_ID = 421614;
-
-/**
- * Default RPC URL for Arbitrum Sepolia.
- */
-export const ARBITRUM_SEPOLIA_RPC_URL = 'https://sepolia-rollup.arbitrum.io/rpc';
-
-/**
- * Default configuration for Arbitrum Sepolia testnet.
- *
- * Contract addresses are placeholders and will be updated after deployment.
- * Use `loadConfig()` to load real addresses from a deployments JSON file.
- */
-export const ARBITRUM_SEPOLIA_CONFIG: ClawlogicConfig = {
-  chainId: ARBITRUM_SEPOLIA_CHAIN_ID,
-  rpcUrl: ARBITRUM_SEPOLIA_RPC_URL,
-  contracts: {
-    agentRegistry: '0x0000000000000000000000000000000000000000',
-    predictionMarketHook: '0x0000000000000000000000000000000000000000',
-    poolManager: '0x0000000000000000000000000000000000000000',
-    optimisticOracleV3: '0x0000000000000000000000000000000000000000',
-  },
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Arbitrum One (mainnet)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -47,21 +16,34 @@ export const ARBITRUM_ONE_CHAIN_ID = 42161;
 export const ARBITRUM_ONE_RPC_URL = 'https://arb1.arbitrum.io/rpc';
 
 /**
- * Default configuration for Arbitrum One mainnet.
- *
- * `poolManager` (Uniswap v4) and `optimisticOracleV3` (UMA) are the canonical
- * Arbitrum One deployments. The CLAWLOGIC contract addresses are placeholders
- * until the protocol is deployed to mainnet; pass the real ones via
- * `createConfig()` / `loadConfigFromDeployment()` or the CLI env vars.
+ * Arbitrum One block the PredictionMarketHook was deployed in. Event scans
+ * (e.g. price history) can start here instead of at genesis.
+ */
+export const ARBITRUM_ONE_HOOK_DEPLOY_BLOCK = 510_124_998n;
+
+/**
+ * Canonical WETH on Arbitrum One -- the protocol's UMA bond currency there.
+ */
+export const ARBITRUM_ONE_WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' as const;
+
+/**
+ * The CLAWLOGIC deployment on Arbitrum One mainnet
+ * (packages/contracts/deployments/arbitrum-one.json). `poolManager` (Uniswap v4),
+ * `optimisticOracleV3` (UMA) and `bondCurrency` (WETH) are the canonical
+ * Arbitrum One contracts. ENS linkage and the Phala TEE verifier are disabled.
  */
 export const ARBITRUM_ONE_CONFIG: ClawlogicConfig = {
   chainId: ARBITRUM_ONE_CHAIN_ID,
   rpcUrl: ARBITRUM_ONE_RPC_URL,
   contracts: {
-    agentRegistry: '0x0000000000000000000000000000000000000000',
-    predictionMarketHook: '0x0000000000000000000000000000000000000000',
+    agentRegistry: '0x6Ecc60F604d08b19fBd5eCCDc61b9DFb4fFca9F8',
+    predictionMarketHook: '0x55cB6476a7B4DBe048407Cf4058Af3A9f8408880',
     poolManager: '0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32',
     optimisticOracleV3: '0xa6147867264374F324524E30C02C331cF28aa879',
+    bondCurrency: ARBITRUM_ONE_WETH,
+    agentIdentityRegistry: '0xA8D9C55f138178727bBAf0525b961D96C916a93f',
+    agentValidationRegistry: '0x99A70779C6a2B9B3c04c0dDa6837472a2180f7b4',
+    agentReputationRegistry: '0x4917656dD98BDb24E4B7208703C0125De1F88bD5',
   },
 };
 
@@ -116,7 +98,7 @@ export const ARC_TESTNET_CONFIG: ClawlogicConfig = {
  * The deployments JSON must conform to the DeploymentInfo interface:
  * ```json
  * {
- *   "chainId": 421614,
+ *   "chainId": 42161,
  *   "deployer": "0x...",
  *   "deployedAt": "2026-02-XX",
  *   "blockNumber": 0,
@@ -130,9 +112,8 @@ export const ARC_TESTNET_CONFIG: ClawlogicConfig = {
  *
  * @param deployment - The parsed deployment info object.
  * @param rpcUrl - Optional RPC URL override. Defaults based on chain ID:
- *                 - Arbitrum One (42161) -> Arbitrum One public RPC
  *                 - Arc testnet (5042002) -> Arc testnet RPC
- *                 - All others -> Arbitrum Sepolia public RPC
+ *                 - All others -> Arbitrum One public RPC
  * @returns A ClawlogicConfig ready for use with the ClawlogicClient.
  */
 export function loadConfigFromDeployment(
@@ -140,11 +121,7 @@ export function loadConfigFromDeployment(
   rpcUrl?: string,
 ): ClawlogicConfig {
   const defaultRpc =
-    deployment.chainId === ARBITRUM_ONE_CHAIN_ID
-      ? ARBITRUM_ONE_RPC_URL
-      : deployment.chainId === ARC_TESTNET_CHAIN_ID
-        ? ARC_TESTNET_RPC_URL
-        : ARBITRUM_SEPOLIA_RPC_URL;
+    deployment.chainId === ARC_TESTNET_CHAIN_ID ? ARC_TESTNET_RPC_URL : ARBITRUM_ONE_RPC_URL;
 
   const zero = '0x0000000000000000000000000000000000000000' as `0x${string}`;
 
@@ -170,8 +147,8 @@ export function loadConfigFromDeployment(
  * Create a ClawlogicConfig from explicit contract addresses.
  *
  * @param addresses - Object with contract addresses.
- * @param chainId - Chain ID (default: Arbitrum Sepolia 421614).
- * @param rpcUrl - RPC URL (default: Arbitrum Sepolia public RPC).
+ * @param chainId - Chain ID (default: Arbitrum One 42161).
+ * @param rpcUrl - RPC URL (default: Arbitrum One public RPC).
  * @returns A ClawlogicConfig ready for use with the ClawlogicClient.
  */
 export function createConfig(
@@ -181,8 +158,8 @@ export function createConfig(
     poolManager: `0x${string}`;
     optimisticOracleV3?: `0x${string}`;
   },
-  chainId = ARBITRUM_SEPOLIA_CHAIN_ID,
-  rpcUrl = ARBITRUM_SEPOLIA_RPC_URL,
+  chainId = ARBITRUM_ONE_CHAIN_ID,
+  rpcUrl = ARBITRUM_ONE_RPC_URL,
 ): ClawlogicConfig {
   return {
     chainId,

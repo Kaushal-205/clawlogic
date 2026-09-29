@@ -18,8 +18,11 @@ interface PersistedState {
   privateKey: `0x${string}`;
   address: `0x${string}`;
   createdAt: string;
-  /** Network the saved rpcUrl/contracts belong to (absent = arbitrum-sepolia). */
-  network?: NetworkName;
+  /**
+   * Network the saved rpcUrl/contracts belong to. Absent in state written by CLI versions
+   * before 0.2.0, whose saved rpcUrl/contracts point at the retired Arbitrum Sepolia deployment.
+   */
+  network?: string;
   rpcUrl?: string;
   contracts?: Partial<ClawlogicConfig['contracts']>;
 }
@@ -89,6 +92,11 @@ export async function createRuntime(
 
 export function resolveNetwork(value = process.env.CLAWLOGIC_NETWORK): NetworkName {
   const name = value?.trim().toLowerCase() || DEFAULT_NETWORK;
+  if (name === 'arbitrum-sepolia') {
+    throw new Error(
+      'CLAWLOGIC no longer runs on Arbitrum Sepolia. Unset CLAWLOGIC_NETWORK to use Arbitrum One mainnet.',
+    );
+  }
   if (!(name in NETWORKS)) {
     throw new Error(
       `Unknown CLAWLOGIC_NETWORK "${value}". Expected one of: ${Object.keys(NETWORKS).join(', ')}.`,
@@ -100,9 +108,9 @@ export function resolveNetwork(value = process.env.CLAWLOGIC_NETWORK): NetworkNa
 function resolveConfig(state: PersistedState | null): ClawlogicConfig {
   const networkName = resolveNetwork();
   const network = NETWORKS[networkName];
-  // State saved by older CLI versions has no network and was always testnet.
-  const stateMatches = (state?.network ?? DEFAULT_NETWORK) === networkName;
-  const saved = stateMatches ? state : null;
+  // State saved by older CLI versions has no network and was always testnet: its wallet is
+  // reused, but its saved rpcUrl/contracts are ignored.
+  const saved = state?.network === networkName ? state : null;
 
   const rpcUrl =
     process.env[network.rpcEnvVar] ??

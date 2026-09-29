@@ -15,6 +15,7 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { namehash } from 'viem/ens';
+import { ARBITRUM_ONE_CHAIN_ID, ARBITRUM_ONE_WETH } from './config.js';
 import type {
   ClawlogicConfig,
   MarketInfo,
@@ -35,21 +36,8 @@ import { predictionMarketHookAbi } from './abis/predictionMarketHookAbi.js';
 import { outcomeTokenAbi } from './abis/outcomeTokenAbi.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Chain definition for Arbitrum Sepolia (in case viem does not export it)
+// Chain definition for Arbitrum One
 // ─────────────────────────────────────────────────────────────────────────────
-
-const arbitrumSepolia: Chain = {
-  id: 421614,
-  name: 'Arbitrum Sepolia',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://sepolia-rollup.arbitrum.io/rpc'] },
-  },
-  blockExplorers: {
-    default: { name: 'Arbiscan', url: 'https://sepolia.arbiscan.io' },
-  },
-  testnet: true,
-};
 
 const arbitrumOne: Chain = {
   id: 42161,
@@ -68,6 +56,10 @@ const ZERO_BYTES32 =
 const ZERO_ADDRESS =
   '0x0000000000000000000000000000000000000000' as const;
 
+const WETH_DEPOSIT_ABI = [
+  { type: 'function', name: 'deposit', stateMutability: 'payable', inputs: [], outputs: [] },
+] as const;
+
 function isBytes32Hex(value: string): value is `0x${string}` {
   return /^0x[0-9a-fA-F]{64}$/.test(value);
 }
@@ -84,7 +76,7 @@ function resolveEnsNode(ensNodeOrName: `0x${string}` | string): `0x${string}` {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildChain(config: ClawlogicConfig): Chain {
-  const known = [arbitrumSepolia, arbitrumOne].find((chain) => chain.id === config.chainId);
+  const known = [arbitrumOne].find((chain) => chain.id === config.chainId);
   if (known) {
     return {
       ...known,
@@ -633,7 +625,7 @@ export class ClawlogicClient {
         .readContract({ address: token, abi: erc20Abi, functionName: 'symbol' })
         .catch(() => 'bond token'),
     ]);
-    if (balance < amount) {
+    if (balance < amount && !(await this.wrapEthInto(token, amount - balance))) {
       throw new Error(
         `Insufficient ${symbol} (${token}): need ${amount} base units, wallet holds ${balance}.`,
       );
@@ -649,7 +641,29 @@ export class ClawlogicClient {
   }
 
   /**
+   * Cover a WETH shortfall by wrapping native ETH, so agents holding only ETH can post
+   * the Arbitrum One bond. Returns false (nothing sent) for any other token or when the
+   * wallet lacks the ETH.
+   */
+  private async wrapEthInto(token: `0x${string}`, shortfall: bigint): Promise<boolean> {
+    if (this.config.chainId !== ARBITRUM_ONE_CHAIN_ID) return false;
+    if (token.toLowerCase() !== ARBITRUM_ONE_WETH.toLowerCase()) return false;
+    const wallet = this.requireWallet();
+    const ethBalance = await this.publicClient.getBalance({ address: wallet.account.address });
+    if (ethBalance <= shortfall) return false;
+    const hash = await wallet.writeContract({
+      address: token,
+      abi: WETH_DEPOSIT_ABI,
+      functionName: 'deposit',
+      value: shortfall,
+    });
+    await this.waitForTx(hash);
+    return true;
+  }
+
+  /**
    * Approve the bond `assertMarket` will pull (max(requiredBond, UMA minimum)).
+   * On Arbitrum One a WETH shortfall is wrapped from the wallet's ETH first.
    */
   async approveAssertionBond(marketId: `0x${string}`): Promise<`0x${string}` | null> {
     const [bond, currency] = await Promise.all([

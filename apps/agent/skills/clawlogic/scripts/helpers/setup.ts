@@ -1,47 +1,34 @@
 /**
  * Shared setup for all OpenClaw tool scripts.
  *
- * Creates a ClawlogicClient instance from environment variables, with
- * production-safe Arbitrum Sepolia defaults when explicit addresses are not set.
+ * Creates a ClawlogicClient for the Arbitrum One mainnet deployment, with optional
+ * environment overrides for the RPC and contract addresses.
  */
 
 import 'dotenv/config';
 
-import { ClawlogicClient } from '@clawlogic/sdk';
-import {
-  createConfig,
-  ARBITRUM_SEPOLIA_RPC_URL,
-} from '@clawlogic/sdk';
+import { ClawlogicClient, ARBITRUM_ONE_CONFIG, createConfig } from '@clawlogic/sdk';
 import type { ClawlogicConfig } from '@clawlogic/sdk';
 
-const DEFAULT_AGENT_REGISTRY =
-  '0xd0B1864A1da6407A7DE5a08e5f82352b5e230cd3' as const;
-const DEFAULT_PREDICTION_MARKET_HOOK =
-  '0xB3C4a85906493f3Cf0d59e891770Bb2e77FA8880' as const;
-const DEFAULT_V4_POOL_MANAGER =
-  '0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317' as const;
-const DEFAULT_UMA_OOV3 =
-  '0x9023B0bB4E082CDcEdFA2b3671371646f4C5FBFb' as const;
-
 /**
- * Build config from environment overrides, falling back to known deployed defaults.
+ * Build config from environment overrides, falling back to the deployed contracts.
  */
 function loadConfig(): ClawlogicConfig {
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
-  const agentRegistry = process.env.AGENT_REGISTRY ?? DEFAULT_AGENT_REGISTRY;
-  const predictionMarketHook =
-    process.env.PREDICTION_MARKET_HOOK ?? DEFAULT_PREDICTION_MARKET_HOOK;
-  const poolManager = process.env.V4_POOL_MANAGER ?? DEFAULT_V4_POOL_MANAGER;
-  const optimisticOracleV3 = process.env.UMA_OOV3 ?? DEFAULT_UMA_OOV3;
+  const defaults = ARBITRUM_ONE_CONFIG.contracts;
+  const rpcUrl = process.env.ARBITRUM_ONE_RPC_URL ?? ARBITRUM_ONE_CONFIG.rpcUrl;
+  const agentRegistry = process.env.AGENT_REGISTRY ?? defaults.agentRegistry;
+  const predictionMarketHook = process.env.PREDICTION_MARKET_HOOK ?? defaults.predictionMarketHook;
+  const poolManager = process.env.V4_POOL_MANAGER ?? defaults.poolManager;
+  const optimisticOracleV3 = process.env.UMA_OOV3 ?? defaults.optimisticOracleV3;
 
   return createConfig(
     {
       agentRegistry: agentRegistry as `0x${string}`,
       predictionMarketHook: predictionMarketHook as `0x${string}`,
       poolManager: poolManager as `0x${string}`,
-      optimisticOracleV3: (optimisticOracleV3 ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
+      optimisticOracleV3: optimisticOracleV3 as `0x${string}`,
     },
-    421614,
+    ARBITRUM_ONE_CONFIG.chainId,
     rpcUrl,
   );
 }

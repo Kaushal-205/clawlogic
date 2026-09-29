@@ -102,9 +102,6 @@ function defaultRpcForChain(chainId: number): string | undefined {
     10: 'https://mainnet.optimism.io',
     137: 'https://polygon-rpc.com',
     42161: 'https://arb1.arbitrum.io/rpc',
-    11155111: 'https://rpc.sepolia.org',
-    11155420: 'https://sepolia.optimism.io',
-    421614: 'https://sepolia-rollup.arbitrum.io/rpc',
   };
   return byChain[chainId];
 }

@@ -41,28 +41,30 @@ describe('CLI network selection', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it('defaults to Arbitrum Sepolia with the testnet deployment', async () => {
-    expect(resolveNetwork()).toBe('arbitrum-sepolia');
+  it('defaults to the Arbitrum One deployment', async () => {
+    expect(resolveNetwork()).toBe('arbitrum-one');
     const { config } = await createRuntime();
-    expect(config.chainId).toBe(421614);
+    expect(config.chainId).toBe(42161);
+    expect(config.rpcUrl).toBe(ARBITRUM_ONE_CONFIG.rpcUrl);
     expect(config.contracts.agentRegistry).toBe(DEFAULT_CONTRACTS.agentRegistry);
+    expect(config.contracts.predictionMarketHook).toBe(
+      ARBITRUM_ONE_CONFIG.contracts.predictionMarketHook,
+    );
+    expect(config.contracts.agentRegistry).not.toMatch(/^0x0{40}$/);
+    expect(config.contracts.predictionMarketHook).not.toMatch(/^0x0{40}$/);
   });
 
   it('rejects unknown networks', () => {
     expect(() => resolveNetwork('mainnet')).toThrow(/Unknown CLAWLOGIC_NETWORK/);
   });
 
-  it('refuses Arbitrum One until the protocol addresses are provided', async () => {
-    process.env.CLAWLOGIC_NETWORK = 'arbitrum-one';
-    await expect(createRuntime()).rejects.toThrow(/not configured for Arbitrum One/);
+  it('explains that Arbitrum Sepolia is retired', () => {
+    expect(() => resolveNetwork('arbitrum-sepolia')).toThrow(/no longer runs on Arbitrum Sepolia/);
   });
 
-  it('uses Arbitrum One defaults and ignores testnet-only settings', async () => {
-    process.env.CLAWLOGIC_NETWORK = 'arbitrum-one';
-    process.env.AGENT_REGISTRY = MAINNET_REGISTRY;
-    process.env.PREDICTION_MARKET_HOOK = MAINNET_HOOK;
+  it('keeps the legacy wallet but ignores its testnet rpcUrl/contracts', async () => {
     process.env.ARBITRUM_SEPOLIA_RPC_URL = 'https://sepolia.example.com';
-    // Legacy state (no `network`) belongs to Arbitrum Sepolia.
+    // State written by CLI versions before 0.2.0 has no `network` and points at Arbitrum Sepolia.
     await writeFile(
       process.env.CLAWLOGIC_STATE_PATH!,
       JSON.stringify({
@@ -71,25 +73,37 @@ describe('CLI network selection', () => {
         address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
         createdAt: '2026-01-01T00:00:00.000Z',
         rpcUrl: 'https://sepolia-state.example.com',
-        contracts: { poolManager: DEFAULT_CONTRACTS.poolManager },
+        contracts: {
+          agentRegistry: '0xd0B1864A1da6407A7DE5a08e5f82352b5e230cd3',
+          predictionMarketHook: '0xB3C4a85906493f3Cf0d59e891770Bb2e77FA8880',
+          poolManager: '0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317',
+        },
       }),
     );
 
-    const { config } = await createRuntime();
+    const { config, address } = await createRuntime();
+    expect(address).toBe('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
     expect(config.chainId).toBe(42161);
     expect(config.rpcUrl).toBe(ARBITRUM_ONE_CONFIG.rpcUrl);
-    expect(config.contracts.agentRegistry).toBe(MAINNET_REGISTRY);
-    expect(config.contracts.predictionMarketHook).toBe(MAINNET_HOOK);
+    expect(config.contracts.agentRegistry).toBe(ARBITRUM_ONE_CONFIG.contracts.agentRegistry);
+    expect(config.contracts.predictionMarketHook).toBe(
+      ARBITRUM_ONE_CONFIG.contracts.predictionMarketHook,
+    );
     expect(config.contracts.poolManager).toBe(ARBITRUM_ONE_CONFIG.contracts.poolManager);
     expect(config.contracts.optimisticOracleV3).toBe(
       ARBITRUM_ONE_CONFIG.contracts.optimisticOracleV3,
     );
   });
 
-  it('honours the network-specific RPC override', async () => {
-    process.env.CLAWLOGIC_NETWORK = 'arbitrum-one';
+  it('lets env vars override the deployed addresses', async () => {
     process.env.AGENT_REGISTRY = MAINNET_REGISTRY;
     process.env.PREDICTION_MARKET_HOOK = MAINNET_HOOK;
+    const { config } = await createRuntime();
+    expect(config.contracts.agentRegistry).toBe(MAINNET_REGISTRY);
+    expect(config.contracts.predictionMarketHook).toBe(MAINNET_HOOK);
+  });
+
+  it('honours the network-specific RPC override', async () => {
     process.env.ARBITRUM_ONE_RPC_URL = 'https://arb-mainnet.example.com';
     const { config } = await createRuntime();
     expect(config.rpcUrl).toBe('https://arb-mainnet.example.com');

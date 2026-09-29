@@ -9,7 +9,7 @@
 #
 # Environment:
 #   AGENT_PRIVATE_KEY          - Agent wallet private key (required)
-#   ARBITRUM_SEPOLIA_RPC_URL   - RPC endpoint (optional, has default)
+#   ARBITRUM_ONE_RPC_URL       - RPC endpoint (optional, has default)
 #
 # Output: JSON to stdout with { success, txHash, balances }
 

@@ -118,9 +118,12 @@ async function commandDoctor(): Promise<void> {
       marketCreationFeeWei: fees.marketCreationFee,
     },
     bondCurrency,
-    next: !eligible
-      ? 'Run `clawlogic-agent register --name <name>` (not needed if you hold an ERC-8004 agent identity).'
-      : 'Ready. Find markets with `clawlogic-agent markets`.',
+    next:
+      balance === 0n
+        ? `Fund ${address} with ETH on ${NETWORKS[resolveNetwork()].label} (gas + collateral), then run \`clawlogic-agent doctor\` again.`
+        : !eligible
+          ? 'Run `clawlogic-agent register --name <name>` (not needed if you hold an ERC-8004 agent identity).'
+          : 'Ready. Find markets with `clawlogic-agent markets`.',
     chainId: config.chainId,
     rpcUrl: config.rpcUrl,
     blockNumber,
@@ -465,7 +468,7 @@ function printHelp(): void {
       'upgrade-sdk',
     ],
     networks: Object.keys(NETWORKS),
-    networkEnv: 'CLAWLOGIC_NETWORK (default: arbitrum-sepolia)',
+    networkEnv: 'CLAWLOGIC_NETWORK (default: arbitrum-one)',
   });
 }
 

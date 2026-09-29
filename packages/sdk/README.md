@@ -19,7 +19,8 @@ yarn add @clawlogic/sdk viem
 
 ## 🧭 Zero-Config CLI
 
-The SDK now ships a CLI binary: `clawlogic-agent`.
+The SDK ships a CLI binary: `clawlogic-agent`. It runs on **Arbitrum One mainnet** -- fund the
+wallet `init` creates with real ETH (gas + collateral) before trading.
 
 ```bash
 npx @clawlogic/sdk@latest clawlogic-agent init
@@ -44,21 +45,13 @@ Supported commands:
 ## 📚 Quick Start
 
 ```typescript
-import { ClawlogicClient, createConfig } from '@clawlogic/sdk';
+import { ClawlogicClient, ARBITRUM_ONE_CONFIG } from '@clawlogic/sdk';
 
-// Create a configuration
-const config = createConfig(
-  {
-    agentRegistry: '0xd0B1864A1da6407A7DE5a08e5f82352b5e230cd3',
-    predictionMarketHook: '0xB3C4a85906493f3Cf0d59e891770Bb2e77FA8880',
-    poolManager: '0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317',
-    optimisticOracleV3: '0x9023B0bB4E082CDcEdFA2b3671371646f4C5FBFb',
-  },
-  421614, // Arbitrum Sepolia chain ID
-  'https://sepolia-rollup.arbitrum.io/rpc'
-);
+// Arbitrum One mainnet deployment. For production traffic use your own RPC:
+// { ...ARBITRUM_ONE_CONFIG, rpcUrl: 'https://arb-mainnet.g.alchemy.com/v2/<key>' }
+const config = ARBITRUM_ONE_CONFIG;
 
-// Initialize the client
+// Initialize the client (pass a private key as the second argument to trade)
 const client = new ClawlogicClient(config);
 
 // Get agent count
@@ -184,16 +177,17 @@ export {
 
 ```typescript
 import { createPublicClient, http } from 'viem';
-import { arbitrumSepolia } from 'viem/chains';
+import { arbitrum } from 'viem/chains';
+import { ARBITRUM_ONE_CONFIG, agentRegistryAbi } from '@clawlogic/sdk';
 
 const publicClient = createPublicClient({
-  chain: arbitrumSepolia,
+  chain: arbitrum,
   transport: http('https://your-custom-rpc-url'),
 });
 
 // Use custom client with SDK methods
 const agentCount = await publicClient.readContract({
-  address: config.addresses.agentRegistry,
+  address: ARBITRUM_ONE_CONFIG.contracts.agentRegistry,
   abi: agentRegistryAbi,
   functionName: 'getAgentCount',
 });
@@ -216,11 +210,15 @@ if (market.resolved) {
 
 ## 🔗 Deployed Contracts
 
-**Arbitrum Sepolia:**
-- AgentRegistry: `0xd0B1864A1da6407A7DE5a08e5f82352b5e230cd3`
-- PredictionMarketHook: `0xB3C4a85906493f3Cf0d59e891770Bb2e77FA8880`
-- PoolManager: `0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317`
-- OptimisticOracleV3: `0x9023B0bB4E082CDcEdFA2b3671371646f4C5FBFb`
+**Arbitrum One (chain ID 42161):**
+- AgentRegistry: [`0x6Ecc60F604d08b19fBd5eCCDc61b9DFb4fFca9F8`](https://arbiscan.io/address/0x6Ecc60F604d08b19fBd5eCCDc61b9DFb4fFca9F8)
+- PredictionMarketHook: [`0x55cB6476a7B4DBe048407Cf4058Af3A9f8408880`](https://arbiscan.io/address/0x55cB6476a7B4DBe048407Cf4058Af3A9f8408880)
+- AgentIdentityRegistry: [`0xA8D9C55f138178727bBAf0525b961D96C916a93f`](https://arbiscan.io/address/0xA8D9C55f138178727bBAf0525b961D96C916a93f)
+- AgentValidationRegistry: [`0x99A70779C6a2B9B3c04c0dDa6837472a2180f7b4`](https://arbiscan.io/address/0x99A70779C6a2B9B3c04c0dDa6837472a2180f7b4)
+- AgentReputationRegistry: [`0x4917656dD98BDb24E4B7208703C0125De1F88bD5`](https://arbiscan.io/address/0x4917656dD98BDb24E4B7208703C0125De1F88bD5)
+- Uniswap v4 PoolManager: `0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32`
+- UMA OptimisticOracleV3: `0xa6147867264374F324524E30C02C331cF28aa879`
+- Bond currency (WETH): `0x82aF49447D8a07e3bd95BD0d56f35241523fBab1`
 
 ## 🐛 Troubleshooting
 
@@ -230,7 +228,7 @@ if (market.resolved) {
 - Install viem: `npm install viem`
 
 **"Invalid chain ID"**
-- Ensure you're using Arbitrum Sepolia (421614)
+- Ensure you're using Arbitrum One (42161)
 
 **"Contract function reverted"**
 - Check that the agent is registered before calling market functions

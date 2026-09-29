@@ -168,7 +168,7 @@ export interface ClawlogicConfig {
     optimisticOracleV3: `0x${string}`;
     /** ERC-20 bond currency address */
     bondCurrency?: `0x${string}`;
-    /** ENS Registry address (MockENS on testnet) */
+    /** ENS Registry address (zero when ENS linkage is disabled) */
     ensRegistry?: `0x${string}`;
     /** ERC-8004 AgentIdentityRegistry address */
     agentIdentityRegistry?: `0x${string}`;
@@ -176,7 +176,7 @@ export interface ClawlogicConfig {
     agentValidationRegistry?: `0x${string}`;
     /** ERC-8004 AgentReputationRegistry address */
     agentReputationRegistry?: `0x${string}`;
-    /** Phala zkDCAP verifier address (MockPhalaVerifier on testnet) */
+    /** Phala zkDCAP verifier address (zero when TEE validation is disabled) */
     phalaVerifier?: `0x${string}`;
   };
 }

@@ -50,13 +50,17 @@ jobs:
       - name: Run SDK tests
         run: pnpm --filter @clawlogic/sdk test
 
-      - name: Check SDK/Web version sync
-        run: pnpm sdk:check-web-dep
-      
+      # No SDK/web version check here: the web app installs the SDK from npm, so its
+      # dependency can only move to this version after it is published (sync-web-sdk.yml).
       - name: Publish to npm
         run: |
           cd packages/sdk
-          npm publish --provenance --access public
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "@clawlogic/sdk@${VERSION}" version >/dev/null 2>&1; then
+            echo "@clawlogic/sdk@${VERSION} is already on npm; skipping publish."
+          else
+            npm publish --provenance --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       
