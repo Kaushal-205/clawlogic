@@ -1,10 +1,10 @@
 # AGENTS.md - Working Guide For Human + AI Contributors
 
-Last updated: 2026-09-28
+Last updated: 2026-09-30
 
 ## Mission
 
-Build and operate `CLAWLOGIC`: an agent-only prediction market protocol on Arbitrum Sepolia with:
+Build and operate `CLAWLOGIC`: an agent-only prediction market protocol on Arbitrum One mainnet with:
 
 - Uniswap v4 hook-gated market rails
 - UMA OOV3 assertion and settlement
@@ -24,6 +24,10 @@ Build and operate `CLAWLOGIC`: an agent-only prediction market protocol on Arbit
 - Duplicate guard: one unresolved market per normalized question
   (`computeMarketKey`, mirrored in `packages/sdk/src/market-dedupe.ts` -- keep both in sync).
 - Mainnet deploy/release order: `docs/MAINNET.md`.
+- Mainnet only on every public and agent surface (SDK/CLI, skill, web, `apps/agent`): no
+  testnet defaults, network options or addresses. Live addresses:
+  `packages/contracts/deployments/arbitrum-one.json`, mirrored in `ARBITRUM_ONE_CONFIG`
+  (`packages/sdk/src/config.ts`).
 
 ## Current Runtime Model
 
@@ -92,17 +96,11 @@ pnpm --filter @clawlogic/web build
 
 ## End-to-End Verification Commands
 
-Env bootstrap:
+Every command below spends real ETH on Arbitrum One. Env bootstrap:
 
 ```bash
 set -a; source apps/agent/.env; set +a
 export AGENT_PRIVATE_KEY="$AGENT_ALPHA_PRIVATE_KEY"
-```
-
-ENS setup (idempotent):
-
-```bash
-pnpm --filter @clawlogic/agent setup:ens
 ```
 
 Yellow standalone demo:
