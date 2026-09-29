@@ -17,7 +17,7 @@
  *   - AGENT_ALPHA_PRIVATE_KEY: Hex private key for Agent Alpha
  *   - AGENT_BETA_PRIVATE_KEY:  Hex private key for Agent Beta
  *   - HUMAN_PRIVATE_KEY:       Hex private key for a NON-registered address
- *   - ARBITRUM_SEPOLIA_RPC_URL: Optional, defaults to public RPC
+ *   - ARBITRUM_ONE_RPC_URL: Optional, defaults to public RPC
  */
 
 import 'dotenv/config';
@@ -25,7 +25,7 @@ import { formatEther, parseEther, type Hex } from 'viem';
 import {
   ClawlogicClient,
   loadConfigFromDeployment,
-  ARBITRUM_SEPOLIA_RPC_URL,
+  ARBITRUM_ONE_RPC_URL,
   type DeploymentInfo,
 } from '@clawlogic/sdk';
 import { readFileSync } from 'fs';
@@ -44,8 +44,8 @@ import {
 } from './yellow/types.js';
 import {
   bridgeExecute,
-  getBestBridgeQuoteToArbitrumSepolia,
-  suggestBridgeRoutesToArbitrumSepolia,
+  getBestBridgeQuoteToArbitrumOne,
+  suggestBridgeRoutesToArbitrumOne,
 } from './lifi-bridge.js';
 import { publishAgentBroadcast } from './broadcast.js';
 import {
@@ -62,13 +62,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 function loadDeployment(): DeploymentInfo {
   const deploymentsPath = resolve(
     __dirname,
-    '../../../packages/contracts/deployments/arbitrum-sepolia.json',
+    '../../../packages/contracts/deployments/arbitrum-one.json',
   );
   return JSON.parse(readFileSync(deploymentsPath, 'utf-8')) as DeploymentInfo;
 }
 
 function createClient(privateKey: Hex): ClawlogicClient {
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.ARBITRUM_ONE_RPC_URL ?? ARBITRUM_ONE_RPC_URL;
   const deployment = loadDeployment();
   const config = loadConfigFromDeployment(deployment, rpcUrl);
   return new ClawlogicClient(config, privateKey);
@@ -87,9 +87,9 @@ function sleep(ms: number): Promise<void> {
 }
 
 const CHAIN_NAME: Record<string, string> = {
-  '11155111': 'Ethereum Sepolia',
-  '11155420': 'Optimism Sepolia',
-  '421614': 'Arbitrum Sepolia',
+  '1': 'Ethereum',
+  '10': 'Optimism',
+  '42161': 'Arbitrum One',
 };
 
 interface ExecutionModeFlags {
@@ -166,13 +166,13 @@ async function runLiFiFundingPreflight(
 
   const deficit = requiredBalance - currentBalance;
   console.log(
-    `  [Li.Fi] ${label}: deficit ${formatEther(deficit)} ETH on Arbitrum Sepolia. Fetching bridge routes...`,
+    `  [Li.Fi] ${label}: deficit ${formatEther(deficit)} ETH on Arbitrum One. Fetching bridge routes...`,
   );
 
   try {
-    const routes = await suggestBridgeRoutesToArbitrumSepolia(address, deficit);
+    const routes = await suggestBridgeRoutesToArbitrumOne(address, deficit);
     if (routes.length === 0) {
-      console.log('  [Li.Fi] No eligible bridge route found (testnet liquidity/API limits).');
+      console.log('  [Li.Fi] No eligible bridge route found (source-chain balance or LI.FI API limits).');
       if (hardFail) {
         throw new Error(
           `${label} funding failed: no LI.FI route available for deficit ${formatEther(deficit)} ETH.`,
@@ -201,7 +201,7 @@ async function runLiFiFundingPreflight(
       );
     }
 
-    const quote = await getBestBridgeQuoteToArbitrumSepolia(address, deficit);
+    const quote = await getBestBridgeQuoteToArbitrumOne(address, deficit);
     if (!quote) {
       throw new Error(`${label} funding failed: unable to fetch executable LI.FI quote.`);
     }
@@ -352,7 +352,7 @@ async function main(): Promise<void> {
   console.log(`  Alpha:  ${alphaClient.getAddress()}`);
   console.log(`  Beta:   ${betaClient.getAddress()}`);
   console.log(`  Human:  ${humanClient.getAddress()}`);
-  console.log(`  Chain:  ${alphaClient.config.chainId} (Arbitrum Sepolia)`);
+  console.log(`  Chain:  ${alphaClient.config.chainId} (Arbitrum One)`);
   console.log(`  Hook:   ${alphaClient.config.contracts.predictionMarketHook}`);
   console.log(`  Registry: ${alphaClient.config.contracts.agentRegistry}`);
 
@@ -409,8 +409,7 @@ async function main(): Promise<void> {
   if (alphaReadyBalance === 0n || betaReadyBalance === 0n) {
     console.error('');
     console.error('WARNING: Agent wallets have 0 ETH.');
-    console.error('Fund them with testnet ETH from a faucet before running the demo.');
-    console.error('Faucet: https://www.alchemy.com/faucets/arbitrum-sepolia');
+    console.error('Fund them with ETH on Arbitrum One (real funds) before running the orchestrator.');
   }
 
   const enforceFundingGate = process.env.DISABLE_FUNDING_GATE !== 'true';

@@ -11,7 +11,7 @@ import {
   type Account,
 } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { arbitrumSepolia } from 'viem/chains';
+import { arbitrum } from 'viem/chains';
 
 export interface WalletSetup {
   account: PrivateKeyAccount;
@@ -26,19 +26,19 @@ export interface WalletSetup {
 export function setupWallet(privateKey: Hex, rpcUrl?: string): WalletSetup {
   const url =
     rpcUrl ??
-    process.env.ARBITRUM_SEPOLIA_RPC_URL ??
-    'https://sepolia-rollup.arbitrum.io/rpc';
+    process.env.ARBITRUM_ONE_RPC_URL ??
+    'https://arb1.arbitrum.io/rpc';
 
   const account = privateKeyToAccount(privateKey);
 
   const walletClient = createWalletClient({
     account,
-    chain: arbitrumSepolia,
+    chain: arbitrum,
     transport: http(url),
   });
 
   const publicClient = createPublicClient({
-    chain: arbitrumSepolia,
+    chain: arbitrum,
     transport: http(url),
   });
 

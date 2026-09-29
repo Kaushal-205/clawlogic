@@ -11,7 +11,7 @@
  * Environment variables:
  *   AGENT_PRIVATE_KEY          - Fallback private key (used outside TEE)
  *   AGENT_NAME                 - Human-readable agent name (default: "CVM-Agent")
- *   ARBITRUM_SEPOLIA_RPC_URL   - RPC endpoint
+ *   ARBITRUM_ONE_RPC_URL       - RPC endpoint
  *   AGENT_REGISTRY             - AgentRegistry contract address
  *   AGENT_VALIDATION_REGISTRY  - (optional) AgentValidationRegistry for on-chain TEE verification
  *   AGENT_IDENTITY_ID          - (optional) ERC-8004 identity ID owned by AGENT_PRIVATE_KEY
@@ -23,7 +23,7 @@
 import { spawn } from 'child_process';
 import { createPublicClient, createWalletClient, http, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { arbitrumSepolia } from 'viem/chains';
+import { arbitrum } from 'viem/chains';
 import 'dotenv/config';
 import { agentRegistryAbi, agentValidationRegistryAbi } from '@clawlogic/sdk';
 
@@ -86,7 +86,7 @@ async function getTeeAttestation(): Promise<{
 // ─── On-Chain Registration ──────────────────────────────────────────────────
 
 async function registerAgent(result: TeeBootstrapResult): Promise<TeeBootstrapResult> {
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia-rollup.arbitrum.io/rpc';
+  const rpcUrl = process.env.ARBITRUM_ONE_RPC_URL || 'https://arb1.arbitrum.io/rpc';
   const registryAddress = process.env.AGENT_REGISTRY as `0x${string}` | undefined;
 
   if (!registryAddress) {
@@ -104,13 +104,13 @@ async function registerAgent(result: TeeBootstrapResult): Promise<TeeBootstrapRe
   result.address = account.address;
 
   const publicClient = createPublicClient({
-    chain: arbitrumSepolia,
+    chain: arbitrum,
     transport: http(rpcUrl),
   });
 
   const walletClient = createWalletClient({
     account,
-    chain: arbitrumSepolia,
+    chain: arbitrum,
     transport: http(rpcUrl),
   });
 

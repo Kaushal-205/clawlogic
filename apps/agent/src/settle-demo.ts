@@ -13,7 +13,7 @@
  *
  * Required environment variables:
  *   - AGENT_ALPHA_PRIVATE_KEY: Hex private key for Agent Alpha (the winner)
- *   - ARBITRUM_SEPOLIA_RPC_URL: Optional, defaults to public RPC
+ *   - ARBITRUM_ONE_RPC_URL: Optional, defaults to public RPC
  *
  * Example:
  *   1. Run: pnpm agent:assert
@@ -31,7 +31,7 @@ import {
 import {
   ClawlogicClient,
   loadConfigFromDeployment,
-  ARBITRUM_SEPOLIA_RPC_URL,
+  ARBITRUM_ONE_RPC_URL,
   predictionMarketHookAbi,
   type DeploymentInfo,
 } from '@clawlogic/sdk';
@@ -98,13 +98,13 @@ const oov3SettleAbi = [
 function loadDeployment(): DeploymentInfo {
   const deploymentsPath = resolve(
     __dirname,
-    '../../../packages/contracts/deployments/arbitrum-sepolia.json',
+    '../../../packages/contracts/deployments/arbitrum-one.json',
   );
   return JSON.parse(readFileSync(deploymentsPath, 'utf-8')) as DeploymentInfo;
 }
 
 function createClient(privateKey: Hex): ClawlogicClient {
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.ARBITRUM_ONE_RPC_URL ?? ARBITRUM_ONE_RPC_URL;
   const deployment = loadDeployment();
   const config = loadConfigFromDeployment(deployment, rpcUrl);
   return new ClawlogicClient(config, privateKey);

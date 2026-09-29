@@ -99,15 +99,16 @@ function resolveYellowSessionTtlSeconds(): bigint {
 }
 
 function resolveYellowAuthChain(): Chain {
-  const chainId = Number(process.env.YELLOW_AUTH_CHAIN_ID ?? '421614');
+  // ClearNode auth is signed for the chain CLAWLOGIC trades on (Arbitrum One).
+  const chainId = Number(process.env.YELLOW_AUTH_CHAIN_ID ?? '42161');
   const rpcUrl =
     process.env.YELLOW_AUTH_RPC_URL ??
-    process.env.ARBITRUM_SEPOLIA_RPC_URL ??
-    'https://sepolia-rollup.arbitrum.io/rpc';
+    process.env.ARBITRUM_ONE_RPC_URL ??
+    'https://arb1.arbitrum.io/rpc';
 
   return {
-    id: Number.isFinite(chainId) && chainId > 0 ? chainId : 421614,
-    name: `Chain ${Number.isFinite(chainId) && chainId > 0 ? chainId : 421614}`,
+    id: Number.isFinite(chainId) && chainId > 0 ? chainId : 42161,
+    name: `Chain ${Number.isFinite(chainId) && chainId > 0 ? chainId : 42161}`,
     nativeCurrency: {
       name: 'Ether',
       symbol: 'ETH',

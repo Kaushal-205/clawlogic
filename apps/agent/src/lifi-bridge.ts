@@ -89,9 +89,6 @@ export const NATIVE_TOKEN = '0x0000000000000000000000000000000000000000';
 const DEFAULT_STATE_FILE = resolve(process.cwd(), '.clawlogic/lifi-bridges.json');
 
 export const CHAINS = {
-  ARBITRUM_SEPOLIA: '421614',
-  ETHEREUM_SEPOLIA: '11155111',
-  OPTIMISM_SEPOLIA: '11155420',
   ARBITRUM: '42161',
   ETHEREUM: '1',
   OPTIMISM: '10',
@@ -175,21 +172,13 @@ function resolveRpcUrlForChain(chainId: number): string {
     1: process.env.ETHEREUM_RPC_URL,
     10: process.env.OPTIMISM_RPC_URL,
     137: process.env.POLYGON_RPC_URL,
-    42161: process.env.ARBITRUM_RPC_URL,
-    11155111: process.env.ETHEREUM_SEPOLIA_RPC_URL,
-    11155420: process.env.OPTIMISM_SEPOLIA_RPC_URL,
-    421614:
-      process.env.ARBITRUM_SEPOLIA_RPC_URL ??
-      'https://sepolia-rollup.arbitrum.io/rpc',
+    42161: process.env.ARBITRUM_ONE_RPC_URL ?? process.env.ARBITRUM_RPC_URL,
   };
   const fallbackByChain: Record<number, string | undefined> = {
     1: 'https://rpc.ankr.com/eth',
     10: 'https://mainnet.optimism.io',
     137: 'https://polygon-rpc.com',
     42161: 'https://arb1.arbitrum.io/rpc',
-    11155111: 'https://rpc.sepolia.org',
-    11155420: 'https://sepolia.optimism.io',
-    421614: 'https://sepolia-rollup.arbitrum.io/rpc',
   };
   const rpcUrl = rpcByChain[chainId] ?? fallbackByChain[chainId];
   if (!rpcUrl) {
@@ -304,7 +293,7 @@ async function checkBalancesAcrossChains(address: string): Promise<void> {
   }
 }
 
-export async function suggestBridgeRoutesToArbitrumSepolia(
+export async function suggestBridgeRoutesToArbitrumOne(
   address: `0x${string}`,
   amountWei: bigint,
 ): Promise<LiFiRouteSuggestion[]> {
@@ -313,16 +302,16 @@ export async function suggestBridgeRoutesToArbitrumSepolia(
 
   const [ethToArb, opToArb] = await Promise.all([
     getQuote(
-      CHAINS.ETHEREUM_SEPOLIA,
-      CHAINS.ARBITRUM_SEPOLIA,
+      CHAINS.ETHEREUM,
+      CHAINS.ARBITRUM,
       NATIVE_TOKEN,
       NATIVE_TOKEN,
       amount,
       address,
     ),
     getQuote(
-      CHAINS.OPTIMISM_SEPOLIA,
-      CHAINS.ARBITRUM_SEPOLIA,
+      CHAINS.OPTIMISM,
+      CHAINS.ARBITRUM,
       NATIVE_TOKEN,
       NATIVE_TOKEN,
       amount,
@@ -331,8 +320,8 @@ export async function suggestBridgeRoutesToArbitrumSepolia(
   ]);
 
   const quotes = [
-    { fromChain: CHAINS.ETHEREUM_SEPOLIA, quote: ethToArb },
-    { fromChain: CHAINS.OPTIMISM_SEPOLIA, quote: opToArb },
+    { fromChain: CHAINS.ETHEREUM, quote: ethToArb },
+    { fromChain: CHAINS.OPTIMISM, quote: opToArb },
   ];
 
   for (const entry of quotes) {
@@ -341,7 +330,7 @@ export async function suggestBridgeRoutesToArbitrumSepolia(
     }
     routes.push({
       fromChain: entry.fromChain,
-      toChain: CHAINS.ARBITRUM_SEPOLIA,
+      toChain: CHAINS.ARBITRUM,
       tool: entry.quote.tool,
       estimatedToAmount: BigInt(entry.quote.estimate.toAmount),
       estimatedToAmountMin: BigInt(entry.quote.estimate.toAmountMin),
@@ -358,23 +347,23 @@ export async function suggestBridgeRoutesToArbitrumSepolia(
   });
 }
 
-export async function getBestBridgeQuoteToArbitrumSepolia(
+export async function getBestBridgeQuoteToArbitrumOne(
   address: `0x${string}`,
   amountWei: bigint,
 ): Promise<LiFiQuoteResponse | null> {
   const amount = amountWei.toString();
   const [ethToArb, opToArb] = await Promise.all([
     getQuote(
-      CHAINS.ETHEREUM_SEPOLIA,
-      CHAINS.ARBITRUM_SEPOLIA,
+      CHAINS.ETHEREUM,
+      CHAINS.ARBITRUM,
       NATIVE_TOKEN,
       NATIVE_TOKEN,
       amount,
       address,
     ),
     getQuote(
-      CHAINS.OPTIMISM_SEPOLIA,
-      CHAINS.ARBITRUM_SEPOLIA,
+      CHAINS.OPTIMISM,
+      CHAINS.ARBITRUM,
       NATIVE_TOKEN,
       NATIVE_TOKEN,
       amount,

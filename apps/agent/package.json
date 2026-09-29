@@ -15,7 +15,6 @@
     "check:assertion": "tsx src/check-assertion.ts",
     "settle:simple": "tsx src/settle-simple.ts",
     "yellow:demo": "tsx src/yellow/demo.ts",
-    "setup:ens": "tsx src/setup-ens.ts",
     "lifi:bridge": "tsx src/lifi-bridge.ts",
     "tee:bootstrap": "tsx src/tee-bootstrap.ts",
     "docker:build": "docker build -t clawlogic-agent .",

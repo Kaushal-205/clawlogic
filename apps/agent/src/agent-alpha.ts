@@ -11,7 +11,7 @@
  *
  * Required environment variables:
  *   - AGENT_ALPHA_PRIVATE_KEY: Hex private key for this agent
- *   - ARBITRUM_SEPOLIA_RPC_URL: Optional, defaults to public RPC
+ *   - ARBITRUM_ONE_RPC_URL: Optional, defaults to public RPC
  */
 
 import 'dotenv/config';
@@ -19,7 +19,7 @@ import { parseEther, formatEther, type Hex } from 'viem';
 import {
   ClawlogicClient,
   loadConfigFromDeployment,
-  ARBITRUM_SEPOLIA_RPC_URL,
+  ARBITRUM_ONE_RPC_URL,
   type DeploymentInfo,
 } from '@clawlogic/sdk';
 import { readFileSync } from 'fs';
@@ -37,13 +37,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 function loadDeployment(): DeploymentInfo {
   const deploymentsPath = resolve(
     __dirname,
-    '../../../packages/contracts/deployments/arbitrum-sepolia.json',
+    '../../../packages/contracts/deployments/arbitrum-one.json',
   );
   return JSON.parse(readFileSync(deploymentsPath, 'utf-8')) as DeploymentInfo;
 }
 
 function createAlphaClient(privateKey: Hex): ClawlogicClient {
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.ARBITRUM_ONE_RPC_URL ?? ARBITRUM_ONE_RPC_URL;
   const deployment = loadDeployment();
   const config = loadConfigFromDeployment(deployment, rpcUrl);
   return new ClawlogicClient(config, privateKey);
@@ -166,7 +166,7 @@ export async function runAlpha(
   console.log('  Agent Alpha - CLAWLOGIC Prediction Market Agent');
   console.log('================================================================');
   console.log(`  Address: ${address}`);
-  console.log(`  Chain:   ${client.config.chainId} (Arbitrum Sepolia)`);
+  console.log(`  Chain:   ${client.config.chainId} (Arbitrum One)`);
   console.log('================================================================');
 
   // Check balance

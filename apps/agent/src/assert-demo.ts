@@ -12,7 +12,7 @@
  *
  * Required environment variables:
  *   - AGENT_ALPHA_PRIVATE_KEY: Hex private key for the asserting agent
- *   - ARBITRUM_SEPOLIA_RPC_URL: Optional, defaults to public RPC
+ *   - ARBITRUM_ONE_RPC_URL: Optional, defaults to public RPC
  */
 
 import 'dotenv/config';
@@ -20,7 +20,7 @@ import { formatEther, decodeEventLog, type Hex } from 'viem';
 import {
   ClawlogicClient,
   loadConfigFromDeployment,
-  ARBITRUM_SEPOLIA_RPC_URL,
+  ARBITRUM_ONE_RPC_URL,
   predictionMarketHookAbi,
   type DeploymentInfo,
 } from '@clawlogic/sdk';
@@ -40,13 +40,13 @@ const ZERO_BYTES32 =
 function loadDeployment(): DeploymentInfo {
   const deploymentsPath = resolve(
     __dirname,
-    '../../../packages/contracts/deployments/arbitrum-sepolia.json',
+    '../../../packages/contracts/deployments/arbitrum-one.json',
   );
   return JSON.parse(readFileSync(deploymentsPath, 'utf-8')) as DeploymentInfo;
 }
 
 function createAssertClient(privateKey: Hex): ClawlogicClient {
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.ARBITRUM_ONE_RPC_URL ?? ARBITRUM_ONE_RPC_URL;
   const deployment = loadDeployment();
   const config = loadConfigFromDeployment(deployment, rpcUrl);
   return new ClawlogicClient(config, privateKey);
@@ -90,7 +90,7 @@ export async function runAssertDemo(
   console.log('  UMA Assertion Demo - Agent Determines Truth');
   console.log('================================================================');
   console.log(`  Asserter:  ${address}`);
-  console.log(`  Chain:     ${client.config.chainId} (Arbitrum Sepolia)`);
+  console.log(`  Chain:     ${client.config.chainId} (Arbitrum One)`);
   console.log('================================================================');
 
   // Check balance

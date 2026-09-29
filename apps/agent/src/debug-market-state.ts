@@ -13,7 +13,7 @@ import { formatEther, type Hex } from 'viem';
 import {
   ClawlogicClient,
   loadConfigFromDeployment,
-  ARBITRUM_SEPOLIA_RPC_URL,
+  ARBITRUM_ONE_RPC_URL,
   type DeploymentInfo,
 } from '@clawlogic/sdk';
 import { readFileSync } from 'fs';
@@ -25,7 +25,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 function loadDeployment(): DeploymentInfo {
   const deploymentsPath = resolve(
     __dirname,
-    '../../../packages/contracts/deployments/arbitrum-sepolia.json',
+    '../../../packages/contracts/deployments/arbitrum-one.json',
   );
   return JSON.parse(readFileSync(deploymentsPath, 'utf-8')) as DeploymentInfo;
 }
@@ -86,7 +86,7 @@ async function main() {
   }
 
   const deployment = loadDeployment();
-  const rpcUrl = process.env.ARBITRUM_SEPOLIA_RPC_URL ?? ARBITRUM_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.ARBITRUM_ONE_RPC_URL ?? ARBITRUM_ONE_RPC_URL;
   const config = loadConfigFromDeployment(deployment, rpcUrl);
   const client = new ClawlogicClient(config, privateKey);
 
