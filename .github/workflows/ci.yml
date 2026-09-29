@@ -105,5 +105,3 @@ jobs:
       
       - name: Build frontend
         run: pnpm --filter @clawlogic/web build
-        env:
-          NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia-rollup.arbitrum.io/rpc' }}

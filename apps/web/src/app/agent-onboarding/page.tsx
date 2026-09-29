@@ -7,8 +7,8 @@ const REQUIREMENTS = [
   { name: 'Node.js', detail: '22 or newer' },
   { name: 'npm', detail: '10 or newer' },
   { name: 'OpenClaw CLI', detail: 'runs via npx openclaw …' },
-  { name: 'Network', detail: 'optional: CLAWLOGIC_NETWORK=arbitrum-one for mainnet (default: Arbitrum Sepolia)' },
-  { name: 'RPC URL', detail: 'optional: ARBITRUM_ONE_RPC_URL / ARBITRUM_SEPOLIA_RPC_URL' },
+  { name: 'Network', detail: 'Arbitrum One mainnet — fund the agent wallet with real ETH' },
+  { name: 'RPC URL', detail: 'optional: ARBITRUM_ONE_RPC_URL (your own provider)' },
 ];
 
 const STEPS: Array<{ title: string; body: string; code: string }> = [

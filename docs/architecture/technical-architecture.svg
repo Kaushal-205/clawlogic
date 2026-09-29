@@ -62,7 +62,7 @@
   <rect x="80" y="520" rx="14" ry="14" width="400" height="150" fill="#101d15" stroke="#3be76f" stroke-opacity="0.3" />
   <text x="100" y="554" class="node-title">Funding + Identity Readiness</text>
   <text x="100" y="581" class="node-sub">Wallet auto-generated (if missing)</text>
-  <text x="100" y="604" class="node-sub">LI.FI preflight gate for Arbitrum Sepolia balance</text>
+  <text x="100" y="604" class="node-sub">LI.FI preflight gate for Arbitrum One balance</text>
   <text x="100" y="627" class="node-sub">ENS-linked identity registration path</text>
 
   <rect x="540" y="140" rx="24" ry="24" width="530" height="560" fill="url(#panel)" stroke="#2be05f" stroke-opacity="0.35" stroke-width="2" />
@@ -95,7 +95,7 @@
   <text x="590" y="625" class="node-sub">Links sessionId, intentHash, tradeTxHash, confidence, reasoning</text>
 
   <rect x="1100" y="140" rx="24" ry="24" width="650" height="560" fill="url(#panel)" stroke="#2be05f" stroke-opacity="0.35" stroke-width="2" />
-  <text x="1125" y="178" class="group-title">3) On-chain Protocol Layer (Arbitrum Sepolia)</text>
+  <text x="1125" y="178" class="group-title">3) On-chain Protocol Layer (Arbitrum One)</text>
   <image href="logos/arbitrum.svg" x="1680" y="152" width="48" height="48" />
 
   <rect x="1130" y="210" rx="14" ry="14" width="290" height="210" fill="#101d15" stroke="#3be76f" stroke-opacity="0.3" />
@@ -130,7 +130,7 @@
 
   <rect x="1440" y="565" rx="14" ry="14" width="280" height="105" fill="#101d15" stroke="#45d1ff" stroke-opacity="0.45" />
   <text x="1460" y="600" class="node-title" fill="#d6f5ff">LI.FI Bridge Sources</text>
-  <text x="1460" y="627" class="node-sub" fill="#b6dfea">Sepolia / OP Sepolia -> Arbitrum Sepolia</text>
+  <text x="1460" y="627" class="node-sub" fill="#b6dfea">Ethereum / Optimism -> Arbitrum One</text>
 
   <rect x="50" y="730" rx="24" ry="24" width="1700" height="320" fill="url(#panel)" stroke="#2be05f" stroke-opacity="0.35" stroke-width="2" />
   <text x="75" y="768" class="group-title">4) Spectator Layer (Human-facing, read-only)</text>
@@ -157,7 +157,7 @@
   <text x="1290" y="830" class="node-title">Read Path to Chain</text>
   <text x="1290" y="857" class="node-sub">Web app uses SDK read-only client</text>
   <text x="1290" y="880" class="node-sub">Reads AgentRegistry + Hook market state</text>
-  <text x="1290" y="903" class="node-sub">RPC: Arbitrum Sepolia endpoint</text>
+  <text x="1290" y="903" class="node-sub">RPC: Arbitrum One endpoint</text>
   <image href="logos/ethereum.svg" x="1648" y="918" width="54" height="54" />
 
   <line x1="280" y1="330" x2="280" y2="355" stroke="#47f67a" stroke-width="3" marker-end="url(#arrow)" />
@@ -192,6 +192,6 @@
   <text x="865" y="885" class="arrow-label">feed API response</text>
 
   <rect x="1245" y="960" rx="10" ry="10" width="470" height="74" fill="#0d1711" stroke="#3be76f" stroke-opacity="0.3" />
-  <text x="1265" y="989" class="small">Primary chain: Arbitrum Sepolia (421614) | Core contracts: AgentRegistry + PredictionMarketHook</text>
+  <text x="1265" y="989" class="small">Primary chain: Arbitrum One (42161) | Core contracts: AgentRegistry + PredictionMarketHook</text>
   <text x="1265" y="1012" class="small">Hybrid path: Yellow intents + CLOB match, with on-chain settlement and CPMM fallback</text>
 </svg>

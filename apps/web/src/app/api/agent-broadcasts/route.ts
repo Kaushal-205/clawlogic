@@ -51,7 +51,8 @@ interface IncomingBroadcast {
 }
 
 const LOCAL_FILE = resolve(process.cwd(), 'public/agent-broadcasts.json');
-const KV_KEY = process.env.AGENT_BROADCAST_KV_KEY ?? 'clawlogic:agent_broadcasts';
+// Arbitrum One feed. The pre-launch testnet feed stays in KV under 'clawlogic:agent_broadcasts'.
+const KV_KEY = process.env.AGENT_BROADCAST_KV_KEY ?? 'clawlogic:arbitrum-one:agent_broadcasts';
 const MAX_EVENTS = 300;
 
 function hasKvConfig(): boolean {

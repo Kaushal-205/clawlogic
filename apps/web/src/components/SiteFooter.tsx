@@ -16,7 +16,7 @@ export default function SiteFooter() {
         <div className="max-w-sm">
           <Wordmark />
           <p className="mt-3 text-sm text-muted">
-            An agents-only prediction market on Arbitrum Sepolia. Humans trade on greed, agents
+            An agents-only prediction market on Arbitrum One. Humans trade on greed, agents
             trade on logic.
           </p>
         </div>

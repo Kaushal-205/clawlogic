@@ -7,8 +7,7 @@
 
 import {
   ClawlogicClient,
-  createConfig,
-  ARBITRUM_SEPOLIA_RPC_URL,
+  ARBITRUM_ONE_CONFIG,
   type ClawlogicConfig,
   type MarketInfo,
   type MarketProbability,
@@ -19,43 +18,17 @@ const ZERO_BYTES32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
 
 // ---------------------------------------------------------------------------
-// Configuration — defaults to the Arbitrum Sepolia deployment. For mainnet set
-// the NEXT_PUBLIC_* variables (see apps/web/.env.example) in the host's env.
+// Configuration — the Arbitrum One deployment shipped with the SDK. Only the RPC
+// is configurable (NEXT_PUBLIC_RPC_URL, see apps/web/.env.example); the public
+// default is rate limited.
 // ---------------------------------------------------------------------------
 
-function envAddress(value: string | undefined, fallback: `0x${string}`): `0x${string}` {
-  return value && /^0x[0-9a-fA-F]{40}$/.test(value) ? (value as `0x${string}`) : fallback;
-}
+export const DEFAULT_CONFIG: ClawlogicConfig = {
+  ...ARBITRUM_ONE_CONFIG,
+  rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || ARBITRUM_ONE_CONFIG.rpcUrl,
+};
 
-export const DEFAULT_CONFIG: ClawlogicConfig = createConfig(
-  {
-    agentRegistry: envAddress(
-      process.env.NEXT_PUBLIC_AGENT_REGISTRY,
-      '0xd0B1864A1da6407A7DE5a08e5f82352b5e230cd3',
-    ),
-    predictionMarketHook: envAddress(
-      process.env.NEXT_PUBLIC_PREDICTION_MARKET_HOOK,
-      '0xB3C4a85906493f3Cf0d59e891770Bb2e77FA8880',
-    ),
-    poolManager: envAddress(
-      process.env.NEXT_PUBLIC_V4_POOL_MANAGER,
-      '0xFB3e0C6F74eB1a21CC1Da29aeC80D2Dfe6C9a317',
-    ),
-    optimisticOracleV3: envAddress(
-      process.env.NEXT_PUBLIC_UMA_OOV3,
-      '0x9023B0bB4E082CDcEdFA2b3671371646f4C5FBFb',
-    ),
-  },
-  Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 421614,
-  process.env.NEXT_PUBLIC_RPC_URL || ARBITRUM_SEPOLIA_RPC_URL,
-);
-
-export const NETWORK_LABEL =
-  DEFAULT_CONFIG.chainId === 42161
-    ? 'Arbitrum One'
-    : DEFAULT_CONFIG.chainId === 421614
-      ? 'Arbitrum Sepolia'
-      : `Chain ${DEFAULT_CONFIG.chainId}`;
+export const NETWORK_LABEL = 'Arbitrum One';
 
 /**
  * Create a read-only ClawlogicClient from a config.
@@ -301,7 +274,7 @@ export function getAgentsSeenInFeed(broadcasts: AgentBroadcast[]): AgentInfo[] {
 export const DEMO_MARKETS: MarketInfo[] = [
   {
     marketId: '0xa1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2' as `0x${string}`,
-    description: 'Will ETH break $4,000 by end of February 2026?',
+    description: 'Will ETH break $4,000 by end of December 2026?',
     outcome1: 'yes',
     outcome2: 'no',
     outcome1Token: '0x1111111111111111111111111111111111111111' as `0x${string}`,
@@ -330,7 +303,7 @@ export const DEMO_MARKETS: MarketInfo[] = [
   },
   {
     marketId: '0xcafebabecafebabecafebabecafebabecafebabecafebabecafebabecafebabe' as `0x${string}`,
-    description: 'Will the UMA OOV3 resolve correctly within 120s liveness window?',
+    description: 'Will the UMA OOV3 resolve correctly within its 2-hour liveness window?',
     outcome1: 'yes',
     outcome2: 'no',
     outcome1Token: '0x5555555555555555555555555555555555555555' as `0x${string}`,
@@ -408,7 +381,7 @@ export const DEMO_FEED_EVENTS: DemoFeedEvent[] = [
   {
     id: '3',
     type: 'MarketInitialized',
-    message: 'Market created: "Will ETH break $4,000 by end of February 2026?"',
+    message: 'Market created: "Will ETH break $4,000 by end of December 2026?"',
     agent: '0xA1fa...D234',
     timestamp: new Date(Date.now() - 1500000),
   },

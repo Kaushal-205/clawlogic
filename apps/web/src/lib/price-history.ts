@@ -1,5 +1,11 @@
 import { createPublicClient, http, parseAbi, parseAbiItem, type Log } from 'viem';
-import type { ClawlogicConfig, MarketInfo, MarketProbability } from '@clawlogic/sdk';
+import {
+  ARBITRUM_ONE_CONFIG,
+  ARBITRUM_ONE_HOOK_DEPLOY_BLOCK,
+  type ClawlogicConfig,
+  type MarketInfo,
+  type MarketProbability,
+} from '@clawlogic/sdk';
 import { outcome1Probability, replayReserves, type ReserveEvent } from '@/lib/amm-replay';
 import type { AgentBroadcast } from '@/lib/client';
 
@@ -44,15 +50,11 @@ const RESERVES_ABI = parseAbi([
   'function getMarketReserves(bytes32 marketId) view returns (uint256 reserve1, uint256 reserve2)',
 ]);
 
-/** Arbitrum Sepolia deployment block (packages/contracts/deployments/arbitrum-sepolia.json). */
-const KNOWN_DEPLOY_BLOCKS: Record<string, bigint> = {
-  '0xb3c4a85906493f3cf0d59e891770bb2e77fa8880': 10_210_362n,
-};
-
 function historyFromBlock(config: ClawlogicConfig): bigint | 'earliest' {
-  const fromEnv = process.env.NEXT_PUBLIC_HOOK_DEPLOY_BLOCK;
-  if (fromEnv && /^\d+$/.test(fromEnv)) return BigInt(fromEnv);
-  return KNOWN_DEPLOY_BLOCKS[config.contracts.predictionMarketHook.toLowerCase()] ?? 'earliest';
+  const hook = config.contracts.predictionMarketHook.toLowerCase();
+  return hook === ARBITRUM_ONE_CONFIG.contracts.predictionMarketHook.toLowerCase()
+    ? ARBITRUM_ONE_HOOK_DEPLOY_BLOCK
+    : 'earliest';
 }
 
 type DecodedLog = Log<bigint, number, false, (typeof HISTORY_EVENTS)[number], true>;
