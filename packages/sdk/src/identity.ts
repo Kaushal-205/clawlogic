@@ -382,6 +382,10 @@ export class IdentityClient {
   /**
    * Submit a validation proof for verification.
    *
+   * Must be sent by the identity owner (or an approved operator). The proof
+   * stays pending -- any approved proof remains active -- until the verifier
+   * approves it by its hash, `keccak256(proof)`.
+   *
    * @param agentId - ERC-8004 agent identity token ID
    * @param proof - Validation proof bytes
    * @param validationType - Type of validation being submitted

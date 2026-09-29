@@ -83,13 +83,13 @@ async function main() {
   const timestamp = Date.now();
   const description = `Demo market ${timestamp} - Will this resolve to YES?`;
 
-  const marketId = await client.initializeMarket(
-    'yes',
-    'no',
+  const marketId = await client.createMarket({
+    outcome1: 'yes',
+    outcome2: 'no',
     description,
-    0n, // no reward
-    0n, // no bond requirement
-  );
+    // Demo market: assertable after 5 minutes.
+    resolutionTime: BigInt(Math.floor(Date.now() / 1000) + 5 * 60),
+  });
 
   console.log(`  ✓ Market created: ${marketId}`);
   console.log(`  Description: "${description}"`);

@@ -1,11 +1,14 @@
-import { encodeAbiParameters, keccak256, toBytes, toHex } from 'viem';
+import { encodeAbiParameters, keccak256, toBytes } from 'viem';
 
 /**
  * Duplicate-market helpers.
  *
  * The contract rejects an exact duplicate of an unresolved market (same
- * question after lower-casing and dropping spaces/punctuation, either outcome
- * order). `computeMarketKey` mirrors that check off-chain.
+ * question after lower-casing and dropping whitespace and sentence
+ * punctuation, either outcome order). Symbols that change meaning (`<`, `>`,
+ * `$`, `%`, `-`, ...) and `.` `,` `:` between two digits are kept, so
+ * "BTC > $1.50" and "BTC < $150" are different markets. `computeMarketKey`
+ * mirrors that check off-chain, including its outcome validation.
  *
  * Agents also reword questions ("ETH above $4k by Dec 31?" vs "Will ETH close
  * over 4000 on 2026-12-31"). `findSimilarMarkets` catches those with a token
@@ -13,30 +16,53 @@ import { encodeAbiParameters, keccak256, toBytes, toHex } from 'viem';
  * are never treated as duplicates.
  */
 
-/** Mirror of PredictionMarketHook._normalize (ASCII letters/digits, lower-cased; non-ASCII kept). */
+const DROPPED = new Set([0x3f, 0x21, 0x3b, 0x27, 0x22, 0x60]); // ? ! ; ' " `
+const DIGIT_SEPARATORS = new Set([0x2e, 0x2c, 0x3a]); // . , :
+const isDigit = (c: number | undefined) => c !== undefined && c >= 0x30 && c <= 0x39;
+
+/** Mirror of PredictionMarketHook._normalize. */
 export function normalizeForKey(text: string): Uint8Array {
   const bytes = toBytes(text);
   const out: number[] = [];
-  for (const c of bytes) {
-    if (c >= 0x41 && c <= 0x5a) out.push(c + 32);
-    else if ((c >= 0x61 && c <= 0x7a) || (c >= 0x30 && c <= 0x39) || c >= 0x80) out.push(c);
+  for (let i = 0; i < bytes.length; i++) {
+    let c = bytes[i];
+    if (c >= 0x41 && c <= 0x5a) {
+      c += 32;
+    } else if (c <= 0x20 || c === 0x7f || DROPPED.has(c)) {
+      continue;
+    } else if (DIGIT_SEPARATORS.has(c) && !(isDigit(bytes[i - 1]) && isDigit(bytes[i + 1]))) {
+      continue;
+    }
+    out.push(c);
   }
   return Uint8Array.from(out);
 }
 
-/** Off-chain copy of PredictionMarketHook.computeMarketKey. */
+const hashOf = (text: string) => keccak256(normalizeForKey(text));
+const RESERVED = hashOf('unresolvable');
+const YES = hashOf('yes');
+const NO = hashOf('no');
+const EMPTY = keccak256(new Uint8Array());
+
+/** Off-chain copy of PredictionMarketHook.computeMarketKey (throws where the contract reverts). */
 export function computeMarketKey(description: string, outcome1: string, outcome2: string): `0x${string}` {
   const d = normalizeForKey(description);
-  let o1 = normalizeForKey(outcome1);
-  let o2 = normalizeForKey(outcome2);
-  if (d.length === 0 || o1.length === 0 || o2.length === 0 || keccak256(o1) === keccak256(o2)) {
+  let h1 = hashOf(outcome1);
+  let h2 = hashOf(outcome2);
+  if (d.length === 0 || h1 === h2 || h1 === EMPTY || h2 === EMPTY) {
     throw new Error('Invalid market: description and two distinct outcomes are required.');
   }
-  if (BigInt(keccak256(o1)) > BigInt(keccak256(o2))) [o1, o2] = [o2, o1];
+  if (h1 === RESERVED || h2 === RESERVED) {
+    throw new Error('Invalid market: "Unresolvable" is reserved and cannot be an outcome.');
+  }
+  if (h1 === NO && h2 === YES) {
+    throw new Error('Invalid market: a yes/no market must list "yes" first (outcome1 = yes).');
+  }
+  if (BigInt(h1) > BigInt(h2)) [h1, h2] = [h2, h1];
   return keccak256(
     encodeAbiParameters(
-      [{ type: 'bytes' }, { type: 'bytes' }, { type: 'bytes' }],
-      [toHex(d), toHex(o1), toHex(o2)],
+      [{ type: 'bytes32' }, { type: 'bytes32' }, { type: 'bytes32' }],
+      [keccak256(d), h1, h2],
     ),
   );
 }

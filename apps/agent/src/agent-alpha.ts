@@ -234,14 +234,14 @@ export async function runAlpha(
     console.log(`  Creating market: "${description}"`);
 
     try {
-      const txHash = await client.initializeMarket(
-        'yes', // outcome1
-        'no', // outcome2
+      const txHash = await client.createMarket({
+        outcome1: 'yes',
+        outcome2: 'no',
         description,
-        0n, // reward (0 for simplicity with mock UMA)
-        0n, // requiredBond (0 for simplicity with mock UMA)
-        initialMarketLiquidity,
-      );
+        // Assertable in 7 days (the question is about this week).
+        resolutionTime: BigInt(Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60),
+        value: initialMarketLiquidity,
+      });
       console.log(`  Market creation TX: ${txHash}`);
       if (initialMarketLiquidity > 0n) {
         console.log(

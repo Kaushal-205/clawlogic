@@ -40,6 +40,11 @@ interface IAgentRegistry {
     /// @param name    The human-readable agent name for indexing convenience
     event ENSLinked(address indexed agent, bytes32 indexed ensNode, string name);
 
+    /// @notice Emitted when an ENS link is removed (replaced, or taken over by the node's new owner)
+    /// @param agent   The address whose link was removed
+    /// @param ensNode The ENS namehash that was unlinked
+    event ENSUnlinked(address indexed agent, bytes32 indexed ensNode);
+
     // -------------------------------------------------
     // Errors
     // -------------------------------------------------
@@ -78,6 +83,12 @@ interface IAgentRegistry {
     ///                If non-zero, the caller must own this node in the ENS registry.
     function registerAgentWithENS(string calldata name, bytes calldata attestation, bytes32 ensNode) external;
 
+    /// @notice Link an ENS node the caller currently owns to their existing registration
+    /// @dev Replaces the caller's previous link and takes over a stale link held by a
+    ///      previous owner of the node.
+    /// @param ensNode The ENS namehash to link
+    function linkENS(bytes32 ensNode) external;
+
     /// @notice Check if an address is a registered agent
     /// @param addr The address to check
     /// @return True if the address is registered, false otherwise
@@ -97,6 +108,7 @@ interface IAgentRegistry {
     function getAgentAddresses() external view returns (address[] memory);
 
     /// @notice Resolve an ENS node to its linked agent address
+    /// @dev Reverts if no agent is linked or the linked agent no longer owns the node
     /// @param ensNode The ENS namehash to look up
     /// @return The address of the agent linked to this ENS node
     function getAgentByENS(bytes32 ensNode) external view returns (address);

@@ -161,18 +161,77 @@ contract AgentRegistryENSTest is Test {
     // ENS Node Uniqueness
     // -------------------------------------------------
 
-    function test_RegisterAgentWithENS_DuplicateNode_Reverts() public {
-        // First agent registers with ALPHA_ENS_NODE
+    /// @dev M-06: after an ENS transfer the old link is stale -- lookups stop returning the
+    ///      former owner, and the new owner can take the node over.
+    function test_RegisterAgentWithENS_TransferredNode_NewOwnerTakesOver() public {
         vm.prank(agentAlpha);
         registry.registerAgentWithENS("Alpha", "", ALPHA_ENS_NODE);
 
         // Transfer ENS ownership to agentGamma (simulating a real transfer)
         ensRegistry.setOwner(ALPHA_ENS_NODE, agentGamma);
 
-        // agentGamma tries to register with the same node -- should fail because it is already linked
+        // The stale link no longer resolves to the former owner.
+        vm.expectRevert(IAgentRegistry.ENSNodeNotLinked.selector);
+        registry.getAgentByENS(ALPHA_ENS_NODE);
+        assertEq(registry.getAgent(agentAlpha).ensNode, bytes32(0), "Stale node hidden");
+
+        vm.expectEmit(true, true, false, false);
+        emit IAgentRegistry.ENSUnlinked(agentAlpha, ALPHA_ENS_NODE);
         vm.prank(agentGamma);
-        vm.expectRevert(IAgentRegistry.ENSNodeAlreadyLinked.selector);
         registry.registerAgentWithENS("Gamma", "", ALPHA_ENS_NODE);
+
+        assertEq(registry.getAgentByENS(ALPHA_ENS_NODE), agentGamma, "New owner linked");
+        assertEq(registry.getAgent(agentGamma).ensNode, ALPHA_ENS_NODE, "Gamma has the node");
+        assertEq(registry.getAgent(agentAlpha).ensNode, bytes32(0), "Alpha unlinked");
+        assertTrue(registry.isAgent(agentAlpha), "Alpha stays registered");
+    }
+
+    function test_LinkENS_ExistingAgentTakesOverStaleNode() public {
+        vm.prank(agentAlpha);
+        registry.registerAgentWithENS("Alpha", "", ALPHA_ENS_NODE);
+        vm.prank(agentGamma);
+        registry.registerAgent("Gamma", "");
+
+        ensRegistry.setOwner(ALPHA_ENS_NODE, agentGamma);
+        vm.prank(agentGamma);
+        registry.linkENS(ALPHA_ENS_NODE);
+
+        assertEq(registry.getAgentByENS(ALPHA_ENS_NODE), agentGamma, "Linked to Gamma");
+        assertEq(registry.getAgent(agentAlpha).ensNode, bytes32(0), "Alpha unlinked");
+    }
+
+    function test_LinkENS_ReplacesOwnPreviousNode() public {
+        vm.prank(agentAlpha);
+        registry.registerAgentWithENS("Alpha", "", ALPHA_ENS_NODE);
+        ensRegistry.setOwner(BETA_ENS_NODE, agentAlpha);
+
+        vm.prank(agentAlpha);
+        registry.linkENS(BETA_ENS_NODE);
+
+        assertEq(registry.getAgent(agentAlpha).ensNode, BETA_ENS_NODE, "New node");
+        assertEq(registry.getAgentByENS(BETA_ENS_NODE), agentAlpha, "New node resolves");
+        vm.expectRevert(IAgentRegistry.ENSNodeNotLinked.selector);
+        registry.getAgentByENS(ALPHA_ENS_NODE);
+    }
+
+    function test_LinkENS_Reverts() public {
+        // Not registered.
+        vm.prank(agentGamma);
+        vm.expectRevert(IAgentRegistry.AgentNotFound.selector);
+        registry.linkENS(ALPHA_ENS_NODE);
+
+        vm.prank(agentAlpha);
+        registry.registerAgentWithENS("Alpha", "", ALPHA_ENS_NODE);
+
+        // Already linked to the caller.
+        vm.prank(agentAlpha);
+        vm.expectRevert(IAgentRegistry.ENSNodeAlreadyLinked.selector);
+        registry.linkENS(ALPHA_ENS_NODE);
+
+        // A node the caller does not own.
+        vm.prank(agentAlpha);
+        vm.expectRevert(IAgentRegistry.NotENSOwner.selector);
+        registry.linkENS(BETA_ENS_NODE);
     }
 
     // -------------------------------------------------

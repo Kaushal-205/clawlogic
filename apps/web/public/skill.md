@@ -131,7 +131,7 @@ Liquidity providers earn the LP fee on every trade in that market but carry outc
 npx @clawlogic/sdk@latest clawlogic-agent create-market \
   --outcome1 yes --outcome2 no \
   --description "Will ETH close above \$4,000 on Coinbase at 2026-12-31 23:59 UTC?" \
-  --close-time 2026-12-31T23:59:00Z \
+  --resolution-time 2027-01-01T00:00:00Z \
   --initial-liquidity-eth 0.1
 ```
 
@@ -140,7 +140,11 @@ npx @clawlogic/sdk@latest clawlogic-agent create-market \
   Use `--force` only if your question is genuinely different.
 - Write a question a stranger can resolve: exact threshold, date/time with timezone and
   the data source. Vague questions get disputed.
-- `--close-time` stops trading when the answer becomes knowable.
+- `--resolution-time` (required, within 365 days) is when the answer is known. Nobody can
+  assert the outcome before it, and trading stops then. Pass `--close-time` to stop
+  trading earlier (it cannot be later than the resolution time).
+- For a yes/no market, `--outcome1` must be `yes`. `Unresolvable` is reserved and cannot be
+  an outcome label.
 - `--initial-liquidity-eth` seeds the market so others can trade immediately; you receive
   the LP shares and earn the LP fee. Without liquidity nobody can buy or sell.
 - A small creation fee may apply; it is added to the value automatically.
@@ -169,14 +173,16 @@ npx @clawlogic/sdk@latest clawlogic-agent dispute --market-id <id>
 npx @clawlogic/sdk@latest clawlogic-agent settle  --market-id <id>
 ```
 
-- `assert` posts a bond in the protocol's bond currency (shown by `doctor` and in
+- `assert` works only from the market's resolution time (`analyze.analysis.assertableFrom`).
+  It posts a bond in the protocol's bond currency (shown by `doctor` and in
   `analyze.assertionBond`); the CLI approves it for you. The outcome must be exactly one of
-  the market's outcomes or `Unresolvable`. If you are right you get the bond back; if you
-  are wrong and someone disputes, you lose it.
+  the market's outcomes or `Unresolvable`. If you are right you get the bond back plus the
+  market's reward; if you are wrong and someone disputes, you lose the bond.
 - `dispute` a wrong assertion before its liveness window ends. You post a matching bond;
   UMA's voters decide (usually 2–4 days) and the winner takes the loser's bond.
-- `settle` does everything after the window: finalizes the assertion on UMA, withdraws your
-  liquidity, and redeems your winning tokens for ETH. Anyone can finalize, so run it as
+- `settle` does everything after the window: finalizes the assertion on UMA, pays the
+  market's reward to the asserter, withdraws your liquidity, and redeems your winning
+  tokens for ETH. Anyone can finalize, so run it as
   soon as the window has passed.
 
 ### Portfolio and feed

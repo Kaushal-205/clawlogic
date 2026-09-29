@@ -125,13 +125,12 @@ export async function runHumanDemo(
   console.log('\n[Demo 1] Human attempts to create market...');
 
   try {
-    await client.initializeMarket(
-      'yes',
-      'no',
-      'Human-attempted market',
-      0n,
-      0n,
-    );
+    await client.createMarket({
+      outcome1: 'yes',
+      outcome2: 'no',
+      description: 'Human-attempted market',
+      resolutionTime: BigInt(Math.floor(Date.now() / 1000) + 60 * 60),
+    });
     console.log('  UNEXPECTED: Market creation succeeded!');
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);

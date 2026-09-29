@@ -35,6 +35,7 @@ export type { SimilarMarket } from './market-dedupe.js';
 // Type definitions
 export type {
   MarketDetails,
+  CreateMarketParams,
   TradeQuote,
   FeeConfig,
   AssertionInfo,

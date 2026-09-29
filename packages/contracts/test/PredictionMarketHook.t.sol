@@ -19,9 +19,10 @@ contract PredictionMarketHookTest is TestSetup {
         uint256 reward = 10 ether;
         uint256 requiredBond = 5 ether;
 
-        // Approve reward
+        // Approve reward; allow the bond
         vm.prank(agentAlpha);
         mockCurrency.approve(address(hook), reward);
+        _allowBond(requiredBond);
 
         // Expect event
         vm.expectEmit(false, true, false, false);
@@ -33,13 +34,12 @@ contract PredictionMarketHookTest is TestSetup {
 
         // Create market
         vm.prank(agentAlpha);
-        bytes32 marketId = hook.initializeMarket(
+        bytes32 marketId = hook.createMarket(
             "yes",
             "no",
             description,
             reward,
-            requiredBond
-        );
+            requiredBond, 0, _resolutionTime());
 
         // Verify market data
         (
@@ -85,7 +85,7 @@ contract PredictionMarketHookTest is TestSetup {
     function test_InitializeMarket_NotAgent_Reverts() public {
         vm.prank(humanUser);
         vm.expectRevert(IPredictionMarketHook.NotRegisteredAgent.selector);
-        hook.initializeMarket("yes", "no", "Test market", 0, 0);
+        hook.createMarket("yes", "no", "Test market", 0, 0, 0, _resolutionTime());
     }
 
     function test_InitializeMarket_MultipleMarkets() public {
@@ -221,6 +221,7 @@ contract PredictionMarketHookTest is TestSetup {
         uint256 bond = 2 ether;
         vm.prank(agentAlpha);
         mockCurrency.approve(address(hook), bond);
+        _warpToResolution(marketId);
 
         vm.expectEmit(true, false, false, false);
         emit IPredictionMarketHook.MarketAsserted(
@@ -249,6 +250,7 @@ contract PredictionMarketHookTest is TestSetup {
 
         vm.prank(agentAlpha);
         mockCurrency.approve(address(hook), 10 ether);
+        _warpToResolution(marketId);
 
         vm.prank(agentAlpha);
         vm.expectRevert(IPredictionMarketHook.InvalidOutcome.selector);
@@ -277,6 +279,7 @@ contract PredictionMarketHookTest is TestSetup {
 
         vm.prank(agentAlpha);
         mockCurrency.approve(address(hook), 10 ether);
+        _warpToResolution(marketId);
 
         // Assert as "Unresolvable"
         vm.prank(agentAlpha);

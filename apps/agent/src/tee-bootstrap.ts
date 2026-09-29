@@ -13,6 +13,8 @@
  *   AGENT_NAME                 - Human-readable agent name (default: "CVM-Agent")
  *   ARBITRUM_SEPOLIA_RPC_URL   - RPC endpoint
  *   AGENT_REGISTRY             - AgentRegistry contract address
+ *   AGENT_VALIDATION_REGISTRY  - (optional) AgentValidationRegistry for on-chain TEE verification
+ *   AGENT_IDENTITY_ID          - (optional) ERC-8004 identity ID owned by AGENT_PRIVATE_KEY
  *   PREDICTION_MARKET_HOOK     - PredictionMarketHook contract address
  *   V4_POOL_MANAGER            - PoolManager address
  *   DSTACK_SIMULATOR_ENDPOINT  - (optional) dstack simulator for local testing
@@ -23,7 +25,7 @@ import { createPublicClient, createWalletClient, http, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { arbitrumSepolia } from 'viem/chains';
 import 'dotenv/config';
-import { agentRegistryAbi } from '@clawlogic/sdk';
+import { agentRegistryAbi, agentValidationRegistryAbi } from '@clawlogic/sdk';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -32,6 +34,8 @@ interface TeeBootstrapResult {
   address: `0x${string}`;
   attestationQuote: Hex | null;
   publicKey: Hex | null;
+  /** TEE-derived secret key; kept in memory only to sign the identity binding. */
+  teeKey: Hex | null;
   registered: boolean;
   txHash: Hex | null;
 }
@@ -45,6 +49,7 @@ interface TeeBootstrapResult {
 async function getTeeAttestation(): Promise<{
   quote: Hex;
   publicKey: Hex;
+  teeKey: Hex;
 } | null> {
   try {
     // Dynamic import — @phala/dstack-sdk is only available inside Phala CVM
@@ -70,7 +75,7 @@ async function getTeeAttestation(): Promise<{
     console.log(`[tee-bootstrap]   Quote length: ${quote.length / 2 - 1} bytes`);
     console.log(`[tee-bootstrap]   Public key: ${publicKey.slice(0, 20)}...`);
 
-    return { quote, publicKey };
+    return { quote, publicKey, teeKey: derivedKey };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.log(`[tee-bootstrap] Not in TEE environment (${msg})`);
@@ -120,44 +125,17 @@ async function registerAgent(result: TeeBootstrapResult): Promise<TeeBootstrapRe
   if (isRegistered) {
     console.log(`[tee-bootstrap] Agent ${account.address} is already registered`);
     result.registered = true;
-    return result;
-  }
-
-  const agentName = process.env.AGENT_NAME || 'CVM-Agent';
-  const attestationBytes = (result.attestationQuote || '0x') as Hex;
-
-  // Register with TEE attestation if available, otherwise basic registration
-  if (result.inTee && result.attestationQuote && result.publicKey) {
-    console.log(`[tee-bootstrap] Registering agent "${agentName}" with TEE attestation...`);
-
-    // Use registerAgentWithENSAndTEE for full TEE-verified registration
-    // ensNode = bytes32(0) (no ENS), agentId = 0 (will be assigned)
-    const hash = await walletClient.writeContract({
-      address: registryAddress,
-      abi: agentRegistryAbi,
-      functionName: 'registerAgentWithENSAndTEE',
-      args: [
-        agentName,
-        attestationBytes,
-        '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex, // ensNode
-        0n, // agentId (to be assigned by identity registry)
-        result.attestationQuote,
-        result.publicKey,
-      ],
-    });
-
-    result.txHash = hash;
-    console.log(`[tee-bootstrap] TEE registration tx: ${hash}`);
   } else {
-    console.log(`[tee-bootstrap] Registering agent "${agentName}" (no TEE)...`);
+    const agentName = process.env.AGENT_NAME || 'CVM-Agent';
+    const attestationBytes = (result.attestationQuote || '0x') as Hex;
 
+    console.log(`[tee-bootstrap] Registering agent "${agentName}"...`);
     const hash = await walletClient.writeContract({
       address: registryAddress,
       abi: agentRegistryAbi,
       functionName: 'registerAgent',
       args: [agentName, attestationBytes],
     });
-
     result.txHash = hash;
     console.log(`[tee-bootstrap] Registration tx: ${hash}`);
   }
@@ -167,6 +145,29 @@ async function registerAgent(result: TeeBootstrapResult): Promise<TeeBootstrapRe
     const receipt = await publicClient.waitForTransactionReceipt({ hash: result.txHash });
     console.log(`[tee-bootstrap] Confirmed in block ${receipt.blockNumber} (status: ${receipt.status})`);
     result.registered = receipt.status === 'success';
+  }
+
+  // On-chain TEE verification: the TEE key signs a message binding it to this
+  // identity (ID, owner, nonce), so the quote cannot certify another identity.
+  const validationRegistry = process.env.AGENT_VALIDATION_REGISTRY as `0x${string}` | undefined;
+  const identityId = process.env.AGENT_IDENTITY_ID;
+  if (result.inTee && result.attestationQuote && result.publicKey && result.teeKey && validationRegistry && identityId) {
+    const agentId = BigInt(identityId);
+    const digest = await publicClient.readContract({
+      address: validationRegistry,
+      abi: agentValidationRegistryAbi,
+      functionName: 'teeBindingDigest',
+      args: [agentId],
+    });
+    const keySignature = await privateKeyToAccount(result.teeKey).sign({ hash: digest });
+    const teeHash = await walletClient.writeContract({
+      address: validationRegistry,
+      abi: agentValidationRegistryAbi,
+      functionName: 'verifyTeeAttestation',
+      args: [agentId, result.attestationQuote, result.publicKey, keySignature],
+    });
+    const teeReceipt = await publicClient.waitForTransactionReceipt({ hash: teeHash });
+    console.log(`[tee-bootstrap] TEE verification tx: ${teeHash} (status: ${teeReceipt.status})`);
   }
 
   return result;
@@ -211,6 +212,7 @@ async function main(): Promise<void> {
     address: '0x0000000000000000000000000000000000000000',
     attestationQuote: null,
     publicKey: null,
+    teeKey: null,
     registered: false,
     txHash: null,
   };
@@ -221,6 +223,7 @@ async function main(): Promise<void> {
     result.inTee = true;
     result.attestationQuote = teeData.quote;
     result.publicKey = teeData.publicKey;
+    result.teeKey = teeData.teeKey;
     console.log('[tee-bootstrap] Running inside TEE (Intel TDX)');
   } else {
     console.log('[tee-bootstrap] Running outside TEE (local/dev mode)');

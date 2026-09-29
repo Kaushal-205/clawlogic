@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 
 import {AgentRegistry} from "../src/AgentRegistry.sol";
 import {AgentIdentityRegistry} from "../src/erc8004/AgentIdentityRegistry.sol";
 import {AgentValidationRegistry} from "../src/erc8004/AgentValidationRegistry.sol";
 
-import {IAgentRegistry} from "../src/interfaces/IAgentRegistry.sol";
 import {IENS} from "../src/interfaces/IENS.sol";
 import {IPhalaVerifier} from "../src/interfaces/IPhalaVerifier.sol";
 import {IERC8004AgentIdentity} from "../src/interfaces/erc8004/IERC8004AgentIdentity.sol";
@@ -17,602 +16,362 @@ import {MockPhalaVerifier} from "./mocks/MockPhalaVerifier.sol";
 import {MockENSRegistry} from "./mocks/MockENSRegistry.sol";
 
 /// @title PhalaIntegrationTest
-/// @notice Comprehensive test suite for Phase 1.3: Phala TEE Attestation Verification.
-/// @dev Tests cover:
-///      - Successful TEE verification via AgentValidationRegistry
-///      - Failed TEE verification (mock returns false)
-///      - TEE verification for non-existent agent (revert)
-///      - Multiple TEE verifications for same agent (overwrite previous)
-///      - Integration: register agent -> verify TEE -> check isValidated()
-///      - AgentRegistry integration: register with TEE attestation -> auto-verify
-///      - AgentRegistry integration: register without TEE -> manual verification later
-///      - Phala verifier not configured (address(0)) -> graceful revert
+/// @notice Phala TEE attestation verification on the AgentValidationRegistry.
+/// @dev Covers the identity binding (the attested key signs a per-agent, per-nonce message),
+///      quote replay, revocation, ownership transfer and the AgentRegistry integration.
 contract PhalaIntegrationTest is Test {
-    // -------------------------------------------------
-    // Contracts under test
-    // -------------------------------------------------
     AgentIdentityRegistry public identity;
     AgentValidationRegistry public validation;
     AgentRegistry public agentRegistry;
     MockPhalaVerifier public phalaVerifier;
     MockENSRegistry public ensRegistry;
 
-    // -------------------------------------------------
-    // Test accounts
-    // -------------------------------------------------
     address public owner;
-    address public minter; // Acts as identity minter
-    address public agentAlpha;
-    address public agentBeta;
+    address public minter;
+    address public teeVerifier;
     address public unauthorized;
 
-    // -------------------------------------------------
-    // Constants
-    // -------------------------------------------------
+    /// @dev TEE-derived keys. As in `tee-bootstrap.ts`, the agent wallet is the TEE key.
+    Vm.Wallet public alphaKey;
+    Vm.Wallet public betaKey;
+
     string constant ALPHA_URI = "ipfs://QmAlphaMetadata";
     string constant BETA_URI = "ipfs://QmBetaMetadata";
     bytes constant SAMPLE_QUOTE = hex"deadbeefcafebabe0123456789abcdef";
-    bytes constant SAMPLE_PUBLIC_KEY = hex"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     bytes constant DIFFERENT_QUOTE = hex"aabbccdd11223344";
-    bytes constant DIFFERENT_KEY = hex"ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
 
-    /// @dev Simulated ENS namehash for "alpha.agent.eth"
     bytes32 public constant ALPHA_ENS_NODE = keccak256("alpha.agent.eth");
 
-    // -------------------------------------------------
-    // Setup
-    // -------------------------------------------------
+    IERC8004AgentValidation.ValidationType constant TEE = IERC8004AgentValidation.ValidationType.TEE;
+    IERC8004AgentValidation.ValidationType constant STAKE = IERC8004AgentValidation.ValidationType.STAKE;
 
     function setUp() public {
         owner = makeAddr("owner");
         minter = makeAddr("minter");
-        agentAlpha = makeAddr("agentAlpha");
-        agentBeta = makeAddr("agentBeta");
+        teeVerifier = makeAddr("teeVerifier");
         unauthorized = makeAddr("unauthorized");
+        alphaKey = vm.createWallet("alphaTeeKey");
+        betaKey = vm.createWallet("betaTeeKey");
 
-        // Deploy mock Phala verifier (default: verification succeeds)
         phalaVerifier = new MockPhalaVerifier(true);
-
-        // Deploy mock ENS registry
         ensRegistry = new MockENSRegistry();
 
-        // Deploy identity registry (minter is the owner / authorized minter)
         vm.prank(minter);
         identity = new AgentIdentityRegistry(minter);
 
-        // Deploy validation registry with Phala verifier
         vm.prank(owner);
         validation = new AgentValidationRegistry(
-            owner,
-            IERC8004AgentIdentity(address(identity)),
-            IPhalaVerifier(address(phalaVerifier))
+            owner, IERC8004AgentIdentity(address(identity)), IPhalaVerifier(address(phalaVerifier))
         );
+        vm.prank(owner);
+        validation.setVerifier(TEE, teeVerifier);
 
-        // Deploy AgentRegistry with ENS and validation registry
-        agentRegistry = new AgentRegistry(
-            IENS(address(ensRegistry)),
-            IERC8004AgentValidation(address(validation))
-        );
+        agentRegistry = new AgentRegistry(IENS(address(ensRegistry)), IERC8004AgentValidation(address(validation)));
 
-        // Set up ENS node ownership
-        ensRegistry.setOwner(ALPHA_ENS_NODE, agentAlpha);
+        ensRegistry.setOwner(ALPHA_ENS_NODE, alphaKey.addr);
     }
 
     // =========================================================================
-    // Helper Functions
+    // Helpers
     // =========================================================================
 
-    /// @dev Mint an agent identity NFT for testing.
     function _mintAgent(address agent, string memory uri) internal returns (uint256) {
         vm.prank(minter);
         return identity.mintAgentIdentity(agent, uri);
     }
 
-    // =========================================================================
-    // AgentValidationRegistry: Direct TEE Verification Tests
-    // =========================================================================
+    function _publicKey(Vm.Wallet memory w) internal pure returns (bytes memory) {
+        return abi.encodePacked(w.publicKeyX, w.publicKeyY);
+    }
 
-    // -------------------------------------------------
-    // Successful TEE Verification
-    // -------------------------------------------------
+    /// @dev Signature by `w` over the agent's current binding digest.
+    function _bindingSig(Vm.Wallet memory w, uint256 agentId) internal view returns (bytes memory) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(w.privateKey, validation.teeBindingDigest(agentId));
+        return abi.encodePacked(r, s, v);
+    }
+
+    /// @dev The identity owner verifies a quote for `w` with a fresh binding signature.
+    function _verifyTee(address caller, uint256 agentId, Vm.Wallet memory w, bytes memory quote) internal {
+        bytes memory sig = _bindingSig(w, agentId);
+        vm.prank(caller);
+        validation.verifyTeeAttestation(agentId, quote, _publicKey(w), sig);
+    }
+
+    // =========================================================================
+    // Successful verification
+    // =========================================================================
 
     function test_VerifyTeeAttestation_Success() public {
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
+        bytes memory sig = _bindingSig(alphaKey, agentId);
 
-        // Expect the TeeAttestationVerified event
-        bytes32 expectedHash = keccak256(SAMPLE_QUOTE);
         vm.expectEmit(true, false, false, true);
-        emit IERC8004AgentValidation.TeeAttestationVerified(agentId, expectedHash, block.timestamp);
-
-        // Expect the ValidationSubmitted event
+        emit IERC8004AgentValidation.TeeAttestationVerified(agentId, keccak256(SAMPLE_QUOTE), block.timestamp);
         vm.expectEmit(true, true, false, true);
-        emit IERC8004AgentValidation.ValidationSubmitted(
-            agentId, IERC8004AgentValidation.ValidationType.TEE, SAMPLE_QUOTE
-        );
+        emit IERC8004AgentValidation.ValidationVerified(agentId, TEE, true);
 
-        // Expect the ValidationVerified event
-        vm.expectEmit(true, true, false, true);
-        emit IERC8004AgentValidation.ValidationVerified(agentId, IERC8004AgentValidation.ValidationType.TEE, true);
+        vm.prank(alphaKey.addr);
+        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, _publicKey(alphaKey), sig);
 
-        // Verify TEE attestation
-        vm.prank(agentAlpha);
-        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, SAMPLE_PUBLIC_KEY);
-
-        // Check validation state
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Agent should be TEE validated"
-        );
-
-        // Check the stored validation data
-        IERC8004AgentValidation.Validation memory v =
-            validation.getValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
-        assertEq(uint8(v.validationType), uint8(IERC8004AgentValidation.ValidationType.TEE), "Type should be TEE");
-        assertEq(v.proof, SAMPLE_QUOTE, "Proof should be the attestation quote");
-        assertEq(v.timestamp, block.timestamp, "Timestamp should be now");
-        assertTrue(v.valid, "Should be valid (verified inline)");
+        assertTrue(validation.isValidated(agentId, TEE), "TEE validated");
+        IERC8004AgentValidation.Validation memory v = validation.getValidation(agentId, TEE);
+        assertEq(v.proof, SAMPLE_QUOTE, "Quote stored as proof");
+        assertEq(v.timestamp, block.timestamp, "Timestamp");
+        assertEq(validation.s_teeKeys(agentId), alphaKey.addr, "Attested key recorded");
+        assertEq(validation.s_teeNonces(agentId), 1, "Nonce advanced");
+        assertTrue(validation.s_usedQuotes(keccak256(SAMPLE_QUOTE)), "Quote marked used");
+        assertEq(validation.getBoundOwner(agentId, TEE), alphaKey.addr, "Bound to owner");
     }
 
-    // -------------------------------------------------
-    // Failed TEE Verification (mock returns false)
-    // -------------------------------------------------
+    /// @dev The identity owner does not have to be the TEE key itself (e.g. a Safe owner).
+    function test_VerifyTeeAttestation_OwnerDifferentFromTeeKey() public {
+        address safe = makeAddr("safe");
+        uint256 agentId = _mintAgent(safe, ALPHA_URI);
+
+        _verifyTee(safe, agentId, alphaKey, SAMPLE_QUOTE);
+
+        assertTrue(validation.isValidated(agentId, TEE), "TEE validated");
+        assertEq(validation.s_teeKeys(agentId), alphaKey.addr, "Attested key recorded");
+    }
+
+    function test_VerifyTeeAttestation_ApprovedOperatorCanCall() public {
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
+        vm.prank(alphaKey.addr);
+        identity.approve(unauthorized, agentId);
+
+        _verifyTee(unauthorized, agentId, alphaKey, SAMPLE_QUOTE);
+        assertTrue(validation.isValidated(agentId, TEE), "Operator verified");
+    }
+
+    function test_VerifyTeeAttestation_NewQuoteReplacesPrevious() public {
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
+        _verifyTee(alphaKey.addr, agentId, alphaKey, SAMPLE_QUOTE);
+
+        vm.warp(block.timestamp + 1 hours);
+        _verifyTee(alphaKey.addr, agentId, alphaKey, DIFFERENT_QUOTE);
+
+        IERC8004AgentValidation.Validation memory v = validation.getValidation(agentId, TEE);
+        assertEq(v.proof, DIFFERENT_QUOTE, "Latest quote active");
+        assertEq(validation.s_teeNonces(agentId), 2, "Nonce advanced twice");
+    }
+
+    // =========================================================================
+    // Failures
+    // =========================================================================
 
     function test_VerifyTeeAttestation_Fails_WhenVerifierReturnsFalse() public {
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
-
-        // Set the mock to return false
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
         phalaVerifier.setVerificationResult(false);
 
-        vm.prank(agentAlpha);
+        bytes memory sig = _bindingSig(alphaKey, agentId);
+        vm.prank(alphaKey.addr);
         vm.expectRevert(IERC8004AgentValidation.TeeVerificationFailed.selector);
-        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, SAMPLE_PUBLIC_KEY);
+        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, _publicKey(alphaKey), sig);
 
-        // Confirm validation state is unchanged
-        assertFalse(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Agent should NOT be TEE validated after failed verification"
-        );
+        assertFalse(validation.isValidated(agentId, TEE), "Not validated");
     }
-
-    // -------------------------------------------------
-    // TEE Verification for Non-Existent Agent
-    // -------------------------------------------------
 
     function test_VerifyTeeAttestation_RevertsForNonExistentAgent() public {
+        vm.prank(alphaKey.addr);
         vm.expectRevert(IERC8004AgentValidation.AgentDoesNotExist.selector);
-        validation.verifyTeeAttestation(999, SAMPLE_QUOTE, SAMPLE_PUBLIC_KEY);
+        validation.verifyTeeAttestation(999, SAMPLE_QUOTE, _publicKey(alphaKey), "");
     }
 
-    // -------------------------------------------------
-    // Multiple TEE Verifications (Overwrite Previous)
-    // -------------------------------------------------
+    function test_VerifyTeeAttestation_RevertsWhenNotController() public {
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
+        bytes memory sig = _bindingSig(alphaKey, agentId);
 
-    function test_VerifyTeeAttestation_OverwritesPrevious() public {
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
-
-        // First verification
-        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, SAMPLE_PUBLIC_KEY);
-
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Should be validated after first verification"
-        );
-
-        IERC8004AgentValidation.Validation memory v1 =
-            validation.getValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
-        assertEq(v1.proof, SAMPLE_QUOTE, "First proof should match");
-
-        // Second verification with different quote (overwrites)
-        vm.warp(block.timestamp + 100);
-        validation.verifyTeeAttestation(agentId, DIFFERENT_QUOTE, DIFFERENT_KEY);
-
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Should still be validated after second verification"
-        );
-
-        IERC8004AgentValidation.Validation memory v2 =
-            validation.getValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
-        assertEq(v2.proof, DIFFERENT_QUOTE, "Proof should be overwritten with new quote");
-        assertEq(v2.timestamp, block.timestamp, "Timestamp should be updated");
-        assertTrue(v2.valid, "Should remain valid");
+        vm.prank(unauthorized);
+        vm.expectRevert(IERC8004AgentValidation.NotAgentController.selector);
+        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, _publicKey(alphaKey), sig);
     }
 
-    // -------------------------------------------------
-    // Overwrite: Valid Then Invalid Then Valid
-    // -------------------------------------------------
+    function test_VerifyTeeAttestation_RevertsOnBadPublicKeyLength() public {
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
+        bytes memory sig = _bindingSig(alphaKey, agentId);
 
-    function test_VerifyTeeAttestation_OverwriteWithFailedThenSucceed() public {
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
-
-        // First: successful verification
-        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, SAMPLE_PUBLIC_KEY);
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Should be validated"
-        );
-
-        // Now set verifier to return false
-        phalaVerifier.setVerificationResult(false);
-
-        // Second: failed verification (reverts, does NOT overwrite)
-        vm.expectRevert(IERC8004AgentValidation.TeeVerificationFailed.selector);
-        validation.verifyTeeAttestation(agentId, DIFFERENT_QUOTE, DIFFERENT_KEY);
-
-        // Original validation should still be intact
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Previous validation should persist after failed re-verification"
-        );
-
-        // Set verifier back to true
-        phalaVerifier.setVerificationResult(true);
-
-        // Third: successful verification overwrites
-        vm.warp(block.timestamp + 200);
-        validation.verifyTeeAttestation(agentId, DIFFERENT_QUOTE, DIFFERENT_KEY);
-
-        IERC8004AgentValidation.Validation memory v =
-            validation.getValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
-        assertEq(v.proof, DIFFERENT_QUOTE, "Proof should be updated");
-        assertTrue(v.valid, "Should be valid again");
+        vm.prank(alphaKey.addr);
+        vm.expectRevert(IERC8004AgentValidation.InvalidPublicKey.selector);
+        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, hex"0123456789abcdef", sig);
     }
-
-    // -------------------------------------------------
-    // Integration: Register -> Verify TEE -> Check isValidated
-    // -------------------------------------------------
-
-    function test_Integration_RegisterThenVerifyTee() public {
-        // 1. Mint agent identity
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
-        assertEq(agentId, 1, "First agent ID should be 1");
-
-        // 2. Verify TEE attestation
-        vm.prank(agentAlpha);
-        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, SAMPLE_PUBLIC_KEY);
-
-        // 3. Check all state is consistent
-        assertTrue(identity.agentExists(agentId), "Agent should exist in identity registry");
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Agent should be TEE validated"
-        );
-        assertEq(identity.ownerOfAgent(agentId), agentAlpha, "Identity owner should be agentAlpha");
-    }
-
-    // -------------------------------------------------
-    // Phala Verifier Not Configured (address(0))
-    // -------------------------------------------------
 
     function test_VerifyTeeAttestation_RevertsWhenPhalaVerifierNotConfigured() public {
-        // Deploy a validation registry WITHOUT a Phala verifier
-        vm.prank(owner);
-        AgentValidationRegistry noPhalaValidation = new AgentValidationRegistry(
-            owner,
-            IERC8004AgentIdentity(address(identity)),
-            IPhalaVerifier(address(0))
-        );
-
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
-
-        vm.expectRevert(IERC8004AgentValidation.PhalaVerifierNotConfigured.selector);
-        noPhalaValidation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, SAMPLE_PUBLIC_KEY);
-    }
-
-    // -------------------------------------------------
-    // Immutable Accessor
-    // -------------------------------------------------
-
-    function test_PhalaVerifier_Immutable_IsSet() public view {
-        assertEq(
-            address(validation.i_phalaVerifier()),
-            address(phalaVerifier),
-            "Phala verifier address should match"
-        );
-    }
-
-    function test_PhalaVerifier_Immutable_ZeroWhenNotConfigured() public {
-        vm.prank(owner);
         AgentValidationRegistry noPhala = new AgentValidationRegistry(
-            owner,
-            IERC8004AgentIdentity(address(identity)),
-            IPhalaVerifier(address(0))
+            owner, IERC8004AgentIdentity(address(identity)), IPhalaVerifier(address(0))
         );
-        assertEq(address(noPhala.i_phalaVerifier()), address(0), "Should be zero when not configured");
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
+
+        vm.prank(alphaKey.addr);
+        vm.expectRevert(IERC8004AgentValidation.PhalaVerifierNotConfigured.selector);
+        noPhala.verifyTeeAttestation(agentId, SAMPLE_QUOTE, _publicKey(alphaKey), "");
     }
 
-    // -------------------------------------------------
-    // TEE Verification Does Not Affect Other Validation Types
-    // -------------------------------------------------
+    // =========================================================================
+    // H-02: a quote cannot certify a different identity
+    // =========================================================================
+
+    /// @dev Beta copies Alpha's public quote, key and signature from calldata/events and
+    ///      submits them for its own identity: the signature covers Alpha's agent ID.
+    function test_H02_CopiedQuoteAndSignature_CannotCertifyOtherIdentity() public {
+        uint256 alphaId = _mintAgent(alphaKey.addr, ALPHA_URI);
+        uint256 betaId = _mintAgent(betaKey.addr, BETA_URI);
+
+        bytes memory alphaSig = _bindingSig(alphaKey, alphaId);
+        vm.prank(alphaKey.addr);
+        validation.verifyTeeAttestation(alphaId, SAMPLE_QUOTE, _publicKey(alphaKey), alphaSig);
+
+        // Same quote: rejected as replay.
+        vm.prank(betaKey.addr);
+        vm.expectRevert(IERC8004AgentValidation.QuoteAlreadyUsed.selector);
+        validation.verifyTeeAttestation(betaId, SAMPLE_QUOTE, _publicKey(alphaKey), alphaSig);
+
+        // Another valid quote of Alpha's key: the copied signature does not bind Beta's ID.
+        vm.prank(betaKey.addr);
+        vm.expectRevert(IERC8004AgentValidation.InvalidKeySignature.selector);
+        validation.verifyTeeAttestation(betaId, DIFFERENT_QUOTE, _publicKey(alphaKey), alphaSig);
+
+        // Signing with its own key while claiming Alpha's key also fails.
+        bytes memory betaSig = _bindingSig(betaKey, betaId);
+        vm.prank(betaKey.addr);
+        vm.expectRevert(IERC8004AgentValidation.InvalidKeySignature.selector);
+        validation.verifyTeeAttestation(betaId, DIFFERENT_QUOTE, _publicKey(alphaKey), betaSig);
+
+        assertFalse(validation.isValidated(betaId, TEE), "Beta not certified by Alpha's quote");
+    }
+
+    /// @dev A binding signature is single-use: the nonce advances on success.
+    function test_H02_BindingSignatureCannotBeReplayed() public {
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
+        bytes memory sig = _bindingSig(alphaKey, agentId);
+
+        vm.prank(alphaKey.addr);
+        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, _publicKey(alphaKey), sig);
+
+        vm.prank(alphaKey.addr);
+        vm.expectRevert(IERC8004AgentValidation.InvalidKeySignature.selector);
+        validation.verifyTeeAttestation(agentId, DIFFERENT_QUOTE, _publicKey(alphaKey), sig);
+    }
+
+    // =========================================================================
+    // M-05: revocation cannot be undone by replay
+    // =========================================================================
+
+    function test_M05_RevokedTee_CannotBeRestoredWithAttestation() public {
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
+        _verifyTee(alphaKey.addr, agentId, alphaKey, SAMPLE_QUOTE);
+
+        vm.prank(teeVerifier);
+        validation.verifyValidation(agentId, TEE, keccak256(SAMPLE_QUOTE), false);
+        assertFalse(validation.isValidated(agentId, TEE), "Revoked");
+
+        // Old quote: replay rejected.
+        bytes memory sig = _bindingSig(alphaKey, agentId);
+        vm.prank(alphaKey.addr);
+        vm.expectRevert(IERC8004AgentValidation.ValidationIsRevoked.selector);
+        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, _publicKey(alphaKey), sig);
+
+        // Even a fresh, correctly signed quote cannot self-clear a revocation.
+        vm.prank(alphaKey.addr);
+        vm.expectRevert(IERC8004AgentValidation.ValidationIsRevoked.selector);
+        validation.verifyTeeAttestation(agentId, DIFFERENT_QUOTE, _publicKey(alphaKey), sig);
+
+        // Only a verifier approval clears it.
+        vm.prank(alphaKey.addr);
+        validation.submitValidation(agentId, DIFFERENT_QUOTE, TEE);
+        vm.prank(teeVerifier);
+        validation.verifyValidation(agentId, TEE, keccak256(DIFFERENT_QUOTE), true);
+        assertTrue(validation.isValidated(agentId, TEE), "Re-approved by verifier");
+        assertFalse(validation.isRevoked(agentId, TEE), "Revocation cleared");
+    }
+
+    // =========================================================================
+    // Ownership and independence
+    // =========================================================================
+
+    function test_VerifyTeeAttestation_NotInheritedByNftBuyer() public {
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
+        _verifyTee(alphaKey.addr, agentId, alphaKey, SAMPLE_QUOTE);
+
+        vm.prank(alphaKey.addr);
+        identity.transferFrom(alphaKey.addr, betaKey.addr, agentId);
+
+        assertFalse(validation.isValidated(agentId, TEE), "Buyer does not inherit TEE status");
+    }
 
     function test_VerifyTeeAttestation_IndependentOfOtherTypes() public {
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
+        _verifyTee(alphaKey.addr, agentId, alphaKey, SAMPLE_QUOTE);
 
-        // Verify TEE
-        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, SAMPLE_PUBLIC_KEY);
-
-        // TEE should be validated
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "TEE should be validated"
-        );
-
-        // STAKE and ZKML should NOT be validated
-        assertFalse(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.STAKE),
-            "STAKE should not be affected"
-        );
-        assertFalse(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.ZKML),
-            "ZKML should not be affected"
-        );
+        assertTrue(validation.isValidated(agentId, TEE), "TEE validated");
+        assertFalse(validation.isValidated(agentId, STAKE), "STAKE untouched");
     }
-
-    // -------------------------------------------------
-    // Multiple Agents with TEE Verification
-    // -------------------------------------------------
 
     function test_VerifyTeeAttestation_MultipleAgents() public {
-        uint256 alphaId = _mintAgent(agentAlpha, ALPHA_URI);
-        uint256 betaId = _mintAgent(agentBeta, BETA_URI);
+        uint256 alphaId = _mintAgent(alphaKey.addr, ALPHA_URI);
+        uint256 betaId = _mintAgent(betaKey.addr, BETA_URI);
 
-        // Verify Alpha
-        validation.verifyTeeAttestation(alphaId, SAMPLE_QUOTE, SAMPLE_PUBLIC_KEY);
+        _verifyTee(alphaKey.addr, alphaId, alphaKey, SAMPLE_QUOTE);
+        _verifyTee(betaKey.addr, betaId, betaKey, DIFFERENT_QUOTE);
 
-        // Verify Beta with different attestation
-        validation.verifyTeeAttestation(betaId, DIFFERENT_QUOTE, DIFFERENT_KEY);
-
-        // Both should be validated independently
-        assertTrue(
-            validation.isValidated(alphaId, IERC8004AgentValidation.ValidationType.TEE),
-            "Alpha should be TEE validated"
-        );
-        assertTrue(
-            validation.isValidated(betaId, IERC8004AgentValidation.ValidationType.TEE),
-            "Beta should be TEE validated"
-        );
-
-        // Proofs should be different
-        IERC8004AgentValidation.Validation memory vAlpha =
-            validation.getValidation(alphaId, IERC8004AgentValidation.ValidationType.TEE);
-        IERC8004AgentValidation.Validation memory vBeta =
-            validation.getValidation(betaId, IERC8004AgentValidation.ValidationType.TEE);
-
-        assertEq(vAlpha.proof, SAMPLE_QUOTE, "Alpha proof should match");
-        assertEq(vBeta.proof, DIFFERENT_QUOTE, "Beta proof should match");
+        assertTrue(validation.isValidated(alphaId, TEE), "Alpha validated");
+        assertTrue(validation.isValidated(betaId, TEE), "Beta validated");
+        assertEq(validation.s_teeKeys(alphaId), alphaKey.addr, "Alpha key");
+        assertEq(validation.s_teeKeys(betaId), betaKey.addr, "Beta key");
     }
 
     // =========================================================================
-    // AgentRegistry Integration: registerAgentWithENSAndTEE
+    // AgentRegistry integration
     // =========================================================================
 
-    // -------------------------------------------------
-    // Register with TEE Attestation -> Auto-Verify
-    // -------------------------------------------------
+    function test_Integration_RegisterWithENS_ThenVerifyTee() public {
+        vm.prank(alphaKey.addr);
+        agentRegistry.registerAgentWithENS("Alpha", hex"", ALPHA_ENS_NODE);
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
 
-    function test_RegisterWithENSAndTEE_AutoVerifies() public {
-        // First, mint an identity for agentAlpha (the identity minting is a separate step)
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
+        _verifyTee(alphaKey.addr, agentId, alphaKey, SAMPLE_QUOTE);
 
-        // Register agent with ENS and TEE attestation
-        vm.prank(agentAlpha);
-        agentRegistry.registerAgentWithENSAndTEE(
-            "Alpha",
-            "attestation_data",
-            ALPHA_ENS_NODE,
-            agentId,
-            SAMPLE_QUOTE,
-            SAMPLE_PUBLIC_KEY
-        );
-
-        // Agent should be registered in AgentRegistry
-        assertTrue(agentRegistry.isAgent(agentAlpha), "Agent should be registered");
-
-        // Agent should be TEE validated in the validation registry
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Agent should be TEE validated after registration"
-        );
-
-        // ENS should be linked
-        assertEq(agentRegistry.getAgentByENS(ALPHA_ENS_NODE), agentAlpha, "ENS should resolve to agentAlpha");
+        assertTrue(agentRegistry.isAgent(alphaKey.addr), "Registered");
+        assertEq(agentRegistry.getAgentByENS(ALPHA_ENS_NODE), alphaKey.addr, "ENS linked");
+        assertTrue(validation.isValidated(agentId, TEE), "TEE validated");
     }
-
-    // -------------------------------------------------
-    // Register without TEE -> Manual Verification Later
-    // -------------------------------------------------
-
-    function test_RegisterWithoutTEE_ThenManualVerification() public {
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
-
-        // Register agent with ENS but NO TEE attestation (empty quote)
-        vm.prank(agentAlpha);
-        agentRegistry.registerAgentWithENSAndTEE(
-            "Alpha",
-            "",
-            ALPHA_ENS_NODE,
-            agentId,
-            "", // empty attestation quote -> skip TEE
-            ""  // empty public key
-        );
-
-        // Agent should be registered
-        assertTrue(agentRegistry.isAgent(agentAlpha), "Agent should be registered");
-
-        // Agent should NOT be TEE validated yet
-        assertFalse(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Agent should NOT be TEE validated without attestation"
-        );
-
-        // Now manually verify TEE
-        vm.prank(agentAlpha);
-        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, SAMPLE_PUBLIC_KEY);
-
-        // Now should be validated
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Agent should be TEE validated after manual verification"
-        );
-    }
-
-    // -------------------------------------------------
-    // Register with TEE but Verification Fails -> Entire Tx Reverts
-    // -------------------------------------------------
-
-    function test_RegisterWithENSAndTEE_RevertsOnFailedVerification() public {
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
-
-        // Set verifier to fail
-        phalaVerifier.setVerificationResult(false);
-
-        vm.prank(agentAlpha);
-        vm.expectRevert(IERC8004AgentValidation.TeeVerificationFailed.selector);
-        agentRegistry.registerAgentWithENSAndTEE(
-            "Alpha",
-            "attestation_data",
-            ALPHA_ENS_NODE,
-            agentId,
-            SAMPLE_QUOTE,
-            SAMPLE_PUBLIC_KEY
-        );
-
-        // Agent should NOT be registered (entire tx reverted)
-        assertFalse(agentRegistry.isAgent(agentAlpha), "Agent should NOT be registered after revert");
-    }
-
-    // -------------------------------------------------
-    // Register with TEE but Validation Registry Not Configured
-    // -------------------------------------------------
-
-    function test_RegisterWithENSAndTEE_RevertsWhenNoValidationRegistry() public {
-        // Deploy an AgentRegistry without validation registry
-        AgentRegistry noValRegistry = new AgentRegistry(
-            IENS(address(ensRegistry)),
-            IERC8004AgentValidation(address(0))
-        );
-
-        // Set up ENS ownership for this new registry
-        ensRegistry.setOwner(ALPHA_ENS_NODE, agentAlpha);
-
-        vm.prank(agentAlpha);
-        vm.expectRevert(AgentRegistry.ValidationRegistryNotConfigured.selector);
-        noValRegistry.registerAgentWithENSAndTEE(
-            "Alpha",
-            "",
-            ALPHA_ENS_NODE,
-            1, // agentId
-            SAMPLE_QUOTE,
-            SAMPLE_PUBLIC_KEY
-        );
-    }
-
-    // -------------------------------------------------
-    // Register with ENS and TEE without ENS node (bytes32(0))
-    // -------------------------------------------------
-
-    function test_RegisterWithENSAndTEE_NoENS_StillVerifiesTEE() public {
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
-
-        // Register without ENS linkage but with TEE
-        vm.prank(agentAlpha);
-        agentRegistry.registerAgentWithENSAndTEE(
-            "Alpha",
-            "attestation_data",
-            bytes32(0), // no ENS
-            agentId,
-            SAMPLE_QUOTE,
-            SAMPLE_PUBLIC_KEY
-        );
-
-        // Agent registered
-        assertTrue(agentRegistry.isAgent(agentAlpha), "Agent should be registered");
-
-        // TEE verified
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Agent should be TEE validated"
-        );
-
-        // No ENS linkage
-        IAgentRegistry.Agent memory agent = agentRegistry.getAgent(agentAlpha);
-        assertEq(agent.ensNode, bytes32(0), "ENS node should be zero");
-    }
-
-    // -------------------------------------------------
-    // Backward Compatibility: Old registration functions still work
-    // -------------------------------------------------
 
     function test_BackwardCompatibility_RegisterAgent_StillWorks() public {
-        vm.prank(agentAlpha);
-        agentRegistry.registerAgent("Alpha", "attestation_data");
-
-        assertTrue(agentRegistry.isAgent(agentAlpha), "Agent should be registered via old function");
+        vm.prank(betaKey.addr);
+        agentRegistry.registerAgent("Beta", hex"");
+        assertTrue(agentRegistry.isAgent(betaKey.addr), "Registered");
     }
-
-    function test_BackwardCompatibility_RegisterAgentWithENS_StillWorks() public {
-        vm.prank(agentAlpha);
-        agentRegistry.registerAgentWithENS("Alpha", "attestation_data", ALPHA_ENS_NODE);
-
-        assertTrue(agentRegistry.isAgent(agentAlpha), "Agent should be registered via ENS function");
-        assertEq(agentRegistry.getAgentByENS(ALPHA_ENS_NODE), agentAlpha, "ENS should resolve");
-    }
-
-    // -------------------------------------------------
-    // Validation Registry Immutable Accessor on AgentRegistry
-    // -------------------------------------------------
 
     function test_AgentRegistry_ValidationRegistry_Immutable() public view {
-        assertEq(
-            address(agentRegistry.i_validationRegistry()),
-            address(validation),
-            "Validation registry address should match"
-        );
+        assertEq(address(agentRegistry.i_validationRegistry()), address(validation), "Validation registry");
     }
 
     function test_AgentRegistry_ValidationRegistry_ZeroWhenNotConfigured() public {
-        AgentRegistry noValReg = new AgentRegistry(
-            IENS(address(0)),
-            IERC8004AgentValidation(address(0))
-        );
-        assertEq(
-            address(noValReg.i_validationRegistry()),
-            address(0),
-            "Should be zero when not configured"
-        );
+        AgentRegistry plain = new AgentRegistry(IENS(address(0)), IERC8004AgentValidation(address(0)));
+        assertEq(address(plain.i_validationRegistry()), address(0), "Zero when not configured");
     }
 
     // =========================================================================
-    // Fuzz Tests
+    // Fuzz
     // =========================================================================
 
     function testFuzz_VerifyTeeAttestation_ArbitraryQuote(bytes memory quote) public {
-        vm.assume(quote.length > 0 && quote.length < 2000);
+        vm.assume(quote.length > 0 && quote.length < 2048);
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
 
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
+        _verifyTee(alphaKey.addr, agentId, alphaKey, quote);
 
-        validation.verifyTeeAttestation(agentId, quote, SAMPLE_PUBLIC_KEY);
-
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Should be validated with arbitrary quote"
-        );
-
-        IERC8004AgentValidation.Validation memory v =
-            validation.getValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
-        assertEq(v.proof, quote, "Proof should match fuzzed quote");
+        assertTrue(validation.isValidated(agentId, TEE), "Validated");
+        assertTrue(validation.s_usedQuotes(keccak256(quote)), "Quote recorded");
     }
 
-    function testFuzz_VerifyTeeAttestation_AttestationHash(bytes memory quote) public {
-        vm.assume(quote.length > 0 && quote.length < 2000);
+    function testFuzz_VerifyTeeAttestation_WrongSignerAlwaysRejected(uint256 signerPk) public {
+        signerPk = bound(signerPk, 1, 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140);
+        vm.assume(signerPk != alphaKey.privateKey);
+        uint256 agentId = _mintAgent(alphaKey.addr, ALPHA_URI);
 
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
-
-        bytes32 expectedHash = keccak256(quote);
-
-        vm.expectEmit(true, false, false, true);
-        emit IERC8004AgentValidation.TeeAttestationVerified(agentId, expectedHash, block.timestamp);
-
-        validation.verifyTeeAttestation(agentId, quote, SAMPLE_PUBLIC_KEY);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, validation.teeBindingDigest(agentId));
+        vm.prank(alphaKey.addr);
+        vm.expectRevert(IERC8004AgentValidation.InvalidKeySignature.selector);
+        validation.verifyTeeAttestation(agentId, SAMPLE_QUOTE, _publicKey(alphaKey), abi.encodePacked(r, s, v));
     }
 }

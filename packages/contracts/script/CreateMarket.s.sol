@@ -16,7 +16,9 @@ import {PredictionMarketHook} from "../src/PredictionMarketHook.sol";
 /// @dev Performs three steps in a single broadcast:
 ///      1. Registers the caller as an agent in the AgentRegistry.
 ///      2. Creates a sample prediction market on the PredictionMarketHook.
-///      3. Mints outcome tokens by depositing ETH collateral.
+///      3. Seeds the market's AMM with ETH liquidity (the agent receives the LP shares).
+///         This happens in the creation call: the market ID depends on the block timestamp,
+///         so a separate follow-up call would target the simulated (wrong) ID.
 ///
 ///      Required environment variables:
 ///        DEPLOYER_PRIVATE_KEY          -- EOA that broadcasts (will be the agent)
@@ -28,8 +30,10 @@ import {PredictionMarketHook} from "../src/PredictionMarketHook.sol";
 ///        MARKET_OUTCOME1               -- First outcome label  (default: "yes")
 ///        MARKET_OUTCOME2               -- Second outcome label (default: "no")
 ///        MARKET_REWARD                 -- Asserter reward in wei (default: 0 for demo)
-///        MARKET_REQUIRED_BOND          -- Required bond in wei  (default: 0 for demo)
-///        MINT_AMOUNT_ETH               -- ETH to deposit for minting, in ether (default: 0.01)
+///        MARKET_REQUIRED_BOND          -- Required bond in wei  (default: 0 = UMA minimum)
+///        MARKET_RESOLUTION_DELAY       -- Seconds until the outcome may be asserted (default: 3600)
+///        MARKET_CLOSE_TIME             -- Trading close timestamp (default: 0 = resolution time)
+///        MINT_AMOUNT_ETH               -- Initial liquidity in wei (default: 0.01 ether)
 ///
 ///      Usage:
 ///        source .env && forge script script/CreateMarket.s.sol \
@@ -52,6 +56,8 @@ contract CreateMarketScript is Script {
         uint256 reward = vm.envOr("MARKET_REWARD", uint256(0));
         uint256 requiredBond = vm.envOr("MARKET_REQUIRED_BOND", uint256(0));
         uint256 mintAmountWei = vm.envOr("MINT_AMOUNT_ETH", uint256(0.01 ether));
+        uint64 resolutionTime = uint64(block.timestamp + vm.envOr("MARKET_RESOLUTION_DELAY", uint256(3600)));
+        uint64 closeTime = uint64(vm.envOr("MARKET_CLOSE_TIME", uint256(0)));
 
         AgentRegistry registry = AgentRegistry(registryAddr);
         PredictionMarketHook hook = PredictionMarketHook(payable(hookAddr));
@@ -67,7 +73,8 @@ contract CreateMarketScript is Script {
         console2.log("Outcome 2:         ", outcome2);
         console2.log("Reward (wei):      ", reward);
         console2.log("Required bond (wei):", requiredBond);
-        console2.log("Mint amount (wei): ", mintAmountWei);
+        console2.log("Resolution time:   ", uint256(resolutionTime));
+        console2.log("Liquidity (wei):   ", mintAmountWei);
         console2.log("");
 
         vm.startBroadcast(deployerPk);
@@ -88,20 +95,11 @@ contract CreateMarketScript is Script {
         }
 
         // ── 4. Create market ────────────────────────────────────────────────
-        bytes32 marketId = hook.initializeMarket(
-            outcome1,
-            outcome2,
-            description,
-            reward,
-            requiredBond
+        uint256 value = hook.s_marketCreationFee() + mintAmountWei;
+        hook.createMarket{value: value}(
+            outcome1, outcome2, description, reward, requiredBond, closeTime, resolutionTime
         );
-        console2.log("Market created, ID:", vm.toString(marketId));
-
-        // ── 5. Mint outcome tokens ──────────────────────────────────────────
-        if (mintAmountWei > 0) {
-            hook.mintOutcomeTokens{value: mintAmountWei}(marketId);
-            console2.log("Minted outcome tokens for", mintAmountWei, "wei");
-        }
+        console2.log("Market created. Find its ID with getMarketIdByQuestion(description, outcome1, outcome2).");
 
         vm.stopBroadcast();
 

@@ -7,34 +7,49 @@ import "forge-std/console2.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {HookMiner} from "v4-periphery/src/utils/HookMiner.sol";
 
 import {PredictionMarketHook} from "../src/PredictionMarketHook.sol";
 import {IAgentRegistry} from "../src/interfaces/IAgentRegistry.sol";
 import {OptimisticOracleV3Interface} from "../src/interfaces/uma/OptimisticOracleV3Interface.sol";
+import {AgentReputationRegistry} from "../src/erc8004/AgentReputationRegistry.sol";
+
+import {HookConfigScript} from "./HookConfig.sol";
 
 /// @title DeployHookOnly
-/// @notice Deploys only the PredictionMarketHook using existing infrastructure
-contract DeployHookOnlyScript is Script {
+/// @notice Redeploys only the PredictionMarketHook against the registry, oracle and bond
+///         currency recorded in this chain's deployment JSON, and leaves it configured exactly
+///         like `Deploy.s.sol` would (treasury, fees, bond cap, ERC-8004 registry, ownership).
+/// @dev Markets on the previous hook are not migrated. If the deployer no longer owns the
+///      AgentReputationRegistry, its owner must call `setRecorder(newHook)` afterwards.
+///      Environment: PRIVATE_KEY, V4_POOL_MANAGER, DEFAULT_LIVENESS, plus everything read by
+///      `HookConfigScript`.
+contract DeployHookOnlyScript is HookConfigScript {
     address constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+
+    /// @dev UMA's standard liveness; the minimum on production chains.
+    uint64 constant PRODUCTION_LIVENESS = 7200;
 
     function run() external {
         uint256 deployerPk = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPk);
+        bool production = _isProduction();
 
-        // Read existing deployment addresses
         address poolManager = vm.envAddress("V4_POOL_MANAGER");
-        uint64 liveness = uint64(vm.envOr("DEFAULT_LIVENESS", uint256(120)));
+        uint64 liveness =
+            uint64(vm.envOr("DEFAULT_LIVENESS", uint256(production ? PRODUCTION_LIVENESS : 120)));
+        if (production) {
+            require(liveness >= PRODUCTION_LIVENESS, "DeployHookOnly: DEFAULT_LIVENESS below 7200s on production");
+        }
 
-        // Load from deployments/arbitrum-sepolia.json
-        string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/deployments/arbitrum-sepolia.json");
+        string memory path = _deploymentPath();
         string memory json = vm.readFile(path);
-
         address registry = vm.parseJsonAddress(json, ".contracts.AgentRegistry");
         address umaOov3 = vm.parseJsonAddress(json, ".contracts.OptimisticOracleV3");
         address bondCurrency = vm.parseJsonAddress(json, ".contracts.BondCurrency");
+        address reputationRegistry = vm.parseJsonAddress(json, ".contracts.AgentReputationRegistry");
 
         console2.log("================================================");
         console2.log("  CLAWLOGIC Hook Redeployment");
@@ -45,14 +60,8 @@ contract DeployHookOnlyScript is Script {
         console2.log("UMA OOV3:        ", umaOov3);
         console2.log("BondCurrency:    ", bondCurrency);
         console2.log("Liveness (s):    ", uint256(liveness));
+        (address finalOwner, address treasury) = _readAdmin(deployer, production);
         console2.log("");
-
-        vm.startBroadcast(deployerPk);
-
-        // Mine CREATE2 salt for hook address
-        uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_ADD_LIQUIDITY_FLAG
-        );
 
         bytes memory constructorArgs = abi.encode(
             IPoolManager(poolManager),
@@ -60,89 +69,59 @@ contract DeployHookOnlyScript is Script {
             OptimisticOracleV3Interface(umaOov3),
             IERC20(bondCurrency),
             liveness,
-            deployer // owner + treasury
+            deployer // initial owner; configured and handed over below
         );
-
-        console2.log("Mining CREATE2 salt for hook address flags...");
-
         (address hookAddress, bytes32 salt) = HookMiner.find(
             CREATE2_DEPLOYER,
-            flags,
+            uint160(Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_ADD_LIQUIDITY_FLAG),
             type(PredictionMarketHook).creationCode,
             constructorArgs
         );
-
         console2.log("Mined hook address:      ", hookAddress);
-        console2.log("Salt:                    ", vm.toString(salt));
-        console2.log("");
 
-        // Deploy via CREATE2
+        vm.startBroadcast(deployerPk);
+
         PredictionMarketHook hook = new PredictionMarketHook{salt: salt}(
             IPoolManager(poolManager),
             IAgentRegistry(registry),
             OptimisticOracleV3Interface(umaOov3),
             IERC20(bondCurrency),
             liveness,
-            deployer // owner + treasury
+            deployer
         );
+        require(address(hook) == hookAddress, "DeployHookOnly: address mismatch");
+
+        _configureHook(hook, treasury);
+
+        if (reputationRegistry != address(0) && Ownable(reputationRegistry).owner() == deployer) {
+            AgentReputationRegistry(reputationRegistry).setRecorder(address(hook));
+            console2.log("Reputation recorder -> new hook");
+        } else {
+            console2.log("ACTION: reputation registry owner must call setRecorder(newHook)");
+        }
+
+        if (finalOwner != deployer) {
+            hook.transferOwnership(finalOwner);
+            console2.log("Ownership -> (pending acceptOwnership)", finalOwner);
+        }
 
         vm.stopBroadcast();
 
-        require(address(hook) == hookAddress, "DeployHookOnly: address mismatch");
-
         console2.log("PredictionMarketHook:    ", address(hook));
-        console2.log("");
-        console2.log("================================================");
-        console2.log("  Hook Deployment Complete");
-        console2.log("================================================");
-        console2.log("");
-
-        // Update deployments JSON
-        _updateDeploymentJson(address(hook));
+        vm.writeJson(vm.toString(address(hook)), path, ".contracts.PredictionMarketHook");
+        console2.log("Updated deployment JSON at:", path);
     }
 
-    function _updateDeploymentJson(address hook) internal {
-        string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/deployments/arbitrum-sepolia.json");
-        string memory json = vm.readFile(path);
-
-        // Parse existing data
-        uint256 chainId = vm.parseJsonUint(json, ".chainId");
-        address deployer = vm.parseJsonAddress(json, ".deployer");
-
-        // Read all existing contracts
-        address registry = vm.parseJsonAddress(json, ".contracts.AgentRegistry");
-        address poolManager = vm.parseJsonAddress(json, ".contracts.PoolManager");
-        address oov3 = vm.parseJsonAddress(json, ".contracts.OptimisticOracleV3");
-        address bondCurrency = vm.parseJsonAddress(json, ".contracts.BondCurrency");
-        address ensRegistry = vm.parseJsonAddress(json, ".contracts.ENSRegistry");
-        address identityRegistry = vm.parseJsonAddress(json, ".contracts.AgentIdentityRegistry");
-        address validationRegistry = vm.parseJsonAddress(json, ".contracts.AgentValidationRegistry");
-        address reputationRegistry = vm.parseJsonAddress(json, ".contracts.AgentReputationRegistry");
-        address phalaVerifier = vm.parseJsonAddress(json, ".contracts.PhalaVerifier");
-
-        // Rebuild JSON with new hook address
-        string memory newJson = "deployment";
-        vm.serializeUint(newJson, "chainId", chainId);
-        vm.serializeAddress(newJson, "deployer", deployer);
-        vm.serializeUint(newJson, "blockNumber", block.number);
-        vm.serializeString(newJson, "deployedAt", vm.toString(block.timestamp));
-
-        string memory contracts = "contracts";
-        vm.serializeAddress(contracts, "AgentRegistry", registry);
-        vm.serializeAddress(contracts, "PredictionMarketHook", hook); // Updated!
-        vm.serializeAddress(contracts, "PoolManager", poolManager);
-        vm.serializeAddress(contracts, "OptimisticOracleV3", oov3);
-        vm.serializeAddress(contracts, "BondCurrency", bondCurrency);
-        vm.serializeAddress(contracts, "ENSRegistry", ensRegistry);
-        vm.serializeAddress(contracts, "AgentIdentityRegistry", identityRegistry);
-        vm.serializeAddress(contracts, "AgentValidationRegistry", validationRegistry);
-        vm.serializeAddress(contracts, "AgentReputationRegistry", reputationRegistry);
-        string memory contractsJson = vm.serializeAddress(contracts, "PhalaVerifier", phalaVerifier);
-
-        string memory finalJson = vm.serializeString(newJson, "contracts", contractsJson);
-
-        vm.writeJson(finalJson, path);
-        console2.log("Updated deployment JSON at:", path);
+    /// @dev Same file naming as `Deploy.s.sol`.
+    function _deploymentPath() internal view returns (string memory) {
+        string memory fileName;
+        if (block.chainid == 421_614) {
+            fileName = "arbitrum-sepolia.json";
+        } else if (block.chainid == 42_161) {
+            fileName = "arbitrum-one.json";
+        } else {
+            fileName = string.concat("chain-", vm.toString(block.chainid), ".json");
+        }
+        return string.concat(vm.projectRoot(), "/deployments/", fileName);
     }
 }

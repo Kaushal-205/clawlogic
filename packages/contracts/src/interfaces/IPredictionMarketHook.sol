@@ -7,7 +7,8 @@ import {PoolId} from "v4-core/src/types/PoolId.sol";
 /// @notice Interface for the core CLAWLOGIC prediction market contract integrated with
 ///         Uniswap V4 hooks and UMA Optimistic Oracle V3 for resolution.
 /// @dev This interface defines the market lifecycle:
-///      initializeMarket -> mintOutcomeTokens -> assertMarket -> settleOutcomeTokens.
+///      createMarket -> mintOutcomeTokens / trade -> assertMarket (after resolutionTime)
+///      -> settleOutcomeTokens / claimAssertionReward.
 interface IPredictionMarketHook {
     // ─────────────────────────────────────────────────────────────────────────
     // Events
@@ -43,8 +44,19 @@ interface IPredictionMarketHook {
 
     /// @notice Emitted alongside MarketInitialized with the market's extra configuration.
     event MarketConfigured(
-        bytes32 indexed marketId, address indexed creator, uint64 closeTime, bytes32 marketKey, uint256 creationFee
+        bytes32 indexed marketId,
+        address indexed creator,
+        uint64 closeTime,
+        uint64 resolutionTime,
+        bytes32 marketKey,
+        uint256 creationFee
     );
+
+    /// @notice Emitted when the reward is paid to the asserter of the accepted outcome.
+    event AssertionRewardPaid(bytes32 indexed marketId, address indexed asserter, uint256 amount);
+
+    /// @notice Emitted when a market's question key is released for reuse.
+    event MarketKeyReleased(bytes32 indexed marketId, bytes32 marketKey);
 
     /// @notice Emitted when outcome token pairs are burned back into ETH before resolution.
     event TokensMerged(bytes32 indexed marketId, address indexed agent, uint256 amount);
@@ -108,8 +120,23 @@ interface IPredictionMarketHook {
     /// @notice Thrown when the description is empty or the outcomes are empty/identical.
     error InvalidMarketParams();
 
-    /// @notice Thrown when a close time is in the past.
+    /// @notice Thrown when a close time is in the past or after the resolution time.
     error InvalidCloseTime();
+
+    /// @notice Thrown when a resolution time is in the past or beyond MAX_MARKET_DURATION.
+    error InvalidResolutionTime();
+
+    /// @notice Thrown when asserting before the market's resolution time.
+    error ResolutionTimeNotReached();
+
+    /// @notice Thrown when `requiredBond` exceeds the owner-set maximum.
+    error BondTooHigh();
+
+    /// @notice Thrown when there is no reward left to pay.
+    error NothingToClaim();
+
+    /// @notice Thrown when a question key cannot (yet) be released.
+    error KeyNotReleasable();
 
     /// @notice Thrown when trading after the market's close time.
     error TradingClosed();
@@ -134,30 +161,31 @@ interface IPredictionMarketHook {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Create a new prediction market.
-    /// @param outcome1     Label for the first outcome (e.g. "yes").
-    /// @param outcome2     Label for the second outcome (e.g. "no").
-    /// @param description  Human-readable market question.
-    /// @param reward       Amount of bond currency offered as incentive to the asserter.
-    /// @param requiredBond Minimum bond required from an asserter.
-    /// @return marketId    The unique identifier for the newly created market.
-    function initializeMarket(
-        string calldata outcome1,
-        string calldata outcome2,
-        string calldata description,
-        uint256 reward,
-        uint256 requiredBond
-    ) external payable returns (bytes32 marketId);
-
-    /// @notice Create a new prediction market with an optional trading close time.
     /// @dev msg.value pays the creation fee; the rest seeds AMM liquidity (creator gets LP shares).
+    /// @param outcome1       Label for the first outcome (e.g. "yes"). Not "Unresolvable".
+    /// @param outcome2       Label for the second outcome (e.g. "no"). A yes/no pair is yes first.
+    /// @param description    Human-readable market question.
+    /// @param reward         Bond-currency reward paid to the asserter of the accepted outcome.
+    /// @param requiredBond   Minimum bond required from an asserter (capped by the owner).
+    /// @param closeTime      Trading close timestamp (0 = at `resolutionTime`).
+    /// @param resolutionTime Earliest timestamp an outcome may be asserted (within 365 days).
+    /// @return marketId      The unique identifier for the newly created market.
     function createMarket(
         string calldata outcome1,
         string calldata outcome2,
         string calldata description,
         uint256 reward,
         uint256 requiredBond,
-        uint64 closeTime
+        uint64 closeTime,
+        uint64 resolutionTime
     ) external payable returns (bytes32 marketId);
+
+    /// @notice Pay the reward of a resolved market to the asserter of its accepted outcome.
+    function claimAssertionReward(bytes32 marketId) external;
+
+    /// @notice Release the question key of an unresolved market (owner, or anyone 30 days
+    ///         after its resolution time).
+    function releaseMarketKey(bytes32 marketId) external;
 
     /// @notice Burn `amount` of both outcome tokens for `amount` ETH before resolution.
     function mergeOutcomeTokens(bytes32 marketId, uint256 amount) external;
@@ -195,7 +223,8 @@ interface IPredictionMarketHook {
         view
         returns (bytes32);
 
-    /// @notice Creator, close time, active assertion, LP shares, question key, trading status.
+    /// @notice Creator, close time, active assertion, LP shares, question key, trading status,
+    ///         resolution time.
     function getMarketInfo(bytes32 marketId)
         external
         view
@@ -205,7 +234,8 @@ interface IPredictionMarketHook {
             bytes32 activeAssertionId,
             uint256 totalLpShares,
             bytes32 marketKey,
-            bool tradingOpen
+            bool tradingOpen,
+            uint64 resolutionTime
         );
 
     /// @notice Deposit ETH collateral to mint equal amounts of both outcome tokens.

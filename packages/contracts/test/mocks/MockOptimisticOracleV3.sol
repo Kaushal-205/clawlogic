@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {OptimisticOracleV3Interface} from "../../src/interfaces/uma/OptimisticOracleV3Interface.sol";
 import {OptimisticOracleV3CallbackRecipientInterface} from
     "../../src/interfaces/uma/OptimisticOracleV3CallbackRecipientInterface.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title MockOptimisticOracleV3
 /// @notice Simplified mock of UMA OOV3 for testing assertion workflows without full UMA complexity
@@ -27,6 +28,9 @@ contract MockOptimisticOracleV3 is OptimisticOracleV3Interface {
     ) external override returns (bytes32 assertionId) {
         assertionIdCounter++;
         assertionId = keccak256(abi.encode(claim, asserter, assertionIdCounter));
+
+        // Like the real OOV3, pull exactly `bond` from the caller.
+        if (bond > 0) IERC20(currency).transferFrom(msg.sender, address(this), bond);
 
         assertions[assertionId] = Assertion({
             escalationManagerSettings: EscalationManagerSettings({

@@ -11,7 +11,7 @@ import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 ///         accept it, but does NOT implement actual pool or swap logic.
 ///
 /// @dev On Arc testnet, V4 pool trading is not functional; only the prediction
-///      market lifecycle (initializeMarket, mintOutcomeTokens, assertMarket,
+///      market lifecycle (createMarket, mintOutcomeTokens, assertMarket,
 ///      settleOutcomeTokens) is operational. The `beforeSwap` / `beforeAddLiquidity`
 ///      hooks remain wired but will never be invoked since there is no real
 ///      PoolManager routing through them.

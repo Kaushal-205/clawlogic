@@ -17,9 +17,10 @@ import {OptimisticOracleV3CallbackRecipientInterface} from
 ///      1. assertTruth()       -- creates an assertion, returns an assertionId
 ///      2. settleAssertion()   -- settles (marks truthful if not disputed) and triggers callback
 ///      3. disputeAssertion()  -- marks as disputed and triggers dispute callback
-///      4. resolveAssertion()  -- admin helper to manually resolve (truthful or not)
+///      4. resolveAssertion()  -- deployer-only helper to manually resolve (truthful or not)
 ///
-///      No bonds are actually escrowed -- this is purely for demonstration purposes.
+///      No bonds are actually escrowed -- this is purely for demonstration purposes. Never
+///      use it on a chain with meaningful collateral: there is no real dispute process.
 contract DeployableMockOOV3 is OptimisticOracleV3Interface {
     // ─────────────────────────────────────────────────────────────────────────
     // Storage
@@ -29,6 +30,9 @@ contract DeployableMockOOV3 is OptimisticOracleV3Interface {
     uint256 private assertionIdCounter;
 
     bytes32 public constant ASSERT_TRUTH_IDENTIFIER = bytes32("ASSERT_TRUTH");
+
+    /// @notice The only address allowed to force a resolution with `resolveAssertion`.
+    address public immutable admin = msg.sender;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Core OOV3 Interface
@@ -110,6 +114,7 @@ contract DeployableMockOOV3 is OptimisticOracleV3Interface {
     /// @param assertionId The assertion to resolve.
     /// @param truthful    True if the assertion should be considered truthful.
     function resolveAssertion(bytes32 assertionId, bool truthful) external {
+        require(msg.sender == admin, "Only admin");
         Assertion storage assertion = assertions[assertionId];
         require(!assertion.settled, "Already settled");
 

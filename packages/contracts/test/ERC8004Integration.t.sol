@@ -269,6 +269,14 @@ contract ERC8004IntegrationTest is Test {
     // Helper: mint an agent identity for reputation tests
     // -------------------------------------------------
 
+    function _approvedAgent(address agent, bytes memory proof, IERC8004AgentValidation.ValidationType vType) internal returns (uint256 agentId) {
+        agentId = _mintAgent(agent, ALPHA_URI);
+        vm.prank(agent);
+        validation.submitValidation(agentId, proof, vType);
+        vm.prank(validation.getVerifier(vType));
+        validation.verifyValidation(agentId, vType, keccak256(proof), true);
+    }
+
     function _mintAgent(address agent, string memory uri) internal returns (uint256) {
         vm.prank(minter);
         return identity.mintAgentIdentity(agent, uri);
@@ -494,36 +502,49 @@ contract ERC8004IntegrationTest is Test {
         uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
 
         vm.expectEmit(true, true, false, true);
-        emit IERC8004AgentValidation.ValidationSubmitted(
-            agentId, IERC8004AgentValidation.ValidationType.TEE, TEE_PROOF
-        );
+        emit IERC8004AgentValidation.ValidationSubmitted(agentId, IERC8004AgentValidation.ValidationType.TEE, TEE_PROOF);
+        vm.expectEmit(true, true, false, true);
+        emit IERC8004AgentValidation.ValidationPending(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(TEE_PROOF));
 
         vm.prank(agentAlpha);
         validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
 
-        IERC8004AgentValidation.Validation memory v =
-            validation.getValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
-        assertEq(uint8(v.validationType), uint8(IERC8004AgentValidation.ValidationType.TEE), "Type should be TEE");
-        assertEq(v.proof, TEE_PROOF, "Proof should match");
-        assertEq(v.timestamp, block.timestamp, "Timestamp should be now");
+        (bytes32 pendingHash, bytes memory pendingProof) = validation.getPendingValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
+        assertEq(pendingHash, keccak256(TEE_PROOF), "Pending hash should match");
+        assertEq(pendingProof, TEE_PROOF, "Pending proof should match");
+
+        IERC8004AgentValidation.Validation memory v = validation.getValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
+        assertEq(v.timestamp, 0, "Nothing active before approval");
         assertFalse(v.valid, "Should not be valid yet (pending verification)");
     }
 
-    function test_Validation_SubmitValidation_AnyoneCanSubmit() public {
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
+    /// @dev M-04: a stranger can no longer overwrite (and thereby invalidate) an agent's proof.
+    function test_Validation_SubmitValidation_RevertWhenNotController() public {
+        uint256 agentId = _approvedAgent(agentAlpha, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
 
-        // Even an unauthorized address can submit (anyone can propose a proof)
+        vm.prank(unauthorized);
+        vm.expectRevert(IERC8004AgentValidation.NotAgentController.selector);
+        validation.submitValidation(agentId, hex"01", IERC8004AgentValidation.ValidationType.TEE);
+
+        assertTrue(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Still validated");
+    }
+
+    function test_Validation_SubmitValidation_ApprovedOperatorCanSubmit() public {
+        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
+        vm.prank(agentAlpha);
+        identity.setApprovalForAll(unauthorized, true);
+
         vm.prank(unauthorized);
         validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
 
-        IERC8004AgentValidation.Validation memory v =
-            validation.getValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
-        assertEq(v.proof, TEE_PROOF, "Proof should be stored");
+        (bytes32 pendingHash,) = validation.getPendingValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
+        assertEq(pendingHash, keccak256(TEE_PROOF), "Operator submission is pending");
     }
 
     function test_Validation_SubmitValidation_RevertWhenNoneType() public {
         uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
 
+        vm.prank(agentAlpha);
         vm.expectRevert(IERC8004AgentValidation.InvalidValidationType.selector);
         validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.NONE);
     }
@@ -531,6 +552,7 @@ contract ERC8004IntegrationTest is Test {
     function test_Validation_SubmitValidation_RevertWhenEmptyProof() public {
         uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
 
+        vm.prank(agentAlpha);
         vm.expectRevert(IERC8004AgentValidation.EmptyProof.selector);
         validation.submitValidation(agentId, "", IERC8004AgentValidation.ValidationType.TEE);
     }
@@ -540,26 +562,25 @@ contract ERC8004IntegrationTest is Test {
         validation.submitValidation(999, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
     }
 
-    function test_Validation_SubmitValidation_OverwritesPrevious() public {
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
+    /// @dev M-04: a resubmission stays pending; the approved proof keeps working meanwhile.
+    function test_Validation_Resubmission_KeepsActiveProofUntilApproved() public {
+        uint256 agentId = _approvedAgent(agentAlpha, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
         bytes memory newProof = hex"aabbccdd";
 
-        // First submission
-        validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
-
-        // Verify it, then overwrite
-        vm.prank(teeVerifier);
-        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, true);
-        assertTrue(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Should be valid");
-
-        // Resubmit -- should reset valid to false
         vm.warp(block.timestamp + 100);
+        vm.prank(agentAlpha);
         validation.submitValidation(agentId, newProof, IERC8004AgentValidation.ValidationType.TEE);
 
-        IERC8004AgentValidation.Validation memory v =
-            validation.getValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
-        assertEq(v.proof, newProof, "Proof should be overwritten");
-        assertFalse(v.valid, "Valid should be reset to false on resubmission");
+        IERC8004AgentValidation.Validation memory v = validation.getValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
+        assertEq(v.proof, TEE_PROOF, "Active proof unchanged");
+        assertTrue(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Still validated while pending");
+
+        vm.prank(teeVerifier);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(newProof), true);
+
+        v = validation.getValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
+        assertEq(v.proof, newProof, "New proof active after approval");
+        assertEq(v.timestamp, block.timestamp, "Activation timestamp");
     }
 
     // -------------------------------------------------
@@ -569,65 +590,99 @@ contract ERC8004IntegrationTest is Test {
     function test_Validation_VerifyValidation_TEE_Accept() public {
         uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
 
+        vm.prank(agentAlpha);
         validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
 
         vm.expectEmit(true, true, false, true);
         emit IERC8004AgentValidation.ValidationVerified(agentId, IERC8004AgentValidation.ValidationType.TEE, true);
 
         vm.prank(teeVerifier);
-        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, true);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(TEE_PROOF), true);
 
         assertTrue(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Should be validated");
+        assertEq(validation.getBoundOwner(agentId, IERC8004AgentValidation.ValidationType.TEE), agentAlpha, "Bound to owner");
     }
 
     function test_Validation_VerifyValidation_TEE_Reject() public {
         uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
 
+        vm.prank(agentAlpha);
         validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
 
         vm.prank(teeVerifier);
-        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, false);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(TEE_PROOF), false);
 
-        assertFalse(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Should not be validated"
-        );
+        assertFalse(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Should not be validated");
+        (bytes32 pendingHash,) = validation.getPendingValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
+        assertEq(pendingHash, bytes32(0), "Rejected proof is cleared");
+    }
+
+    /// @dev H-03: a proof swapped in after review cannot ride on the verifier's approval.
+    function test_Validation_VerifyValidation_RevertWhenProofSwapped() public {
+        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
+        vm.prank(agentAlpha);
+        validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
+
+        // Front-run: the proof is replaced before the verifier's approval lands.
+        vm.prank(agentAlpha);
+        validation.submitValidation(agentId, hex"01", IERC8004AgentValidation.ValidationType.TEE);
+
+        vm.prank(teeVerifier);
+        vm.expectRevert(IERC8004AgentValidation.ProofMismatch.selector);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(TEE_PROOF), true);
+
+        assertFalse(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Swapped proof not approved");
+    }
+
+    function test_Validation_VerifyValidation_RevokeActiveProof() public {
+        uint256 agentId = _approvedAgent(agentAlpha, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
+
+        vm.prank(teeVerifier);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(TEE_PROOF), false);
+
+        assertFalse(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Revoked");
+        assertTrue(validation.isRevoked(agentId, IERC8004AgentValidation.ValidationType.TEE), "Revocation recorded");
+
+        // The verifier can reinstate it.
+        vm.prank(teeVerifier);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(TEE_PROOF), true);
+        assertTrue(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Reinstated");
+        assertFalse(validation.isRevoked(agentId, IERC8004AgentValidation.ValidationType.TEE), "Revocation cleared");
+    }
+
+    function test_Validation_VerifyValidation_RevertWhenPendingOwnerChanged() public {
+        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
+        vm.prank(agentAlpha);
+        validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
+
+        vm.prank(agentAlpha);
+        identity.transferFrom(agentAlpha, agentBeta, agentId);
+
+        vm.prank(teeVerifier);
+        vm.expectRevert(IERC8004AgentValidation.ProofMismatch.selector);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(TEE_PROOF), true);
     }
 
     function test_Validation_VerifyValidation_StakeVerifier() public {
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
-
-        validation.submitValidation(agentId, STAKE_PROOF, IERC8004AgentValidation.ValidationType.STAKE);
-
-        vm.prank(stakeVerifier);
-        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.STAKE, true);
-
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.STAKE), "STAKE should be validated"
-        );
+        uint256 agentId = _approvedAgent(agentAlpha, STAKE_PROOF, IERC8004AgentValidation.ValidationType.STAKE);
+        assertTrue(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.STAKE), "STAKE should be validated");
     }
 
     function test_Validation_VerifyValidation_ZkmlVerifier() public {
-        uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
-
-        validation.submitValidation(agentId, ZKML_PROOF, IERC8004AgentValidation.ValidationType.ZKML);
-
-        vm.prank(zkmlVerifier);
-        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.ZKML, true);
-
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.ZKML), "ZKML should be validated"
-        );
+        uint256 agentId = _approvedAgent(agentAlpha, ZKML_PROOF, IERC8004AgentValidation.ValidationType.ZKML);
+        assertTrue(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.ZKML), "ZKML should be validated");
     }
 
     function test_Validation_VerifyValidation_RevertWhenWrongVerifier() public {
         uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
 
+        vm.prank(agentAlpha);
         validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
 
         // stakeVerifier tries to verify TEE -- should fail
         vm.prank(stakeVerifier);
         vm.expectRevert(IERC8004AgentValidation.OnlyVerifier.selector);
-        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, true);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(TEE_PROOF), true);
     }
 
     function test_Validation_VerifyValidation_RevertWhenNotSubmitted() public {
@@ -635,13 +690,13 @@ contract ERC8004IntegrationTest is Test {
 
         vm.prank(teeVerifier);
         vm.expectRevert(IERC8004AgentValidation.ValidationNotSubmitted.selector);
-        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, true);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(TEE_PROOF), true);
     }
 
     function test_Validation_VerifyValidation_RevertWhenNoneType() public {
         vm.prank(teeVerifier);
         vm.expectRevert(IERC8004AgentValidation.InvalidValidationType.selector);
-        validation.verifyValidation(1, IERC8004AgentValidation.ValidationType.NONE, true);
+        validation.verifyValidation(1, IERC8004AgentValidation.ValidationType.NONE, bytes32(0), true);
     }
 
     // -------------------------------------------------
@@ -708,21 +763,29 @@ contract ERC8004IntegrationTest is Test {
     // -------------------------------------------------
 
     function test_Validation_IsValidated_ReturnsFalseWhenNeverSubmitted() public view {
-        // Agent ID 1 doesn't exist, never submitted -- should return false (not revert)
-        assertFalse(
-            validation.isValidated(999, IERC8004AgentValidation.ValidationType.TEE),
-            "Should return false for non-existent"
-        );
+        assertFalse(validation.isValidated(999, IERC8004AgentValidation.ValidationType.TEE), "Should return false for non-existent");
     }
 
     function test_Validation_IsValidated_ReturnsFalseWhenPending() public {
         uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
+        vm.prank(agentAlpha);
         validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
 
-        assertFalse(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE),
-            "Pending should return false"
-        );
+        assertFalse(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Pending should return false");
+    }
+
+    /// @dev A buyer of a validated identity NFT does not inherit its validation.
+    function test_Validation_IsValidated_FalseAfterIdentityTransfer() public {
+        uint256 agentId = _approvedAgent(agentAlpha, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
+
+        vm.prank(agentAlpha);
+        identity.transferFrom(agentAlpha, agentBeta, agentId);
+        assertFalse(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Not valid for the new owner");
+
+        // Transferring back restores it (the approval was bound to agentAlpha).
+        vm.prank(agentBeta);
+        identity.transferFrom(agentBeta, agentAlpha, agentId);
+        assertTrue(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Valid again for the bound owner");
     }
 
     // -------------------------------------------------
@@ -733,25 +796,22 @@ contract ERC8004IntegrationTest is Test {
         uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
 
         // Submit all three types
+        vm.startPrank(agentAlpha);
         validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
         validation.submitValidation(agentId, STAKE_PROOF, IERC8004AgentValidation.ValidationType.STAKE);
         validation.submitValidation(agentId, ZKML_PROOF, IERC8004AgentValidation.ValidationType.ZKML);
+        vm.stopPrank();
 
         // Verify TEE and ZKML, leave STAKE pending
         vm.prank(teeVerifier);
-        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, true);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(TEE_PROOF), true);
 
         vm.prank(zkmlVerifier);
-        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.ZKML, true);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.ZKML, keccak256(ZKML_PROOF), true);
 
         assertTrue(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "TEE should be valid");
-        assertFalse(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.STAKE),
-            "STAKE should still be pending"
-        );
-        assertTrue(
-            validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.ZKML), "ZKML should be valid"
-        );
+        assertFalse(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.STAKE), "STAKE should still be pending");
+        assertTrue(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.ZKML), "ZKML should be valid");
     }
 
     // =========================================================================
@@ -769,7 +829,7 @@ contract ERC8004IntegrationTest is Test {
         validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
 
         vm.prank(teeVerifier);
-        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, true);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(TEE_PROOF), true);
         assertTrue(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "TEE validated");
 
         // 3. Record successful assertion

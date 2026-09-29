@@ -20,7 +20,33 @@ export const predictionMarketHookAbi = [
   },
   {
     type: 'function',
+    name: 'KEY_RELEASE_DELAY',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'uint256',
+        internalType: 'uint256'
+      }
+    ],
+    stateMutability: 'view'
+  },
+  {
+    type: 'function',
     name: 'MAX_MARKET_CREATION_FEE',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'uint256',
+        internalType: 'uint256'
+      }
+    ],
+    stateMutability: 'view'
+  },
+  {
+    type: 'function',
+    name: 'MAX_MARKET_DURATION',
     inputs: [],
     outputs: [
       {
@@ -144,6 +170,19 @@ export const predictionMarketHookAbi = [
   },
   {
     type: 'function',
+    name: 'claimAssertionReward',
+    inputs: [
+      {
+        name: 'marketId',
+        type: 'bytes32',
+        internalType: 'bytes32'
+      }
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable'
+  },
+  {
+    type: 'function',
     name: 'computeMarketKey',
     inputs: [
       {
@@ -202,6 +241,11 @@ export const predictionMarketHookAbi = [
       },
       {
         name: 'closeTime',
+        type: 'uint64',
+        internalType: 'uint64'
+      },
+      {
+        name: 'resolutionTime',
         type: 'uint64',
         internalType: 'uint64'
       }
@@ -385,6 +429,11 @@ export const predictionMarketHookAbi = [
         name: 'tradingOpen',
         type: 'bool',
         internalType: 'bool'
+      },
+      {
+        name: 'resolutionTime',
+        type: 'uint64',
+        internalType: 'uint64'
       }
     ],
     stateMutability: 'view'
@@ -501,45 +550,6 @@ export const predictionMarketHookAbi = [
       }
     ],
     stateMutability: 'view'
-  },
-  {
-    type: 'function',
-    name: 'initializeMarket',
-    inputs: [
-      {
-        name: 'outcome1',
-        type: 'string',
-        internalType: 'string'
-      },
-      {
-        name: 'outcome2',
-        type: 'string',
-        internalType: 'string'
-      },
-      {
-        name: 'description',
-        type: 'string',
-        internalType: 'string'
-      },
-      {
-        name: 'reward',
-        type: 'uint256',
-        internalType: 'uint256'
-      },
-      {
-        name: 'requiredBond',
-        type: 'uint256',
-        internalType: 'uint256'
-      }
-    ],
-    outputs: [
-      {
-        name: 'marketId',
-        type: 'bytes32',
-        internalType: 'bytes32'
-      }
-    ],
-    stateMutability: 'payable'
   },
   {
     type: 'function',
@@ -710,6 +720,19 @@ export const predictionMarketHookAbi = [
   },
   {
     type: 'function',
+    name: 'releaseMarketKey',
+    inputs: [
+      {
+        name: 'marketId',
+        type: 'bytes32',
+        internalType: 'bytes32'
+      }
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable'
+  },
+  {
+    type: 'function',
     name: 'removeLiquidity',
     inputs: [
       {
@@ -860,6 +883,19 @@ export const predictionMarketHookAbi = [
   },
   {
     type: 'function',
+    name: 's_maxRequiredBond',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'uint256',
+        internalType: 'uint256'
+      }
+    ],
+    stateMutability: 'view'
+  },
+  {
+    type: 'function',
     name: 's_paused',
     inputs: [],
     outputs: [
@@ -984,6 +1020,19 @@ export const predictionMarketHookAbi = [
   },
   {
     type: 'function',
+    name: 'setMaxRequiredBond',
+    inputs: [
+      {
+        name: 'maxRequiredBond',
+        type: 'uint256',
+        internalType: 'uint256'
+      }
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable'
+  },
+  {
+    type: 'function',
     name: 'setPaused',
     inputs: [
       {
@@ -1081,6 +1130,31 @@ export const predictionMarketHookAbi = [
         type: 'bytes32',
         indexed: false,
         internalType: 'bytes32'
+      }
+    ],
+    anonymous: false
+  },
+  {
+    type: 'event',
+    name: 'AssertionRewardPaid',
+    inputs: [
+      {
+        name: 'marketId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'bytes32'
+      },
+      {
+        name: 'asserter',
+        type: 'address',
+        indexed: true,
+        internalType: 'address'
+      },
+      {
+        name: 'amount',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256'
       }
     ],
     anonymous: false
@@ -1239,6 +1313,12 @@ export const predictionMarketHookAbi = [
         internalType: 'uint64'
       },
       {
+        name: 'resolutionTime',
+        type: 'uint64',
+        indexed: false,
+        internalType: 'uint64'
+      },
+      {
         name: 'marketKey',
         type: 'bytes32',
         indexed: false,
@@ -1293,6 +1373,25 @@ export const predictionMarketHookAbi = [
   },
   {
     type: 'event',
+    name: 'MarketKeyReleased',
+    inputs: [
+      {
+        name: 'marketId',
+        type: 'bytes32',
+        indexed: true,
+        internalType: 'bytes32'
+      },
+      {
+        name: 'marketKey',
+        type: 'bytes32',
+        indexed: false,
+        internalType: 'bytes32'
+      }
+    ],
+    anonymous: false
+  },
+  {
+    type: 'event',
     name: 'MarketResolved',
     inputs: [
       {
@@ -1306,6 +1405,19 @@ export const predictionMarketHookAbi = [
         type: 'bytes32',
         indexed: false,
         internalType: 'bytes32'
+      }
+    ],
+    anonymous: false
+  },
+  {
+    type: 'event',
+    name: 'MaxRequiredBondUpdated',
+    inputs: [
+      {
+        name: 'maxRequiredBond',
+        type: 'uint256',
+        indexed: false,
+        internalType: 'uint256'
       }
     ],
     anonymous: false
@@ -1579,6 +1691,11 @@ export const predictionMarketHookAbi = [
   },
   {
     type: 'error',
+    name: 'BondTooHigh',
+    inputs: []
+  },
+  {
+    type: 'error',
     name: 'DuplicateMarket',
     inputs: [
       {
@@ -1635,6 +1752,16 @@ export const predictionMarketHookAbi = [
   },
   {
     type: 'error',
+    name: 'InvalidResolutionTime',
+    inputs: []
+  },
+  {
+    type: 'error',
+    name: 'KeyNotReleasable',
+    inputs: []
+  },
+  {
+    type: 'error',
     name: 'MarketAlreadyResolved',
     inputs: []
   },
@@ -1666,6 +1793,11 @@ export const predictionMarketHookAbi = [
   {
     type: 'error',
     name: 'NotRegisteredAgent',
+    inputs: []
+  },
+  {
+    type: 'error',
+    name: 'NothingToClaim',
     inputs: []
   },
   {
@@ -1703,6 +1835,11 @@ export const predictionMarketHookAbi = [
   {
     type: 'error',
     name: 'ReentrancyGuardReentrantCall',
+    inputs: []
+  },
+  {
+    type: 'error',
+    name: 'ResolutionTimeNotReached',
     inputs: []
   },
   {

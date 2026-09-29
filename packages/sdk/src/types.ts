@@ -237,7 +237,7 @@ export type MarketEventCallback = (event: MarketEvent) => void;
 export interface MarketDetails {
   /** Address that created the market */
   creator: `0x${string}`;
-  /** Unix timestamp when trading stops (0 = no close time) */
+  /** Unix timestamp when trading stops (at or before `resolutionTime`) */
   closeTime: bigint;
   /** Current UMA assertion id (zero if none) -- dispute it on UMA OOV3 */
   activeAssertionId: `0x${string}`;
@@ -247,6 +247,30 @@ export interface MarketDetails {
   marketKey: `0x${string}`;
   /** Whether buy/sell/addLiquidity would currently succeed */
   tradingOpen: boolean;
+  /** Earliest unix timestamp an outcome may be asserted */
+  resolutionTime: bigint;
+}
+
+/**
+ * Arguments for PredictionMarketHook.createMarket().
+ */
+export interface CreateMarketParams {
+  /** First outcome label, e.g. "yes". A yes/no market must list "yes" first. */
+  outcome1: string;
+  /** Second outcome label, e.g. "no". "Unresolvable" is reserved. */
+  outcome2: string;
+  /** The question, including the resolution source */
+  description: string;
+  /** Earliest unix timestamp the outcome may be asserted (within 365 days) */
+  resolutionTime: bigint;
+  /** Trading close timestamp; 0n (default) closes trading at `resolutionTime` */
+  closeTime?: bigint;
+  /** Bond-currency reward paid to the asserter of the accepted outcome (default 0n) */
+  reward?: bigint;
+  /** Minimum asserter bond, at most the hook's `s_maxRequiredBond` (default 0n) */
+  requiredBond?: bigint;
+  /** ETH sent: creation fee + initial liquidity, in wei (default 0n) */
+  value?: bigint;
 }
 
 /**
@@ -268,6 +292,8 @@ export interface FeeConfig {
   marketCreationFee: bigint;
   treasury: `0x${string}`;
   paused: boolean;
+  /** Largest `requiredBond` a new market may set */
+  maxRequiredBond: bigint;
 }
 
 /**

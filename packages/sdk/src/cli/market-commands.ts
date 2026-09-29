@@ -31,13 +31,16 @@ export function parseWeiInput(value: string | undefined): bigint {
 }
 
 /** Unix seconds or an ISO date ("2026-12-31", "2026-12-31T23:59:00Z"). */
-export function parseCloseTime(value: string | undefined): bigint {
+export function parseCloseTime(value: string | undefined, flag = '--close-time'): bigint {
   if (!value || value === '0') return 0n;
   if (/^\d+$/.test(value)) return BigInt(value);
   const ms = Date.parse(value);
-  ensure(Number.isFinite(ms), `Invalid --close-time "${value}". Use unix seconds or an ISO date.`);
+  ensure(Number.isFinite(ms), `Invalid ${flag} "${value}". Use unix seconds or an ISO date.`);
   return BigInt(Math.floor(ms / 1000));
 }
+
+/** Mirrors PredictionMarketHook.MAX_MARKET_DURATION. */
+const MAX_MARKET_DURATION = 365n * 24n * 60n * 60n;
 
 function parseSide(value: string | undefined): boolean {
   const side = (value ?? '').toLowerCase();
@@ -76,7 +79,7 @@ function isoOrNull(seconds: bigint): string | null {
 // Market status
 // ─────────────────────────────────────────────────────────────────────────────
 
-type MarketStatus = 'OPEN' | 'NO_LIQUIDITY' | 'CLOSED' | 'ASSERTION_PENDING' | 'RESOLVED';
+type MarketStatus = 'OPEN' | 'NO_LIQUIDITY' | 'CLOSED' | 'AWAITING_ASSERTION' | 'ASSERTION_PENDING' | 'RESOLVED';
 
 function marketStatus(
   market: MarketInfo,
@@ -86,7 +89,8 @@ function marketStatus(
 ): MarketStatus {
   if (market.resolved) return 'RESOLVED';
   if (market.assertedOutcomeId !== ZERO_BYTES32) return 'ASSERTION_PENDING';
-  if (info.closeTime !== 0n && now >= info.closeTime) return 'CLOSED';
+  if (now >= info.resolutionTime) return 'AWAITING_ASSERTION';
+  if (now >= info.closeTime) return 'CLOSED';
   if (reserves.reserve1 === 0n) return 'NO_LIQUIDITY';
   return 'OPEN';
 }
@@ -128,6 +132,7 @@ export async function commandMarkets(flags: Flags): Promise<void> {
       collateralEth: formatEther(market.totalCollateral),
       liquidityEth: formatEther(reserves.reserve1 < reserves.reserve2 ? reserves.reserve1 : reserves.reserve2),
       closeTime: isoOrNull(info.closeTime),
+      resolutionTime: isoOrNull(info.resolutionTime),
       creator: info.creator,
     });
   }
@@ -148,12 +153,24 @@ export async function commandCreateMarket(flags: Flags, positional: string[]): P
   const bond = parseWeiInput(getFlag(flags, 'bond-wei') ?? '0');
   const initialLiquidity = parseEthInput(getFlag(flags, 'initial-liquidity-eth') ?? '0');
   const closeTime = parseCloseTime(getFlag(flags, 'close-time'));
+  const resolutionTime = parseCloseTime(getFlag(flags, 'resolution-time'), '--resolution-time');
+  ensure(
+    resolutionTime > 0n,
+    'Missing --resolution-time: when the answer will be known (unix seconds or ISO date). ' +
+      'Nobody can assert the outcome before then.',
+  );
   const force = getBoolFlag(flags, 'force');
   const threshold = Number(getFlag(flags, 'similarity-threshold') ?? '0.7');
 
   const runtime = await createRuntime({ requireWallet: true, autoCreateWallet: true });
   const { client } = runtime;
-  ensure(closeTime === 0n || closeTime > (await chainNow(client)), '--close-time must be in the future.');
+  const now = await chainNow(client);
+  ensure(resolutionTime > now, '--resolution-time must be in the future.');
+  ensure(resolutionTime <= now + MAX_MARKET_DURATION, '--resolution-time must be within 365 days.');
+  ensure(
+    closeTime === 0n || (closeTime > now && closeTime <= resolutionTime),
+    '--close-time must be in the future and not after --resolution-time.',
+  );
 
   // 1. Exact duplicate (the contract would revert anyway -- fail before paying gas).
   const existing = await client.findActiveMarket(description, outcome1, outcome2);
@@ -180,9 +197,22 @@ export async function commandCreateMarket(flags: Flags, positional: string[]): P
 
   const fees = await client.getFeeConfig();
   ensure(!fees.paused, 'Protocol is paused: market creation is temporarily disabled.');
+  ensure(
+    bond <= fees.maxRequiredBond,
+    `--bond-wei exceeds the protocol cap of ${fees.maxRequiredBond} (0 = use the UMA minimum bond).`,
+  );
   const value = fees.marketCreationFee + initialLiquidity;
 
-  const txHash = await client.createMarket(outcome1, outcome2, description, reward, bond, closeTime, value);
+  const txHash = await client.createMarket({
+    outcome1,
+    outcome2,
+    description,
+    reward,
+    requiredBond: bond,
+    closeTime,
+    resolutionTime,
+    value,
+  });
   const marketId = await client.findActiveMarket(description, outcome1, outcome2);
 
   outputSuccess({
@@ -192,7 +222,8 @@ export async function commandCreateMarket(flags: Flags, positional: string[]): P
     outcome1,
     outcome2,
     description,
-    closeTime: isoOrNull(closeTime),
+    closeTime: isoOrNull(closeTime === 0n ? resolutionTime : closeTime),
+    resolutionTime: isoOrNull(resolutionTime),
     rewardWei: reward,
     bondWei: bond,
     creationFeeWei: fees.marketCreationFee,
@@ -224,7 +255,7 @@ export async function commandAnalyze(flags: Flags, positional: string[]): Promis
   outputSuccess({
     command: 'analyze',
     market,
-    info: { ...info, closeTime: isoOrNull(info.closeTime) },
+    info: { ...info, closeTime: isoOrNull(info.closeTime), resolutionTime: isoOrNull(info.resolutionTime) },
     probability,
     reserves,
     positions,
@@ -248,7 +279,9 @@ export async function commandAnalyze(flags: Flags, positional: string[]): Promis
       status,
       canTrade: status === 'OPEN',
       canMint: !market.resolved && !fees.paused,
-      canAssert: !market.resolved && market.assertedOutcomeId === ZERO_BYTES32,
+      canAssert:
+        !market.resolved && market.assertedOutcomeId === ZERO_BYTES32 && status === 'AWAITING_ASSERTION',
+      assertableFrom: isoOrNull(info.resolutionTime),
       canDispute: assertion !== null && assertion.disputer === ZERO_ADDRESS,
       canSettle: market.resolved,
       payoutRule: 'Each winning token redeems for 1 wei of ETH (1 token = 1 ETH at 18 decimals).',
@@ -426,11 +459,17 @@ export async function commandAssert(flags: Flags, positional: string[]): Promise
   ensure(outcome, 'Missing asserted outcome. Use `--outcome <yes|no|Unresolvable>`.');
 
   const { client } = await createRuntime({ requireWallet: true, autoCreateWallet: true });
-  const [bond, currency, liveness] = await Promise.all([
+  const [bond, currency, liveness, info, now] = await Promise.all([
     client.getAssertionBond(marketId),
     client.getBondCurrency(),
     client.getDefaultLiveness(),
+    client.getMarketInfo(marketId),
+    chainNow(client),
   ]);
+  ensure(
+    now >= info.resolutionTime,
+    `Too early: the outcome can only be asserted from ${isoOrNull(info.resolutionTime)}.`,
+  );
   const txHash = await client.assertMarket(marketId, outcome); // approves the bond if needed
 
   outputSuccess({
@@ -495,6 +534,11 @@ export async function commandSettle(flags: Flags, positional: string[]): Promise
     steps.push({ step: 'settleAssertion', txHash: await client.settleAssertion(marketId) });
     market = await client.getMarket(marketId);
     ensure(market.resolved, 'Assertion settled but the market did not resolve (assertion was false). Assert again.');
+  }
+
+  // The reward always goes to the asserter; whoever settles first pays it out.
+  if (market.reward > 0n) {
+    steps.push({ step: 'claimAssertionReward', reward: market.reward, txHash: await client.claimAssertionReward(marketId) });
   }
 
   const lpShares = await client.getLpShares(marketId, address);

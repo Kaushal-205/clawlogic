@@ -33,6 +33,8 @@ abstract contract TestSetup is Test {
     // Constants
     uint64 public constant DEFAULT_LIVENESS = 120; // 2 minutes
     uint256 public constant INITIAL_ETH_BALANCE = 100 ether;
+    /// @dev Helper markets become assertable (and stop trading) this long after creation.
+    uint64 public constant RESOLUTION_DELAY = 1 days;
 
     function setUp() public virtual {
         // Create test accounts
@@ -106,14 +108,30 @@ abstract contract TestSetup is Test {
             mockCurrency.approve(address(hook), reward);
         }
 
+        _allowBond(requiredBond);
         vm.prank(creator);
-        marketId = hook.initializeMarket(
-            "yes",
-            "no",
-            description,
-            reward,
-            requiredBond
+        marketId = hook.createMarket(
+            "yes", "no", description, reward, requiredBond, 0, _resolutionTime()
         );
+    }
+
+    /// @dev Default resolution time for markets created directly in tests.
+    function _resolutionTime() internal view returns (uint64) {
+        return uint64(block.timestamp) + RESOLUTION_DELAY;
+    }
+
+    /// @dev Raise the owner-set bond cap when a test market needs a larger bond.
+    function _allowBond(uint256 requiredBond) internal {
+        if (requiredBond > hook.s_maxRequiredBond()) {
+            vm.prank(hook.owner());
+            hook.setMaxRequiredBond(requiredBond);
+        }
+    }
+
+    /// @dev Warp to the market's resolution time if it has not been reached yet.
+    function _warpToResolution(bytes32 marketId) internal {
+        (,,,,,, uint64 resolutionTime) = hook.getMarketInfo(marketId);
+        if (block.timestamp < resolutionTime) vm.warp(resolutionTime);
     }
 
     /// @notice Helper to mint outcome tokens
@@ -139,13 +157,10 @@ abstract contract TestSetup is Test {
             mockCurrency.approve(address(hook), reward);
         }
 
+        _allowBond(requiredBond);
         vm.prank(creator);
-        marketId = hook.initializeMarket{value: initialLiquidity}(
-            "yes",
-            "no",
-            description,
-            reward,
-            requiredBond
+        marketId = hook.createMarket{value: initialLiquidity}(
+            "yes", "no", description, reward, requiredBond, 0, _resolutionTime()
         );
     }
 
@@ -156,6 +171,8 @@ abstract contract TestSetup is Test {
         string memory outcome,
         uint256 bond
     ) internal returns (bytes32) {
+        _warpToResolution(marketId);
+
         // Approve bond
         vm.prank(agent);
         mockCurrency.approve(address(hook), bond);

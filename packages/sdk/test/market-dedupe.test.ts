@@ -4,17 +4,31 @@ import { computeMarketKey, findSimilarMarkets, questionSimilarity } from '../src
 describe('duplicate market detection', () => {
   it('matches the on-chain key (vector shared with PredictionMarketRevenue.t.sol)', () => {
     expect(computeMarketKey('Will ETH close above $4,000 on 2026-12-31?', 'yes', 'no')).toBe(
-      '0xbdddf6b4df6ce72b8abde955df810addccc93dcfad89fd8e424e5ddf508c21bc',
+      '0xc839be639246d2c604354c054587be09c0629f7979473d2db256b1216c5f8b6a',
+    );
+    expect(computeMarketKey('Café index up -5.5% by 12:00, (1,000 pts)?\t', 'Up', 'Down.')).toBe(
+      '0xb0b4047fb7b05596ce69928c805c5c34ac765be94a52c1ba072bf73ee8c45cab',
     );
   });
 
-  it('ignores case, punctuation and outcome order like the contract', () => {
+  it('ignores case, whitespace, sentence punctuation and outcome order like the contract', () => {
     const key = computeMarketKey('Will ETH close above $4,000 on 2026-12-31?', 'yes', 'no');
-    expect(computeMarketKey('will eth close above 4000 on 20261231', 'NO', 'Yes')).toBe(key);
+    expect(computeMarketKey('  will ETH close above $4,000 on 2026-12-31 ', 'YES', 'No')).toBe(key);
+    expect(computeMarketKey('Who wins?', 'Harris', 'Trump')).toBe(computeMarketKey('who wins', 'trump', 'harris'));
   });
 
-  it('rejects identical outcomes', () => {
+  it('keeps symbols that change the meaning', () => {
+    expect(computeMarketKey('BTC > $100', 'yes', 'no')).not.toBe(computeMarketKey('BTC < $100', 'yes', 'no'));
+    expect(computeMarketKey('Price > $1.50', 'yes', 'no')).not.toBe(
+      computeMarketKey('Price > $150', 'yes', 'no'),
+    );
+    expect(computeMarketKey('btc>$100.', 'YES', 'NO')).toBe(computeMarketKey('BTC > $100', 'yes', 'no'));
+  });
+
+  it('rejects identical, reserved and reversed yes/no outcomes', () => {
     expect(() => computeMarketKey('Q?', 'yes', 'YES!')).toThrow(/distinct outcomes/);
+    expect(() => computeMarketKey('Q?', 'yes', 'Unresolvable')).toThrow(/reserved/);
+    expect(() => computeMarketKey('Q?', 'No', 'Yes')).toThrow(/"yes" first/);
   });
 
   it('flags reworded questions about the same event', () => {

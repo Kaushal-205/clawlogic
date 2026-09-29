@@ -735,7 +735,7 @@ async function main(): Promise<void> {
   console.log('  6. Assertion settled -> market resolved -> tokens redeemed');
   console.log('');
   console.log('Lifecycle (COMPLETE):');
-  console.log('  registerAgent -> initializeMarket -> [Yellow Network negotiation]');
+  console.log('  registerAgent -> createMarket -> [Yellow Network negotiation]');
   console.log('  -> mintOutcomeTokens -> assertMarket -> settleAssertion');
   console.log('  -> assertionResolvedCallback -> settleOutcomeTokens -> ETH payout');
   console.log('');

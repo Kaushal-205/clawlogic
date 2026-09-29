@@ -26,8 +26,9 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 // UMA Interfaces
 // ──────────────────────────────────────────────────────────────────────────────
 import {OptimisticOracleV3Interface} from "./interfaces/uma/OptimisticOracleV3Interface.sol";
-import {OptimisticOracleV3CallbackRecipientInterface} from
-    "./interfaces/uma/OptimisticOracleV3CallbackRecipientInterface.sol";
+import {
+    OptimisticOracleV3CallbackRecipientInterface
+} from "./interfaces/uma/OptimisticOracleV3CallbackRecipientInterface.sol";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Project Contracts
@@ -73,6 +74,12 @@ interface IERC8004IdentityBalance {
 ///
 ///      **Duplicates:** while a market is unresolved, no other market with the same
 ///      normalized question and outcome pair can be created (see `computeMarketKey`).
+///      The owner can release a key at any time, and anyone can release it once the market
+///      is still unresolved `KEY_RELEASE_DELAY` after its resolution time.
+///
+///      **Timing:** every market has a resolution time (the earliest moment an outcome may
+///      be asserted) no more than `MAX_MARKET_DURATION` ahead, and a close time for trading
+///      at or before it (defaults to the resolution time).
 ///
 ///      **Pause:** the owner can pause market creation, minting, buying, selling and adding
 ///      liquidity. Pausing never blocks merging complete sets, LP withdrawal, assertion or
@@ -82,12 +89,7 @@ interface IERC8004IdentityBalance {
 ///         Hook callbacks are invoked by the V4 PoolManager, so `msg.sender` is always the
 ///         PoolManager. To identify the originating agent those callbacks check `tx.origin`.
 ///         All market functions use `msg.sender`, so smart-contract wallets work there.
-contract PredictionMarketHook is
-    BaseHook,
-    Ownable2Step,
-    ReentrancyGuard,
-    OptimisticOracleV3CallbackRecipientInterface
-{
+contract PredictionMarketHook is BaseHook, Ownable2Step, ReentrancyGuard, OptimisticOracleV3CallbackRecipientInterface {
     using SafeERC20 for IERC20;
     using PoolIdLibrary for PoolKey;
 
@@ -111,7 +113,9 @@ contract PredictionMarketHook is
         uint256 reserve1; // AMM reserve of outcome1 tokens held by contract
         uint256 reserve2; // AMM reserve of outcome2 tokens held by contract
         address creator;
-        uint64 closeTime; // trading stops at this timestamp (0 = no close time)
+        uint64 closeTime; // trading stops at this timestamp
+        uint64 resolutionTime; // earliest timestamp an outcome may be asserted
+        address asserter; // asserter of the pending or truthful assertion (earns `reward`)
         bytes32 activeAssertionId; // current UMA assertion (zero if none)
         uint256 totalLpShares;
         bytes32 marketKey; // normalized question key used for duplicate detection
@@ -145,6 +149,18 @@ contract PredictionMarketHook is
 
     /// @notice The hash of the "Unresolvable" outcome string, cached for comparison.
     bytes32 private constant UNRESOLVABLE_HASH = keccak256(bytes("Unresolvable"));
+
+    /// @dev Normalized forms of the reserved and binary outcome labels.
+    bytes32 private constant NORMALIZED_UNRESOLVABLE_HASH = keccak256("unresolvable");
+    bytes32 private constant NORMALIZED_YES_HASH = keccak256("yes");
+    bytes32 private constant NORMALIZED_NO_HASH = keccak256("no");
+
+    /// @notice Latest allowed resolution time, relative to market creation.
+    uint256 public constant MAX_MARKET_DURATION = 365 days;
+
+    /// @notice After `resolutionTime + KEY_RELEASE_DELAY` anyone may release the question
+    ///         key of a still-unresolved market.
+    uint256 public constant KEY_RELEASE_DELAY = 30 days;
 
     /// @notice Basis-point denominator.
     uint256 public constant BPS = 10_000;
@@ -198,6 +214,9 @@ contract PredictionMarketHook is
     /// @notice Canonical ERC-8004 IdentityRegistry. Holders are eligible agents.
     IERC8004IdentityBalance public s_erc8004IdentityRegistry;
 
+    /// @notice Largest `requiredBond` a market may demand (0 = UMA minimum only).
+    uint256 public s_maxRequiredBond;
+
     // ─────────────────────────────────────────────────────────────────────────
     // Custom Errors
     // ─────────────────────────────────────────────────────────────────────────
@@ -242,8 +261,23 @@ contract PredictionMarketHook is
     /// @notice Thrown when the description is empty or the outcomes are empty/identical.
     error InvalidMarketParams();
 
-    /// @notice Thrown when a close time is in the past.
+    /// @notice Thrown when a close time is in the past or after the resolution time.
     error InvalidCloseTime();
+
+    /// @notice Thrown when a resolution time is in the past or beyond MAX_MARKET_DURATION.
+    error InvalidResolutionTime();
+
+    /// @notice Thrown when asserting before the market's resolution time.
+    error ResolutionTimeNotReached();
+
+    /// @notice Thrown when `requiredBond` exceeds `s_maxRequiredBond`.
+    error BondTooHigh();
+
+    /// @notice Thrown when there is no reward left to pay.
+    error NothingToClaim();
+
+    /// @notice Thrown when a question key cannot (yet) be released.
+    error KeyNotReleasable();
 
     /// @notice Thrown when trading after the market's close time.
     error TradingClosed();
@@ -278,7 +312,12 @@ contract PredictionMarketHook is
 
     /// @notice Emitted alongside MarketInitialized with the market's extra configuration.
     event MarketConfigured(
-        bytes32 indexed marketId, address indexed creator, uint64 closeTime, bytes32 marketKey, uint256 creationFee
+        bytes32 indexed marketId,
+        address indexed creator,
+        uint64 closeTime,
+        uint64 resolutionTime,
+        bytes32 marketKey,
+        uint256 creationFee
     );
 
     /// @notice Emitted when an agent mints outcome token pairs by depositing ETH collateral.
@@ -331,6 +370,9 @@ contract PredictionMarketHook is
     event PausedUpdated(bool paused);
     event Erc8004IdentityRegistryUpdated(address registry);
     event ProtocolFeesWithdrawn(address indexed treasury, uint256 amount);
+    event MaxRequiredBondUpdated(uint256 maxRequiredBond);
+    event AssertionRewardPaid(bytes32 indexed marketId, address indexed asserter, uint256 amount);
+    event MarketKeyReleased(bytes32 indexed marketId, bytes32 marketKey);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Constructor
@@ -414,53 +456,62 @@ contract PredictionMarketHook is
     // Market Creation
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Create a new prediction market without a close time.
-    /// @dev Kept for backward compatibility; equivalent to `createMarket(..., 0)`.
-    function initializeMarket(
-        string calldata outcome1,
-        string calldata outcome2,
-        string calldata description,
-        uint256 reward,
-        uint256 requiredBond
-    ) external payable returns (bytes32 marketId) {
-        return _createMarket(outcome1, outcome2, description, reward, requiredBond, 0);
-    }
-
     /// @notice Create a new prediction market.
     /// @dev `msg.value` first pays `s_marketCreationFee`; the remainder seeds AMM liquidity
     ///      and the creator receives the LP shares. The caller must have approved `reward`
     ///      of `i_currency` to this contract. Reverts with `DuplicateMarket` if an unresolved
     ///      market with the same normalized question and outcomes exists.
-    /// @param outcome1     Label for the first outcome (e.g. "yes").
-    /// @param outcome2     Label for the second outcome (e.g. "no").
-    /// @param description  Human-readable market question. Include the resolution date/source.
-    /// @param reward       Amount of `i_currency` offered as incentive to the asserter.
-    /// @param requiredBond Minimum bond required from an asserter (may be raised by OOV3).
-    /// @param closeTime    Timestamp after which trading stops (0 = trade until assertion).
-    /// @return marketId    The unique identifier for the newly created market.
+    ///      Outcomes may not be "Unresolvable" (reserved), and a yes/no pair must be ordered
+    ///      yes first so that outcome1 is always the "yes" side.
+    /// @param outcome1       Label for the first outcome (e.g. "yes").
+    /// @param outcome2       Label for the second outcome (e.g. "no").
+    /// @param description    Human-readable market question. Include the resolution source.
+    /// @param reward         Amount of `i_currency` paid to the asserter of the final outcome.
+    /// @param requiredBond   Minimum asserter bond (<= `s_maxRequiredBond`; OOV3 may raise it).
+    /// @param closeTime      Trading stops at this timestamp (0 = at `resolutionTime`).
+    /// @param resolutionTime Earliest timestamp an outcome may be asserted -- when the event
+    ///                       has happened. At most `MAX_MARKET_DURATION` from now.
+    /// @return marketId      The unique identifier for the newly created market.
     function createMarket(
         string calldata outcome1,
         string calldata outcome2,
         string calldata description,
         uint256 reward,
         uint256 requiredBond,
-        uint64 closeTime
+        uint64 closeTime,
+        uint64 resolutionTime
     ) external payable returns (bytes32 marketId) {
-        return _createMarket(outcome1, outcome2, description, reward, requiredBond, closeTime);
+        _requireNotPaused();
+        _requireAgent(msg.sender);
+        if (requiredBond > s_maxRequiredBond) revert BondTooHigh();
+
+        marketId = _initMarket(outcome1, outcome2, description, _checkTimes(closeTime, resolutionTime), resolutionTime);
+
+        Market storage m = s_markets[marketId];
+        m.reward = reward;
+        m.requiredBond = requiredBond;
+
+        // Pull the reward from the market creator; it is paid to the asserter of the final
+        // outcome via `claimAssertionReward`.
+        if (reward > 0) {
+            i_currency.safeTransferFrom(msg.sender, address(this), reward);
+        }
+
+        // `_initMarket` checked that msg.value covers the creation fee.
+        uint256 liquidity = msg.value - s_marketCreationFee;
+        if (liquidity > 0) {
+            _addLiquidity(m, marketId, msg.sender, liquidity);
+        }
     }
 
-    function _createMarket(
+    /// @dev Duplicate check, creation fee, outcome tokens and the market's identity/timing.
+    function _initMarket(
         string calldata outcome1,
         string calldata outcome2,
         string calldata description,
-        uint256 reward,
-        uint256 requiredBond,
-        uint64 closeTime
+        uint64 closeTime,
+        uint64 resolutionTime
     ) internal returns (bytes32 marketId) {
-        _requireNotPaused();
-        _requireAgent(msg.sender);
-        if (closeTime != 0 && closeTime <= block.timestamp) revert InvalidCloseTime();
-
         bytes32 key = _marketKey(description, outcome1, outcome2);
         bytes32 existing = s_activeMarketByKey[key];
         if (existing != bytes32(0)) revert DuplicateMarket(existing);
@@ -472,25 +523,16 @@ contract PredictionMarketHook is
         // Deterministic, collision-resistant marketId.
         marketId = keccak256(abi.encode(description, block.timestamp, msg.sender, s_marketCount));
 
-        // Deploy outcome tokens. The hook (address(this)) is the sole minter/burner.
-        OutcomeToken token1 = new OutcomeToken(string.concat("CLAW YES - ", description), "clYES", address(this));
-        OutcomeToken token2 = new OutcomeToken(string.concat("CLAW NO - ", description), "clNO", address(this));
-
-        // Pull the reward from the market creator; it is paid to the asserter via UMA.
-        if (reward > 0) {
-            i_currency.safeTransferFrom(msg.sender, address(this), reward);
-        }
-
         Market storage m = s_markets[marketId];
         m.description = description;
         m.outcome1 = outcome1;
         m.outcome2 = outcome2;
-        m.outcome1Token = token1;
-        m.outcome2Token = token2;
-        m.reward = reward;
-        m.requiredBond = requiredBond;
+        // Outcome tokens are named after their own outcome. The hook is the sole minter/burner.
+        m.outcome1Token = _deployOutcomeToken(outcome1, description, "clOUT1");
+        m.outcome2Token = _deployOutcomeToken(outcome2, description, "clOUT2");
         m.creator = msg.sender;
         m.closeTime = closeTime;
+        m.resolutionTime = resolutionTime;
         m.marketKey = key;
 
         s_activeMarketByKey[key] = marketId;
@@ -498,12 +540,7 @@ contract PredictionMarketHook is
         s_marketCount++;
 
         emit MarketInitialized(marketId, description, msg.sender);
-        emit MarketConfigured(marketId, msg.sender, closeTime, key, creationFee);
-
-        uint256 liquidity = msg.value - creationFee;
-        if (liquidity > 0) {
-            _addLiquidity(m, marketId, msg.sender, liquidity);
-        }
+        emit MarketConfigured(marketId, msg.sender, closeTime, resolutionTime, key, creationFee);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -547,15 +584,18 @@ contract PredictionMarketHook is
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Assert the outcome of a market via UMA Optimistic Oracle V3.
-    /// @dev The asserted outcome must exactly match `outcome1`, `outcome2`, or "Unresolvable".
-    ///      The caller must have approved the bond (max(requiredBond, OOV3 minimum)) of
-    ///      `i_currency` to this contract. Trading halts until the assertion resolves.
+    /// @dev The asserted outcome must exactly match `outcome1`, `outcome2`, or "Unresolvable",
+    ///      and the market's resolution time must have passed. The caller must have approved
+    ///      the bond (max(requiredBond, OOV3 minimum)) of `i_currency` to this contract.
+    ///      Trading halts until the assertion resolves. If the assertion is resolved as
+    ///      truthful, the asserter can collect the market's reward.
     function assertMarket(bytes32 marketId, string calldata assertedOutcome) external {
         _requireAgent(msg.sender);
 
         Market storage m = _existingMarket(marketId);
         if (m.resolved) revert MarketAlreadyResolved();
         if (m.assertedOutcomeId != bytes32(0)) revert ActiveAssertionExists();
+        if (block.timestamp < m.resolutionTime) revert ResolutionTimeNotReached();
 
         bytes32 outcomeHash = keccak256(bytes(assertedOutcome));
         if (
@@ -565,12 +605,12 @@ contract PredictionMarketHook is
             revert InvalidOutcome();
         }
 
+        // UMA pulls exactly `bond`; the reward stays here until `claimAssertionReward`.
         uint256 bond = getAssertionBond(marketId);
         i_currency.safeTransferFrom(msg.sender, address(this), bond);
-        i_currency.forceApprove(address(i_oo), bond + m.reward);
+        i_currency.forceApprove(address(i_oo), bond);
 
-        bytes memory claim =
-            abi.encodePacked("Market: ", m.description, ". Asserted outcome: ", assertedOutcome, ".");
+        bytes memory claim = abi.encodePacked("Market: ", m.description, ". Asserted outcome: ", assertedOutcome, ".");
 
         bytes32 assertionId = i_oo.assertTruth(
             claim,
@@ -587,6 +627,7 @@ contract PredictionMarketHook is
         s_assertionToMarket[assertionId] = marketId;
         m.assertedOutcomeId = outcomeHash;
         m.activeAssertionId = assertionId;
+        m.asserter = msg.sender;
 
         emit MarketAsserted(marketId, assertedOutcome, msg.sender, assertionId);
     }
@@ -607,9 +648,40 @@ contract PredictionMarketHook is
             }
             emit MarketResolved(marketId, m.assertedOutcomeId);
         } else {
+            // The reward rolls over to the next asserter.
             m.assertedOutcomeId = bytes32(0);
+            m.asserter = address(0);
             emit AssertionFailed(marketId, assertionId);
         }
+    }
+
+    /// @notice Pay the market's reward to the asserter whose outcome was accepted.
+    /// @dev Callable by anyone once the market has resolved; the reward always goes to the
+    ///      asserter (including for an accepted "Unresolvable" assertion).
+    function claimAssertionReward(bytes32 marketId) external nonReentrant {
+        Market storage m = _existingMarket(marketId);
+        if (!m.resolved) revert MarketNotResolved();
+        uint256 reward = m.reward;
+        if (reward == 0) revert NothingToClaim();
+        m.reward = 0;
+        address asserter = m.asserter;
+        emit AssertionRewardPaid(marketId, asserter, reward);
+        i_currency.safeTransfer(asserter, reward);
+    }
+
+    /// @notice Free the question key of an unresolved market so an equivalent market can be
+    ///         created. The market itself keeps working.
+    /// @dev The owner may release any key (moderation of squatted questions); anyone may
+    ///      release one once `resolutionTime + KEY_RELEASE_DELAY` has passed.
+    function releaseMarketKey(bytes32 marketId) external {
+        Market storage m = _existingMarket(marketId);
+        bytes32 key = m.marketKey;
+        if (s_activeMarketByKey[key] != marketId) revert KeyNotReleasable();
+        if (msg.sender != owner() && block.timestamp < uint256(m.resolutionTime) + KEY_RELEASE_DELAY) {
+            revert KeyNotReleasable();
+        }
+        delete s_activeMarketByKey[key];
+        emit MarketKeyReleased(marketId, key);
     }
 
     /// @notice Called by UMA OOV3 when an assertion is disputed (informational).
@@ -625,6 +697,7 @@ contract PredictionMarketHook is
     /// @notice Redeem outcome tokens of a resolved market for ETH.
     /// @dev Winning tokens redeem 1:1. For "Unresolvable" both tokens redeem at 0.5 each.
     ///      LPs withdraw their reserves with `removeLiquidity` first, then settle.
+    ///      "Unresolvable" is checked first; outcome labels can never equal it.
     function settleOutcomeTokens(bytes32 marketId) external nonReentrant {
         Market storage m = _existingMarket(marketId);
         if (!m.resolved) revert MarketNotResolved();
@@ -632,17 +705,7 @@ contract PredictionMarketHook is
         bytes32 resolvedOutcome = m.assertedOutcomeId;
         uint256 payout;
 
-        if (resolvedOutcome == keccak256(bytes(m.outcome1))) {
-            uint256 balance = m.outcome1Token.balanceOf(msg.sender);
-            if (balance == 0) revert NoTokensToSettle();
-            payout = (balance * m.totalCollateral) / m.outcome1Token.totalSupply();
-            m.outcome1Token.burn(msg.sender, balance);
-        } else if (resolvedOutcome == keccak256(bytes(m.outcome2))) {
-            uint256 balance = m.outcome2Token.balanceOf(msg.sender);
-            if (balance == 0) revert NoTokensToSettle();
-            payout = (balance * m.totalCollateral) / m.outcome2Token.totalSupply();
-            m.outcome2Token.burn(msg.sender, balance);
-        } else {
+        if (resolvedOutcome == UNRESOLVABLE_HASH) {
             uint256 balance1 = m.outcome1Token.balanceOf(msg.sender);
             uint256 balance2 = m.outcome2Token.balanceOf(msg.sender);
             uint256 callerTotal = balance1 + balance2;
@@ -651,6 +714,12 @@ contract PredictionMarketHook is
             payout = (callerTotal * m.totalCollateral) / totalSupply;
             if (balance1 > 0) m.outcome1Token.burn(msg.sender, balance1);
             if (balance2 > 0) m.outcome2Token.burn(msg.sender, balance2);
+        } else {
+            OutcomeToken winner = resolvedOutcome == keccak256(bytes(m.outcome1)) ? m.outcome1Token : m.outcome2Token;
+            uint256 balance = winner.balanceOf(msg.sender);
+            if (balance == 0) revert NoTokensToSettle();
+            payout = (balance * m.totalCollateral) / winner.totalSupply();
+            winner.burn(msg.sender, balance);
         }
 
         m.totalCollateral -= payout;
@@ -832,6 +901,13 @@ contract PredictionMarketHook is
         emit MarketCreationFeeUpdated(fee);
     }
 
+    /// @notice Set the largest `requiredBond` new markets may demand. A bond nobody can post
+    ///         would make a market unresolvable. Existing markets keep their bond.
+    function setMaxRequiredBond(uint256 maxRequiredBond) external onlyOwner {
+        s_maxRequiredBond = maxRequiredBond;
+        emit MaxRequiredBondUpdated(maxRequiredBond);
+    }
+
     /// @notice Set the address that receives protocol fees.
     function setTreasury(address treasury) external onlyOwner {
         if (treasury == address(0)) revert ZeroAddress();
@@ -907,6 +983,7 @@ contract PredictionMarketHook is
     /// @return totalLpShares     Outstanding LP shares.
     /// @return marketKey         Normalized question key.
     /// @return tradingOpen       Whether buy/sell/addLiquidity would currently succeed.
+    /// @return resolutionTime    Earliest timestamp an outcome may be asserted.
     function getMarketInfo(bytes32 marketId)
         external
         view
@@ -916,7 +993,8 @@ contract PredictionMarketHook is
             bytes32 activeAssertionId,
             uint256 totalLpShares,
             bytes32 marketKey,
-            bool tradingOpen
+            bool tradingOpen,
+            uint64 resolutionTime
         )
     {
         Market storage m = s_markets[marketId];
@@ -926,7 +1004,8 @@ contract PredictionMarketHook is
             m.activeAssertionId,
             m.totalLpShares,
             m.marketKey,
-            _isTradable(m) && m.reserve1 > 0 && m.reserve2 > 0
+            _isTradable(m) && m.reserve1 > 0 && m.reserve2 > 0,
+            m.resolutionTime
         );
     }
 
@@ -1001,8 +1080,11 @@ contract PredictionMarketHook is
         return s_activeMarketByKey[_marketKey(description, outcome1, outcome2)];
     }
 
-    /// @notice Duplicate-detection key. Case, spacing and punctuation are ignored, and the
-    ///         outcome order does not matter ("Will ETH hit $4,000?" == "will eth hit 4000").
+    /// @notice Duplicate-detection key. Case, whitespace and sentence punctuation are ignored
+    ///         and the outcome order does not matter ("Will ETH hit $4,000?" == "will eth hit
+    ///         $4,000"). Symbols that change meaning (`<`, `>`, `$`, `%`, `-`, ...) and `.`, `,`,
+    ///         `:` between two digits are kept ("> $1.50" != "< $150"). Reverts for invalid
+    ///         outcomes (empty, identical, "Unresolvable", or "no" before "yes").
     function computeMarketKey(string calldata description, string calldata outcome1, string calldata outcome2)
         external
         pure
@@ -1030,7 +1112,7 @@ contract PredictionMarketHook is
 
     function _isTradable(Market storage m) internal view returns (bool) {
         return address(m.outcome1Token) != address(0) && !m.resolved && !s_paused && m.assertedOutcomeId == bytes32(0)
-            && (m.closeTime == 0 || block.timestamp < m.closeTime);
+            && block.timestamp < m.closeTime;
     }
 
     function _tradableMarket(bytes32 marketId) internal view returns (Market storage m) {
@@ -1038,7 +1120,7 @@ contract PredictionMarketHook is
         m = _existingMarket(marketId);
         if (m.resolved) revert MarketAlreadyResolved();
         if (m.assertedOutcomeId != bytes32(0)) revert AssertionPending();
-        if (m.closeTime != 0 && block.timestamp >= m.closeTime) revert TradingClosed();
+        if (block.timestamp >= m.closeTime) revert TradingClosed();
     }
 
     function _fees(uint256 amount) internal view returns (uint256 protocolFee, uint256 lpFee) {
@@ -1086,24 +1168,50 @@ contract PredictionMarketHook is
         ethOut = setsOut - protocolFee - lpFee;
     }
 
+    /// @dev Validates the market timing and returns the effective close time.
+    function _checkTimes(uint64 closeTime, uint64 resolutionTime) internal view returns (uint64) {
+        if (resolutionTime <= block.timestamp || resolutionTime > block.timestamp + MAX_MARKET_DURATION) {
+            revert InvalidResolutionTime();
+        }
+        if (closeTime == 0) return resolutionTime;
+        if (closeTime <= block.timestamp || closeTime > resolutionTime) revert InvalidCloseTime();
+        return closeTime;
+    }
+
+    function _deployOutcomeToken(string calldata outcome, string calldata description, string memory fallbackSymbol)
+        internal
+        returns (OutcomeToken)
+    {
+        return new OutcomeToken(
+            string.concat("CLAW ", outcome, " - ", description), _tokenSymbol(outcome, fallbackSymbol), address(this)
+        );
+    }
+
     /// @dev keccak of the normalized description and the order-independent outcome pair.
+    ///      Also validates the outcomes: non-empty, distinct, not the reserved "Unresolvable"
+    ///      result, and a yes/no pair ordered yes first.
     function _marketKey(string calldata description, string calldata outcome1, string calldata outcome2)
         internal
         pure
         returns (bytes32)
     {
         bytes memory d = _normalize(description);
-        bytes memory o1 = _normalize(outcome1);
-        bytes memory o2 = _normalize(outcome2);
-        if (d.length == 0 || o1.length == 0 || o2.length == 0 || keccak256(o1) == keccak256(o2)) {
+        bytes32 h1 = keccak256(_normalize(outcome1));
+        bytes32 h2 = keccak256(_normalize(outcome2));
+        if (
+            d.length == 0 || h1 == h2 || h1 == keccak256("") || h2 == keccak256("")
+                || h1 == NORMALIZED_UNRESOLVABLE_HASH || h2 == NORMALIZED_UNRESOLVABLE_HASH
+                || (h1 == NORMALIZED_NO_HASH && h2 == NORMALIZED_YES_HASH)
+        ) {
             revert InvalidMarketParams();
         }
-        if (keccak256(o1) > keccak256(o2)) (o1, o2) = (o2, o1);
-        return keccak256(abi.encode(d, o1, o2));
+        if (h1 > h2) (h1, h2) = (h2, h1);
+        return keccak256(abi.encode(keccak256(d), h1, h2));
     }
 
-    /// @dev Lower-cases ASCII letters and drops ASCII characters that are not letters or
-    ///      digits (spaces, punctuation, symbols). Non-ASCII bytes are kept as-is.
+    /// @dev Lower-cases ASCII letters; drops whitespace, control characters and the sentence
+    ///      punctuation ? ! ; ' " ` ; drops `.` `,` `:` unless both neighbours are digits.
+    ///      Every other byte (symbols, digits, non-ASCII) is kept.
     function _normalize(string calldata text) internal pure returns (bytes memory out) {
         bytes calldata b = bytes(text);
         out = new bytes(b.length);
@@ -1111,14 +1219,44 @@ contract PredictionMarketHook is
         for (uint256 i; i < b.length; ++i) {
             bytes1 c = b[i];
             if (c >= 0x41 && c <= 0x5A) {
-                out[len++] = bytes1(uint8(c) + 32);
-            } else if ((c >= 0x61 && c <= 0x7A) || (c >= 0x30 && c <= 0x39) || c >= 0x80) {
-                out[len++] = c;
+                c = bytes1(uint8(c) + 32);
+            } else if (c <= 0x20 || c == 0x7F || c == "?" || c == "!" || c == ";" || c == "'" || c == '"' || c == "`") {
+                continue;
+            } else if (
+                (c == "." || c == "," || c == ":")
+                    && (i == 0 || i + 1 == b.length || !_isDigit(b[i - 1]) || !_isDigit(b[i + 1]))
+            ) {
+                continue;
             }
+            out[len++] = c;
         }
         assembly {
             mstore(out, len)
         }
+    }
+
+    function _isDigit(bytes1 c) private pure returns (bool) {
+        return c >= 0x30 && c <= 0x39;
+    }
+
+    /// @dev "cl" + up to 8 upper-cased ASCII letters/digits of the outcome label
+    ///      ("yes" -> "clYES"), or `fallbackSymbol` when the label has none.
+    function _tokenSymbol(string calldata label, string memory fallbackSymbol) internal pure returns (string memory) {
+        bytes calldata b = bytes(label);
+        bytes memory out = new bytes(10);
+        out[0] = "c";
+        out[1] = "l";
+        uint256 len = 2;
+        for (uint256 i; i < b.length && len < 10; ++i) {
+            bytes1 c = b[i];
+            if (c >= 0x61 && c <= 0x7A) c = bytes1(uint8(c) - 32);
+            if ((c >= 0x41 && c <= 0x5A) || _isDigit(c)) out[len++] = c;
+        }
+        if (len == 2) return fallbackSymbol;
+        assembly {
+            mstore(out, len)
+        }
+        return string(out);
     }
 
     function _sendEth(address to, uint256 amount) internal {

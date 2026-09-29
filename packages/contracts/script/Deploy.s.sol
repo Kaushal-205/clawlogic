@@ -30,6 +30,8 @@ import {AgentIdentityRegistry} from "../src/erc8004/AgentIdentityRegistry.sol";
 import {AgentValidationRegistry} from "../src/erc8004/AgentValidationRegistry.sol";
 import {AgentReputationRegistry} from "../src/erc8004/AgentReputationRegistry.sol";
 
+import {HookConfigScript} from "./HookConfig.sol";
+
 /// @title Deploy
 /// @author CLAWLOGIC Team
 /// @notice Full-stack Foundry deployment script for the CLAWLOGIC protocol.
@@ -56,10 +58,11 @@ import {AgentReputationRegistry} from "../src/erc8004/AgentReputationRegistry.so
 ///                                     (DEPLOYER_PRIVATE_KEY is accepted as a fallback)
 ///        V4_POOL_MANAGER           -- Uniswap V4 PoolManager address
 ///
-///      Production chains (Arbitrum One, or PRODUCTION=true) never deploy mocks:
-///        UMA_OOV3 and UMA_BOND_CURRENCY are required, DEFAULT_LIVENESS must be
-///        >= 7200 (the default there), and an unset ENS_REGISTRY / PHALA_VERIFIER
-///        disables that feature instead of deploying a permissive mock.
+///      Production chains (every chain except the known testnets in `HookConfigScript`, or
+///      PRODUCTION=true) never deploy mocks: UMA_OOV3, UMA_BOND_CURRENCY and PROTOCOL_OWNER are
+///      required, DEFAULT_LIVENESS must be >= 7200 (the default there), and an unset
+///      ENS_REGISTRY / PHALA_VERIFIER disables that feature instead of deploying a permissive
+///      mock.
 ///
 ///      Optional on testnets (auto-deploys mocks if missing):
 ///        UMA_OOV3                  -- UMA Optimistic Oracle V3 address
@@ -69,15 +72,16 @@ import {AgentReputationRegistry} from "../src/erc8004/AgentReputationRegistry.so
 ///        VALIDATION_REGISTRY       -- Pre-deployed AgentValidationRegistry
 ///        DEFAULT_LIVENESS          -- UMA liveness in seconds (default: 120)
 ///
-///      Revenue/admin (optional): PROTOCOL_OWNER, TREASURY, PROTOCOL_FEE_BPS, LP_FEE_BPS,
-///        MARKET_CREATION_FEE_WEI, ERC8004_IDENTITY_REGISTRY -- see `_configureHook`.
+///      Revenue/admin: PROTOCOL_OWNER, TREASURY (defaults to PROTOCOL_OWNER), PROTOCOL_FEE_BPS,
+///        LP_FEE_BPS, MARKET_CREATION_FEE_WEI, MAX_REQUIRED_BOND, ERC8004_IDENTITY_REGISTRY --
+///        see `HookConfigScript`.
 ///
 ///      Usage (verification uses the Etherscan API v2 config in foundry.toml):
 ///        source .env && forge script script/Deploy.s.sol \
 ///          --rpc-url arbitrum_one \
 ///          --broadcast --verify \
 ///          -vvvv
-contract DeployScript is Script {
+contract DeployScript is HookConfigScript {
     // -------------------------------------------------------------------------
     // Constants
     // -------------------------------------------------------------------------
@@ -94,6 +98,10 @@ contract DeployScript is Script {
 
     /// @dev Arbitrum One chain ID.
     uint256 constant ARBITRUM_ONE_CHAIN_ID = 42_161;
+
+    /// @dev Final admin and fee recipient, resolved before broadcasting.
+    address internal s_finalOwner;
+    address internal s_treasury;
 
     // -------------------------------------------------------------------------
     // Script entry point
@@ -116,6 +124,7 @@ contract DeployScript is Script {
         console2.log("PoolManager:     ", poolManager);
         console2.log("Liveness (s):    ", uint256(liveness));
         console2.log("Production:      ", production);
+        (s_finalOwner, s_treasury) = _readAdmin(deployer, production);
         console2.log("");
 
         // ── 2. Deploy infrastructure mocks (if not provided) ─────────────
@@ -211,7 +220,7 @@ contract DeployScript is Script {
         console2.log("ReputationRegistry:      ", address(reputationRegistry));
 
         // 6c. Revenue + eligibility configuration (all optional).
-        _configureHook(hook);
+        _configureHook(hook, s_treasury);
 
         // 6d. Hand admin rights to the final owner (e.g. a Safe).
         _handOverOwnership(deployer, hook, identityRegistry, reputationRegistry, validationRegistry);
@@ -313,7 +322,7 @@ contract DeployScript is Script {
     /// @dev On production chains mocks are never deployed: a mock oracle lets anyone settle
     ///      markets and the mock TEE verifier accepts every attestation.
     function _readProductionSettings() internal view returns (bool production, uint64 liveness) {
-        production = block.chainid == ARBITRUM_ONE_CHAIN_ID || vm.envOr("PRODUCTION", false);
+        production = _isProduction();
         liveness = uint64(vm.envOr("DEFAULT_LIVENESS", uint256(production ? PRODUCTION_LIVENESS : DEFAULT_LIVENESS)));
         if (production) {
             require(liveness >= PRODUCTION_LIVENESS, "Deploy: DEFAULT_LIVENESS below 7200s on a production chain");
@@ -329,7 +338,7 @@ contract DeployScript is Script {
         AgentReputationRegistry reputationRegistry,
         AgentValidationRegistry validationRegistry
     ) internal {
-        address finalOwner = vm.envOr("PROTOCOL_OWNER", deployer);
+        address finalOwner = s_finalOwner;
         if (finalOwner == deployer) return;
         hook.transferOwnership(finalOwner);
         identityRegistry.transferOwnership(finalOwner);
@@ -338,33 +347,6 @@ contract DeployScript is Script {
             validationRegistry.transferOwnership(finalOwner);
         }
         console2.log("Ownership -> (hook: pending acceptOwnership)", finalOwner);
-    }
-
-    /// @dev Applies optional env configuration to a freshly deployed hook (deployer is owner).
-    ///      TREASURY                  -- protocol fee recipient (default: deployer)
-    ///      PROTOCOL_FEE_BPS          -- protocol share of each trade (default: 100 = 1%)
-    ///      LP_FEE_BPS                -- LP share of each trade (default: 100 = 1%)
-    ///      MARKET_CREATION_FEE_WEI   -- flat fee per market (default: 0, max 0.1 ETH)
-    ///      ERC8004_IDENTITY_REGISTRY -- canonical ERC-8004 IdentityRegistry; holders may trade
-    function _configureHook(PredictionMarketHook hook) internal {
-        address treasury = vm.envOr("TREASURY", address(0));
-        if (treasury != address(0)) hook.setTreasury(treasury);
-
-        uint256 protocolFeeBps = vm.envOr("PROTOCOL_FEE_BPS", hook.s_protocolFeeBps());
-        uint256 lpFeeBps = vm.envOr("LP_FEE_BPS", hook.s_lpFeeBps());
-        hook.setFees(protocolFeeBps, lpFeeBps);
-
-        uint256 creationFee = vm.envOr("MARKET_CREATION_FEE_WEI", uint256(0));
-        if (creationFee > 0) hook.setMarketCreationFee(creationFee);
-
-        address erc8004 = vm.envOr("ERC8004_IDENTITY_REGISTRY", address(0));
-        if (erc8004 != address(0)) hook.setErc8004IdentityRegistry(erc8004);
-
-        console2.log("Treasury:                ", hook.s_treasury());
-        console2.log("Protocol fee (bps):      ", protocolFeeBps);
-        console2.log("LP fee (bps):            ", lpFeeBps);
-        console2.log("Creation fee (wei):      ", creationFee);
-        console2.log("ERC-8004 identity:       ", erc8004);
     }
 
     /// @dev Serializes all deployment addresses to JSON.

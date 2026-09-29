@@ -77,6 +77,13 @@ contract DeployArcScript is Script {
 
         address deployer = vm.addr(deployerPk);
 
+        // This script always wires the permissive mock oracle, so it must never run against a
+        // chain holding real value.
+        require(
+            block.chainid == ARC_TESTNET_CHAIN_ID || block.chainid == 31_337,
+            "DeployArc: mock oracle deployment is only allowed on Arc testnet or anvil"
+        );
+
         console2.log("=== CLAWLOGIC Arc Testnet Deployment ===");
         console2.log("Deployer:        ", deployer);
         console2.log("Chain ID:        ", block.chainid);

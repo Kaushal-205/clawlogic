@@ -25,11 +25,11 @@ interface IERC8004AgentValidation {
     // Structs
     // -------------------------------------------------
 
-    /// @notice A validation proof submitted for an agent identity.
+    /// @notice The active (approved or revoked) validation proof of an agent identity.
     /// @param validationType The type of validation proof.
     /// @param proof The raw proof bytes (format depends on validationType).
-    /// @param timestamp The block.timestamp when the proof was submitted.
-    /// @param valid Whether the proof has been verified as valid by the authorized verifier.
+    /// @param timestamp The block.timestamp when the proof became active.
+    /// @param valid Whether the proof is currently approved.
     struct Validation {
         ValidationType validationType;
         bool valid;
@@ -46,6 +46,9 @@ interface IERC8004AgentValidation {
     /// @param validationType The type of validation proof submitted.
     /// @param proof The raw proof bytes.
     event ValidationSubmitted(uint256 indexed agentId, ValidationType indexed validationType, bytes proof);
+
+    /// @notice Emitted with the hash a verifier must quote to approve a pending proof.
+    event ValidationPending(uint256 indexed agentId, ValidationType indexed validationType, bytes32 proofHash);
 
     /// @notice Emitted when a verifier confirms or rejects a validation proof.
     /// @param agentId The agent identity token ID.
@@ -95,25 +98,50 @@ interface IERC8004AgentValidation {
     /// @notice Thrown when a TEE verification is attempted but no Phala verifier is configured.
     error PhalaVerifierNotConfigured();
 
+    /// @notice Thrown when the caller is neither the identity owner nor an approved operator.
+    error NotAgentController();
+
+    /// @notice Thrown when a verifier's proof hash matches neither the pending nor the active proof.
+    error ProofMismatch();
+
+    /// @notice Thrown when self-service TEE verification is attempted after a revocation.
+    error ValidationIsRevoked();
+
+    /// @notice Thrown when an attestation quote has already been used.
+    error QuoteAlreadyUsed();
+
+    /// @notice Thrown when the attested public key is not a 64-byte uncompressed secp256k1 key.
+    error InvalidPublicKey();
+
+    /// @notice Thrown when the binding signature was not made by the attested key.
+    error InvalidKeySignature();
+
     // -------------------------------------------------
     // Functions
     // -------------------------------------------------
 
-    /// @notice Submit a validation proof for an agent.
-    /// @dev Anyone can submit a proof; only the authorized verifier for the given type can verify it.
+    /// @notice Submit a validation proof for an agent. It stays pending -- the active proof is
+    ///         untouched -- until the verifier approves it.
+    /// @dev Only the identity owner or an ERC-721-approved operator may submit.
     /// @param agentId The agent identity token ID.
     /// @param proof The raw proof bytes.
     /// @param validationType The type of validation proof being submitted.
     function submitValidation(uint256 agentId, bytes calldata proof, ValidationType validationType) external;
 
-    /// @notice Verify a previously submitted validation proof.
+    /// @notice Approve or reject the reviewed proof.
     /// @dev Only callable by the authorized verifier for the given validation type.
+    ///      `proofHash == keccak256(pending proof)`: approves (it becomes active) or rejects it.
+    ///      `proofHash == keccak256(active proof)`: reinstates (`valid`) or revokes (`!valid`)
+    ///      it. A revocation also blocks self-service TEE re-verification until an approval.
     /// @param agentId The agent identity token ID.
     /// @param validationType The type of validation proof to verify.
+    /// @param proofHash keccak256 of the proof the verifier reviewed.
     /// @param valid Whether the proof is accepted (true) or rejected (false).
-    function verifyValidation(uint256 agentId, ValidationType validationType, bool valid) external;
+    function verifyValidation(uint256 agentId, ValidationType validationType, bytes32 proofHash, bool valid)
+        external;
 
     /// @notice Check whether an agent has a valid proof for a given validation type.
+    /// @dev False once the identity changes owner after approval.
     /// @param agentId The agent identity token ID.
     /// @param validationType The type of validation to check.
     /// @return True if the agent has a verified, valid proof for this type.
@@ -137,11 +165,19 @@ interface IERC8004AgentValidation {
     function getVerifier(ValidationType validationType) external view returns (address);
 
     /// @notice Verify a TEE attestation for an agent via the Phala zkDCAP verifier.
-    /// @dev Performs an atomic submit-and-verify flow: submits the attestation quote as
-    ///      the TEE proof, calls the Phala verifier, and if valid marks the validation
-    ///      as verified. Reverts if the Phala verifier is not configured or verification fails.
+    /// @dev Only the identity owner or an approved operator may call. The attested key must
+    ///      sign `teeBindingDigest(agentId)`, which binds the key to this agent ID, its current
+    ///      owner and a one-time nonce; a copied quote therefore cannot certify another
+    ///      identity. Each quote is accepted once, and a revoked TEE validation cannot be
+    ///      restored this way.
     /// @param agentId The agent identity token ID.
     /// @param attestationQuote The raw Intel SGX DCAP attestation quote bytes.
-    /// @param publicKey The public key expected to be embedded in the attestation quote.
-    function verifyTeeAttestation(uint256 agentId, bytes calldata attestationQuote, bytes calldata publicKey) external;
+    /// @param publicKey The 64-byte uncompressed secp256k1 key embedded in the quote.
+    /// @param keySignature Signature by `publicKey` over `teeBindingDigest(agentId)`.
+    function verifyTeeAttestation(
+        uint256 agentId,
+        bytes calldata attestationQuote,
+        bytes calldata publicKey,
+        bytes calldata keySignature
+    ) external;
 }

@@ -24,6 +24,7 @@ import type {
   MarketProbability,
   MarketReserves,
   MarketDetails,
+  CreateMarketParams,
   TradeQuote,
   FeeConfig,
   AssertionInfo,
@@ -364,42 +365,6 @@ export class ClawlogicClient {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Create a new prediction market.
-   *
-   * The caller must be a registered agent. If `reward > 0`, the caller must
-   * have previously approved that amount of the bond currency (i_currency)
-   * to the PredictionMarketHook contract.
-   *
-   * @param outcome1 - Label for outcome 1 (e.g., "yes").
-   * @param outcome2 - Label for outcome 2 (e.g., "no").
-   * @param description - Human-readable market question.
-   * @param reward - Amount of bond currency offered as incentive to the asserter.
-   * @param requiredBond - Minimum bond required from an asserter.
-   * @param initialLiquidityEth - Optional ETH value to seed CPMM reserves at market creation.
-   * @returns Transaction hash of the market creation.
-   */
-  async initializeMarket(
-    outcome1: string,
-    outcome2: string,
-    description: string,
-    reward: bigint,
-    requiredBond: bigint,
-    initialLiquidityEth: bigint = 0n,
-  ): Promise<`0x${string}`> {
-    const wallet = this.requireWallet();
-
-    const hash = await wallet.writeContract({
-      address: this.config.contracts.predictionMarketHook,
-      abi: predictionMarketHookAbi,
-      functionName: 'initializeMarket',
-      args: [outcome1, outcome2, description, reward, requiredBond],
-      value: initialLiquidityEth,
-    });
-
-    return this.waitForTx(hash);
-  }
-
-  /**
    * Deposit ETH collateral to mint equal amounts of both outcome tokens.
    *
    * The caller must be a registered agent. Sends `ethAmount` in wei as
@@ -515,32 +480,64 @@ export class ClawlogicClient {
   }
 
   /**
-   * Create a market with an optional trading close time.
+   * Create a market.
    *
    * `value` pays the market creation fee first; the remainder seeds AMM
-   * liquidity and the caller receives the LP shares. Use `getFeeConfig()` to
-   * read the current creation fee and `findActiveMarket()` to avoid a
-   * `DuplicateMarket` revert.
+   * liquidity and the caller receives the LP shares. If `reward > 0`, the
+   * caller must have approved that amount of the bond currency to the hook.
+   * Use `getFeeConfig()` for the creation fee and bond cap, and
+   * `findActiveMarket()` to avoid a `DuplicateMarket` revert.
    *
-   * @param closeTime - Unix seconds after which trading stops (0n = none).
-   * @param value - ETH sent (creation fee + initial liquidity), in wei.
+   * The outcome cannot be asserted before `resolutionTime`, and trading stops
+   * at `closeTime` (default: `resolutionTime`).
    */
-  async createMarket(
-    outcome1: string,
-    outcome2: string,
-    description: string,
-    reward: bigint,
-    requiredBond: bigint,
-    closeTime: bigint = 0n,
-    value: bigint = 0n,
-  ): Promise<`0x${string}`> {
+  async createMarket(params: CreateMarketParams): Promise<`0x${string}`> {
     const wallet = this.requireWallet();
+    const { outcome1, outcome2, description, resolutionTime } = params;
     const hash = await wallet.writeContract({
       address: this.config.contracts.predictionMarketHook,
       abi: predictionMarketHookAbi,
       functionName: 'createMarket',
-      args: [outcome1, outcome2, description, reward, requiredBond, closeTime],
-      value,
+      args: [
+        outcome1,
+        outcome2,
+        description,
+        params.reward ?? 0n,
+        params.requiredBond ?? 0n,
+        params.closeTime ?? 0n,
+        resolutionTime,
+      ],
+      value: params.value ?? 0n,
+    });
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Pay a resolved market's reward to the asserter of its accepted outcome.
+   * Anyone can call it; the reward always goes to the asserter.
+   */
+  async claimAssertionReward(marketId: `0x${string}`): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'claimAssertionReward',
+      args: [marketId],
+    });
+    return this.waitForTx(hash);
+  }
+
+  /**
+   * Free the question key of an unresolved market so the question can be
+   * asked again (owner at any time; anyone 30 days after its resolution time).
+   */
+  async releaseMarketKey(marketId: `0x${string}`): Promise<`0x${string}`> {
+    const wallet = this.requireWallet();
+    const hash = await wallet.writeContract({
+      address: this.config.contracts.predictionMarketHook,
+      abi: predictionMarketHookAbi,
+      functionName: 'releaseMarketKey',
+      args: [marketId],
     });
     return this.waitForTx(hash);
   }
@@ -718,18 +715,18 @@ export class ClawlogicClient {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Creator, close time, active assertion, LP shares, question key and
-   * whether trading is open.
+   * Creator, close time, active assertion, LP shares, question key, whether
+   * trading is open, and the earliest assertion time.
    */
   async getMarketInfo(marketId: `0x${string}`): Promise<MarketDetails> {
-    const [creator, closeTime, activeAssertionId, totalLpShares, marketKey, tradingOpen] =
+    const [creator, closeTime, activeAssertionId, totalLpShares, marketKey, tradingOpen, resolutionTime] =
       await this.publicClient.readContract({
         address: this.config.contracts.predictionMarketHook,
         abi: predictionMarketHookAbi,
         functionName: 'getMarketInfo',
         args: [marketId],
       });
-    return { creator, closeTime, activeAssertionId, totalLpShares, marketKey, tradingOpen };
+    return { creator, closeTime, activeAssertionId, totalLpShares, marketKey, tradingOpen, resolutionTime };
   }
 
   /** Quote a buy of `ethIn` wei: tokens out and fees. */
@@ -805,19 +802,27 @@ export class ClawlogicClient {
     });
   }
 
-  /** Current fees, treasury and pause flag. */
+  /** Current fees, treasury, pause flag and bond cap. */
   async getFeeConfig(): Promise<FeeConfig> {
     const hook = this.config.contracts.predictionMarketHook;
-    const read = <T>(functionName: 's_protocolFeeBps' | 's_lpFeeBps' | 's_marketCreationFee' | 's_treasury' | 's_paused') =>
-      this.publicClient.readContract({ address: hook, abi: predictionMarketHookAbi, functionName }) as Promise<T>;
-    const [protocolFeeBps, lpFeeBps, marketCreationFee, treasury, paused] = await Promise.all([
+    const read = <T>(
+      functionName:
+        | 's_protocolFeeBps'
+        | 's_lpFeeBps'
+        | 's_marketCreationFee'
+        | 's_treasury'
+        | 's_paused'
+        | 's_maxRequiredBond',
+    ) => this.publicClient.readContract({ address: hook, abi: predictionMarketHookAbi, functionName }) as Promise<T>;
+    const [protocolFeeBps, lpFeeBps, marketCreationFee, treasury, paused, maxRequiredBond] = await Promise.all([
       read<bigint>('s_protocolFeeBps'),
       read<bigint>('s_lpFeeBps'),
       read<bigint>('s_marketCreationFee'),
       read<`0x${string}`>('s_treasury'),
       read<boolean>('s_paused'),
+      read<bigint>('s_maxRequiredBond'),
     ]);
-    return { protocolFeeBps, lpFeeBps, marketCreationFee, treasury, paused };
+    return { protocolFeeBps, lpFeeBps, marketCreationFee, treasury, paused, maxRequiredBond };
   }
 
   /** The market's active UMA assertion, or null. */

@@ -26,14 +26,13 @@ import {IERC8004AgentValidation} from "./interfaces/erc8004/IERC8004AgentValidat
 ///      If the ENS registry address is `address(0)` (the default for chains without ENS),
 ///      all ENS-related operations will revert with `ENSNotConfigured()`.
 ///
+///      ENS links follow live ownership: `getAgentByENS` only returns an agent that still
+///      owns the node, and a new owner can take over a stale link with `linkENS()`.
+///
 ///      **Phase 1.3 -- Phala TEE Attestation Integration:**
-///      Agents can optionally provide a TEE attestation quote and public key during ENS
-///      registration via `registerAgentWithENSAndTEE()`. If a validation registry is
-///      configured and attestation data is provided, the registry will forward the
-///      attestation to the `AgentValidationRegistry.verifyTeeAttestation()` function for
-///      on-chain verification via the Phala zkDCAP verifier. This provides hardware-verified
-///      agent identity. If the validation registry is `address(0)`, TEE operations are
-///      skipped gracefully.
+///      TEE attestations are verified by the identity owner directly on
+///      `AgentValidationRegistry.verifyTeeAttestation()`, which binds the attested key to the
+///      ERC-8004 identity. `i_validationRegistry` records which registry this deployment uses.
 contract AgentRegistry is IAgentRegistry {
     // -------------------------------------------------
     // Custom Errors (contract-level, not in interface)
@@ -41,9 +40,6 @@ contract AgentRegistry is IAgentRegistry {
 
     /// @notice Thrown when an ENS operation is attempted but no ENS registry was configured
     error ENSNotConfigured();
-
-    /// @notice Thrown when a TEE attestation operation is attempted but no validation registry was configured
-    error ValidationRegistryNotConfigured();
 
     // -------------------------------------------------
     // Immutables
@@ -53,9 +49,8 @@ contract AgentRegistry is IAgentRegistry {
     /// @dev Set to address(0) on chains without ENS. All ENS operations will revert in that case.
     IENS public immutable i_ensRegistry;
 
-    /// @notice The ERC-8004 Agent Validation Registry for TEE attestation verification.
+    /// @notice The ERC-8004 Agent Validation Registry used by this deployment (discovery only).
     /// @dev Set to address(0) on deployments without ERC-8004 validation support.
-    ///      When configured, agents can verify TEE attestations during registration.
     IERC8004AgentValidation public immutable i_validationRegistry;
 
     // -------------------------------------------------
@@ -106,42 +101,17 @@ contract AgentRegistry is IAgentRegistry {
         _registerAgent(msg.sender, name, attestation, ensNode);
     }
 
-    /// @notice Register the caller as an agent with optional ENS linkage and TEE attestation.
-    /// @dev Extends `registerAgentWithENS` with Phala TEE attestation verification.
-    ///      If `attestationQuote` is non-empty, the validation registry's
-    ///      `verifyTeeAttestation()` is called to verify the attestation on-chain.
-    ///      The external call to the validation registry happens AFTER all state writes
-    ///      in `_registerAgent()`, following the Checks-Effects-Interactions pattern.
-    ///
-    ///      The `agentId` parameter is the ERC-8004 identity token ID that was minted for
-    ///      this agent in the AgentIdentityRegistry. The caller must obtain this ID before
-    ///      calling this function (e.g., from the `AgentIdentityMinted` event). The validation
-    ///      registry independently verifies that this agentId exists.
-    /// @param name Human-readable agent name. Must be non-empty.
-    /// @param attestation TEE attestation bytes stored in the Agent struct.
-    /// @param ensNode The ENS namehash to link. Pass bytes32(0) for no ENS linkage.
-    /// @param agentId The ERC-8004 identity token ID for this agent.
-    /// @param attestationQuote The raw Intel SGX DCAP attestation quote. Pass empty bytes
-    ///        to skip TEE verification.
-    /// @param publicKey The public key expected to be embedded in the attestation quote.
-    function registerAgentWithENSAndTEE(
-        string calldata name,
-        bytes calldata attestation,
-        bytes32 ensNode,
-        uint256 agentId,
-        bytes calldata attestationQuote,
-        bytes calldata publicKey
-    ) external {
-        _registerAgent(msg.sender, name, attestation, ensNode);
-
-        // ── Interactions (TEE attestation -- external call after state writes) ──
-        if (attestationQuote.length > 0) {
-            if (address(i_validationRegistry) == address(0)) {
-                revert ValidationRegistryNotConfigured();
-            }
-
-            i_validationRegistry.verifyTeeAttestation(agentId, attestationQuote, publicKey);
+    /// @inheritdoc IAgentRegistry
+    /// @dev Replaces the caller's current link, and takes the node over from a previous
+    ///      owner whose link went stale when the name was transferred.
+    function linkENS(bytes32 ensNode) external {
+        if (!s_agents[msg.sender].exists) {
+            revert AgentNotFound();
         }
+        if (ensNode == bytes32(0)) {
+            revert NotENSOwner();
+        }
+        _linkENS(msg.sender, ensNode);
     }
 
     /// @inheritdoc IAgentRegistry
@@ -150,8 +120,12 @@ contract AgentRegistry is IAgentRegistry {
     }
 
     /// @inheritdoc IAgentRegistry
-    function getAgent(address addr) external view returns (Agent memory) {
-        return s_agents[addr];
+    /// @dev `ensNode` is zeroed when the agent no longer owns the linked node.
+    function getAgent(address addr) external view returns (Agent memory agent) {
+        agent = s_agents[addr];
+        if (agent.ensNode != bytes32(0) && i_ensRegistry.owner(agent.ensNode) != addr) {
+            agent.ensNode = bytes32(0);
+        }
     }
 
     /// @inheritdoc IAgentRegistry
@@ -165,10 +139,11 @@ contract AgentRegistry is IAgentRegistry {
     }
 
     /// @inheritdoc IAgentRegistry
-    /// @dev Reverts with `ENSNodeNotLinked` if no agent is linked to the given node.
+    /// @dev Reverts with `ENSNodeNotLinked` if no agent is linked to the given node, or if the
+    ///      linked agent no longer owns it in the ENS registry.
     function getAgentByENS(bytes32 ensNode) external view returns (address) {
         address agent = s_ensNodeToAgent[ensNode];
-        if (agent == address(0)) {
+        if (agent == address(0) || i_ensRegistry.owner(ensNode) != agent) {
             revert ENSNodeNotLinked();
         }
         return agent;
@@ -179,16 +154,15 @@ contract AgentRegistry is IAgentRegistry {
     // -------------------------------------------------
 
     /// @notice Core registration logic shared by `registerAgent` and `registerAgentWithENS`.
-    /// @dev Performs all validation, stores the agent, and optionally links an ENS node.
-    ///      Follows Checks-Effects-Interactions: all state is written before any external calls
-    ///      (though ENS ownership check is a view call, not a state mutation, so it is safe to
-    ///      perform before state writes -- we do it first for fail-fast behavior).
+    /// @dev Validates and stores the agent, then optionally links an ENS node (`_linkENS`
+    ///      reverts the whole registration if the caller does not own the node).
     /// @param agent       The address being registered (always msg.sender from external callers).
     /// @param name        Human-readable agent name. Must be non-empty.
     /// @param attestation TEE attestation bytes.
     /// @param ensNode     Optional ENS namehash. bytes32(0) to skip ENS linkage.
     function _registerAgent(address agent, string calldata name, bytes calldata attestation, bytes32 ensNode) internal {
-        // ── Checks ──────────────────────────────────────────────────────────
+        // ── Checks
+        // ──────────────────────────────────────────────────────────
         if (s_agents[agent].exists) {
             revert AlreadyRegistered();
         }
@@ -197,45 +171,51 @@ contract AgentRegistry is IAgentRegistry {
             revert EmptyName();
         }
 
-        // If ENS linkage is requested, verify ownership and uniqueness.
-        if (ensNode != bytes32(0)) {
-            if (address(i_ensRegistry) == address(0)) {
-                revert ENSNotConfigured();
-            }
-
-            // Verify the caller owns the ENS node. This is a view call -- no reentrancy risk.
-            if (i_ensRegistry.owner(ensNode) != agent) {
-                revert NotENSOwner();
-            }
-
-            // Ensure the ENS node is not already claimed by another agent.
-            if (s_ensNodeToAgent[ensNode] != address(0)) {
-                revert ENSNodeAlreadyLinked();
-            }
-        }
-
-        // ── Effects ─────────────────────────────────────────────────────────
+        // ── Effects
+        // ─────────────────────────────────────────────────────────
         s_agents[agent] = Agent({
-            name: name,
-            attestation: attestation,
-            registeredAt: block.timestamp,
-            exists: true,
-            ensNode: ensNode
+            name: name, attestation: attestation, registeredAt: block.timestamp, exists: true, ensNode: bytes32(0)
         });
 
         s_agentCount++;
         s_agentAddresses.push(agent);
 
-        // Link ENS node -> agent address (bidirectional: agent struct has ensNode, mapping has address).
-        if (ensNode != bytes32(0)) {
-            s_ensNodeToAgent[ensNode] = agent;
-        }
-
-        // ── Events ──────────────────────────────────────────────────────────
         emit AgentRegistered(agent, name);
 
+        // ENS ownership is a view call, so linking after the writes is still CEI-safe.
         if (ensNode != bytes32(0)) {
-            emit ENSLinked(agent, ensNode, name);
+            _linkENS(agent, ensNode);
         }
+    }
+
+    /// @dev Links `ensNode` to `agent` after checking live ENS ownership. Any previous link of
+    ///      the node is necessarily stale (its agent no longer owns it) and is removed, as is
+    ///      the agent's own previous node.
+    function _linkENS(address agent, bytes32 ensNode) internal {
+        if (address(i_ensRegistry) == address(0)) {
+            revert ENSNotConfigured();
+        }
+        if (i_ensRegistry.owner(ensNode) != agent) {
+            revert NotENSOwner();
+        }
+
+        address previous = s_ensNodeToAgent[ensNode];
+        if (previous == agent) {
+            revert ENSNodeAlreadyLinked();
+        }
+        if (previous != address(0)) {
+            s_agents[previous].ensNode = bytes32(0);
+            emit ENSUnlinked(previous, ensNode);
+        }
+
+        bytes32 oldNode = s_agents[agent].ensNode;
+        if (oldNode != bytes32(0)) {
+            delete s_ensNodeToAgent[oldNode];
+            emit ENSUnlinked(agent, oldNode);
+        }
+
+        s_ensNodeToAgent[ensNode] = agent;
+        s_agents[agent].ensNode = ensNode;
+        emit ENSLinked(agent, ensNode, s_agents[agent].name);
     }
 }
