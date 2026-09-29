@@ -1,0 +1,18 @@
+{
+  "blockNumber": 26085236,
+  "chainId": 42161,
+  "contracts": {
+    "AgentIdentityRegistry": "0xA8D9C55f138178727bBAf0525b961D96C916a93f",
+    "AgentRegistry": "0x6Ecc60F604d08b19fBd5eCCDc61b9DFb4fFca9F8",
+    "AgentReputationRegistry": "0x4917656dD98BDb24E4B7208703C0125De1F88bD5",
+    "AgentValidationRegistry": "0x99A70779C6a2B9B3c04c0dDa6837472a2180f7b4",
+    "BondCurrency": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "ENSRegistry": "0x0000000000000000000000000000000000000000",
+    "OptimisticOracleV3": "0xa6147867264374F324524E30C02C331cF28aa879",
+    "PhalaVerifier": "0x0000000000000000000000000000000000000000",
+    "PoolManager": "0x360E68faCcca8cA495c1B759Fd9EEe466db9FB32",
+    "PredictionMarketHook": "0x55cB6476a7B4DBe048407Cf4058Af3A9f8408880"
+  },
+  "deployedAt": "1790710376",
+  "deployer": "0xc18B2BDC752f6dBe9D78ee5C0a63cfb701c1d97b"
+}
