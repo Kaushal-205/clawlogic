@@ -150,31 +150,38 @@ contract AgentValidationRegistry is Ownable, IERC8004AgentValidation {
         ValidationState storage st = s_states[agentId][validationType];
         Validation storage v = s_validations[agentId][validationType];
 
-        if (st.pendingHash != bytes32(0) && proofHash == st.pendingHash) {
-            // Decision on the pending proof. A proof submitted by a previous identity owner
-            // can only be rejected.
-            if (valid) {
-                if (i_identityRegistry.ownerOfAgent(agentId) != st.pendingOwner) revert ProofMismatch();
-                v.validationType = validationType;
-                v.proof = st.pendingProof;
-                v.timestamp = block.timestamp;
-                v.valid = true;
-                st.boundOwner = st.pendingOwner;
-                st.revoked = false;
-                if (validationType == ValidationType.TEE) delete s_teeKeys[agentId];
-            }
-            delete st.pendingHash;
-            delete st.pendingOwner;
-            delete st.pendingProof;
-        } else if (v.timestamp != 0 && proofHash == keccak256(v.proof)) {
-            // Reinstatement or revocation of the active proof.
-            v.valid = valid;
-            st.revoked = !valid;
-            if (valid) st.boundOwner = i_identityRegistry.ownerOfAgent(agentId);
-        } else if (st.pendingHash == bytes32(0) && v.timestamp == 0) {
-            revert ValidationNotSubmitted();
-        } else {
+        bool pendingMatch = st.pendingHash != bytes32(0) && proofHash == st.pendingHash;
+        bool activeMatch = v.timestamp != 0 && proofHash == keccak256(v.proof);
+        if (!pendingMatch && !activeMatch) {
+            if (st.pendingHash == bytes32(0) && v.timestamp == 0) revert ValidationNotSubmitted();
             revert ProofMismatch();
+        }
+
+        if (!valid) {
+            // A rejection covers every proof with this hash: resubmitting the active proof as
+            // pending cannot shield it from revocation.
+            if (activeMatch) {
+                v.valid = false;
+                st.revoked = true;
+            }
+            if (pendingMatch) _clearPending(st);
+        } else if (pendingMatch) {
+            // Approval of the pending proof. A proof submitted by a previous identity owner can
+            // only be rejected.
+            if (i_identityRegistry.ownerOfAgent(agentId) != st.pendingOwner) revert ProofMismatch();
+            v.validationType = validationType;
+            v.proof = st.pendingProof;
+            v.timestamp = block.timestamp;
+            v.valid = true;
+            st.boundOwner = st.pendingOwner;
+            st.revoked = false;
+            if (validationType == ValidationType.TEE) delete s_teeKeys[agentId];
+            _clearPending(st);
+        } else {
+            // Reinstatement of the active proof.
+            v.valid = true;
+            st.revoked = false;
+            st.boundOwner = i_identityRegistry.ownerOfAgent(agentId);
         }
 
         emit ValidationVerified(agentId, validationType, valid);
@@ -314,6 +321,12 @@ contract AgentValidationRegistry is Ownable, IERC8004AgentValidation {
     // -------------------------------------------------
     // Internal Helpers
     // -------------------------------------------------
+
+    function _clearPending(ValidationState storage st) private {
+        delete st.pendingHash;
+        delete st.pendingOwner;
+        delete st.pendingProof;
+    }
 
     /// @dev Reverts unless the caller is the identity owner or an ERC-721-approved operator.
     function _requireController(uint256 agentId) internal view returns (address owner_) {

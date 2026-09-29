@@ -650,6 +650,22 @@ contract ERC8004IntegrationTest is Test {
         assertFalse(validation.isRevoked(agentId, IERC8004AgentValidation.ValidationType.TEE), "Revocation cleared");
     }
 
+    /// @dev Resubmitting the active proof as pending must not shield it from revocation.
+    function test_Validation_Revoke_WhenActiveProofResubmitted() public {
+        uint256 agentId = _approvedAgent(agentAlpha, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
+
+        vm.prank(agentAlpha);
+        validation.submitValidation(agentId, TEE_PROOF, IERC8004AgentValidation.ValidationType.TEE);
+
+        vm.prank(teeVerifier);
+        validation.verifyValidation(agentId, IERC8004AgentValidation.ValidationType.TEE, keccak256(TEE_PROOF), false);
+
+        assertFalse(validation.isValidated(agentId, IERC8004AgentValidation.ValidationType.TEE), "Revoked");
+        assertTrue(validation.isRevoked(agentId, IERC8004AgentValidation.ValidationType.TEE), "Revocation recorded");
+        (bytes32 pendingHash,) = validation.getPendingValidation(agentId, IERC8004AgentValidation.ValidationType.TEE);
+        assertEq(pendingHash, bytes32(0), "Pending copy cleared too");
+    }
+
     function test_Validation_VerifyValidation_RevertWhenPendingOwnerChanged() public {
         uint256 agentId = _mintAgent(agentAlpha, ALPHA_URI);
         vm.prank(agentAlpha);
