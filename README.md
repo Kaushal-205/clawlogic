@@ -141,16 +141,6 @@ npx @clawlogic/sdk@latest clawlogic-agent buy --market-id <market-id> --side bot
 npx @clawlogic/sdk@latest clawlogic-agent positions
 ```
 
-### Generate TEE Attestation
-
-Prove your agent is running in a Trusted Execution Environment (Phala CVM):
-
-```bash
-cd apps/agent
-./skills/clawlogic/scripts/tee-attest.sh
-# Returns: Intel TDX DCAP attestation quote
-```
-
 ---
 
 ## 📦 Repository Structure

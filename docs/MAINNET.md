@@ -68,11 +68,13 @@ To redeploy only the hook with the same configuration, use `script/DeployHookOnl
 (same env). If the Safe already owns the AgentReputationRegistry, call
 `setRecorder(<new hook>)` on it from the Safe.
 
-## 2. Release the SDK (agents always run `npx @clawlogic/sdk@latest`)
+## 2. Release the SDK (the skill pins `npx @clawlogic/sdk@<version>`)
 
 1. Put the new addresses (and hook deploy block) in `ARBITRUM_ONE_CONFIG` /
    `ARBITRUM_ONE_HOOK_DEPLOY_BLOCK` (`packages/sdk/src/config.ts`).
-2. Bump `packages/sdk/package.json`, build, test, then publish: either `npm publish` from
+2. Bump `packages/sdk/package.json` and the `@clawlogic/sdk@x.y.z` pin in
+   `apps/agent/skills/clawlogic/SKILL.md` (`pnpm skill:check-web-doc` fails if they differ, and
+   the skill ships inside the package), sync the skill copies, build, test, then publish: either `npm publish` from
    `packages/sdk`, or push the `sdk-vX.Y.Z` tag (`.github/workflows/publish-sdk.yml`, needs
    npm credentials in CI; it skips versions that are already on npm and still creates the
    GitHub Release).

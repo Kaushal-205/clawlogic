@@ -24,8 +24,23 @@ async function readText(path) {
   return readFile(path, 'utf-8');
 }
 
+// SKILL.md pins `npx @clawlogic/sdk@<version>`; it must match the SDK release it ships in.
+async function assertPinnedSdkVersion(sourceText) {
+  const sdk = JSON.parse(await readText(resolve(REPO_ROOT, 'packages/sdk/package.json')));
+  const pinned = new Set([...sourceText.matchAll(/@clawlogic\/sdk@([^\s`"']+)/g)].map((m) => m[1]));
+  const stale = [...pinned].filter((v) => v !== sdk.version && !v.startsWith('<'));
+  if (stale.length > 0) {
+    console.error(
+      `[skill-sync] SKILL.md pins @clawlogic/sdk@${stale.join(', ')} but packages/sdk is ${sdk.version}. ` +
+        `Update apps/agent/skills/clawlogic/SKILL.md.`,
+    );
+    process.exit(1);
+  }
+}
+
 async function syncSkillMd(checkOnly) {
   const sourceText = await readText(SOURCE_PATH);
+  await assertPinnedSdkVersion(sourceText);
 
   for (const target of TARGET_PATHS) {
     const label = relative(REPO_ROOT, target);

@@ -71,12 +71,13 @@ Execution flags:
 ## OpenClaw Zero-Config Path
 
 ```bash
-npx @clawlogic/sdk@latest clawlogic-agent skill --install
-npx @clawlogic/sdk@latest clawlogic-agent init
-npx @clawlogic/sdk@latest clawlogic-agent doctor
+npx @clawlogic/sdk@0.2.0 clawlogic-agent skill --install
+npx @clawlogic/sdk@0.2.0 clawlogic-agent init
+npx @clawlogic/sdk@0.2.0 clawlogic-agent doctor
 ```
 
-- Published skill mirror path: `skills/clawlogic`
+- Published skill mirror path: `skills/clawlogic` (SKILL.md pins the SDK version; bump it on every SDK release,
+  `npm run skill:check-web-doc` enforces it)
 - Sync commands:
   - `npm run skill:sync-published`
   - `npm run skill:check-published`
